@@ -1,0 +1,1192 @@
+{
+  "last_updated": "2026-08-14T00:00:00Z",
+  "update_frequency": "daily",
+  "banks": [
+    {
+      "name": "State Bank of India",
+      "short_name": "SBI",
+      "type": "public",
+      "country": "India",
+      "established": "1955",
+      "headquarters": "Mumbai",
+      "total_branches": "22000+",
+      "website": "https://sbi.co.in",
+      "customer_care": "1800-11-2211",
+      "fd_rates": {
+        "1y": 6.8,
+        "2y": 7.0,
+        "3y": 6.75,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 6.8,
+        "2y": 7.0,
+        "3y": 6.75,
+        "5y": 6.5
+      },
+      "savings_rate": 2.7,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Extra 0.50% for Senior Citizens on FDs",
+        "Amrit Vrishti FD: 7.25% for 444 days"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD",
+        "Tax Saver FD"
+      ]
+    },
+    {
+      "name": "Punjab National Bank",
+      "short_name": "PNB",
+      "type": "public",
+      "country": "India",
+      "established": "1894",
+      "headquarters": "New Delhi",
+      "total_branches": "10000+",
+      "website": "https://pnbindia.in",
+      "customer_care": "1800-180-2222",
+      "fd_rates": {
+        "1y": 7.0,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.0,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.7,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Special FD rates for specific tenors"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Bank of Baroda",
+      "short_name": "BOB",
+      "type": "public",
+      "country": "India",
+      "established": "1908",
+      "headquarters": "Vadodara",
+      "total_branches": "8000+",
+      "website": "https://bankofbaroda.in",
+      "customer_care": "1800-258-4455",
+      "fd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Baroda Tiranga Plus Deposit Scheme"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Canara Bank",
+      "short_name": "Canara",
+      "type": "public",
+      "country": "India",
+      "established": "1906",
+      "headquarters": "Bengaluru",
+      "total_branches": "9000+",
+      "website": "https://canarabank.com",
+      "customer_care": "1800-425-0018",
+      "fd_rates": {
+        "1y": 7.25,
+        "2y": 7.2,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.25,
+        "2y": 7.2,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.9,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Special 444 days FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Union Bank",
+      "short_name": "UBI",
+      "type": "public",
+      "country": "India",
+      "established": "1919",
+      "headquarters": "Mumbai",
+      "total_branches": "8500+",
+      "website": "https://unionbankofindia.co.in",
+      "customer_care": "1800-22-2244",
+      "fd_rates": {
+        "1y": 7.1,
+        "2y": 7.0,
+        "3y": 6.7,
+        "5y": 6.7
+      },
+      "rd_rates": {
+        "1y": 7.1,
+        "2y": 7.0,
+        "3y": 6.7,
+        "5y": 6.7
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "High interest on 399 days FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Indian Bank",
+      "short_name": "Indian",
+      "type": "public",
+      "country": "India",
+      "established": "1907",
+      "headquarters": "Chennai",
+      "total_branches": "5800+",
+      "website": "https://indianbank.in",
+      "customer_care": "1800-425-00000",
+      "fd_rates": {
+        "1y": 7.05,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.05,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Ind Super 400 Days"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Bank of India",
+      "short_name": "BOI",
+      "type": "public",
+      "country": "India",
+      "established": "1906",
+      "headquarters": "Mumbai",
+      "total_branches": "5100+",
+      "website": "https://bankofindia.co.in",
+      "customer_care": "1800-220-229",
+      "fd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.25,
+        "5y": 6.25
+      },
+      "rd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.25,
+        "5y": 6.25
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Monsoon Dhamaka Offer"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Central Bank",
+      "short_name": "CBI",
+      "type": "public",
+      "country": "India",
+      "established": "1911",
+      "headquarters": "Mumbai",
+      "total_branches": "4600+",
+      "website": "https://centralbankofindia.co.in",
+      "customer_care": "1800-22-1911",
+      "fd_rates": {
+        "1y": 7.0,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.0,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Cent Non-Callable FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Indian Overseas Bank",
+      "short_name": "IOB",
+      "type": "public",
+      "country": "India",
+      "established": "1937",
+      "headquarters": "Chennai",
+      "total_branches": "3200+",
+      "website": "https://iob.in",
+      "customer_care": "1800-425-4445",
+      "fd_rates": {
+        "1y": 7.0,
+        "2y": 6.9,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.0,
+        "2y": 6.9,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.7,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Special Rate for 444 days"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "UCO Bank",
+      "short_name": "UCO",
+      "type": "public",
+      "country": "India",
+      "established": "1943",
+      "headquarters": "Kolkata",
+      "total_branches": "3000+",
+      "website": "https://ucobank.com",
+      "customer_care": "1800-274-0123",
+      "fd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.05,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.5,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "UCO 444 Days Special Scheme"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "HDFC Bank",
+      "short_name": "HDFC",
+      "type": "private",
+      "country": "India",
+      "established": "1994",
+      "headquarters": "Mumbai",
+      "total_branches": "7800+",
+      "website": "https://hdfcbank.com",
+      "customer_care": "1800-202-6161",
+      "fd_rates": {
+        "1y": 6.6,
+        "2y": 7.0,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "rd_rates": {
+        "1y": 6.6,
+        "2y": 7.0,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Senior Citizen Care FD",
+        "Special Edition FDs"
+      ],
+      "min_fd_amount": 5000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD",
+        "Tax Saver FD"
+      ]
+    },
+    {
+      "name": "ICICI Bank",
+      "short_name": "ICICI",
+      "type": "private",
+      "country": "India",
+      "established": "1994",
+      "headquarters": "Mumbai",
+      "total_branches": "5900+",
+      "website": "https://icicibank.com",
+      "customer_care": "1800-1080",
+      "fd_rates": {
+        "1y": 6.7,
+        "2y": 7.0,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "rd_rates": {
+        "1y": 6.7,
+        "2y": 7.0,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "ICICI Golden Years FD",
+        "Tax Saver FD"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Axis Bank",
+      "short_name": "Axis",
+      "type": "private",
+      "country": "India",
+      "established": "1993",
+      "headquarters": "Mumbai",
+      "total_branches": "4900+",
+      "website": "https://axisbank.com",
+      "customer_care": "1800-419-5959",
+      "fd_rates": {
+        "1y": 6.7,
+        "2y": 7.0,
+        "3y": 7.1,
+        "5y": 7.0
+      },
+      "rd_rates": {
+        "1y": 6.7,
+        "2y": 7.0,
+        "3y": 7.1,
+        "5y": 7.0
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.75,
+      "offers": [
+        "Fixed Deposit Plus"
+      ],
+      "min_fd_amount": 5000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Kotak Mahindra",
+      "short_name": "Kotak",
+      "type": "private",
+      "country": "India",
+      "established": "2003",
+      "headquarters": "Mumbai",
+      "total_branches": "1700+",
+      "website": "https://kotak.com",
+      "customer_care": "1860-266-2666",
+      "fd_rates": {
+        "1y": 6.2,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.2
+      },
+      "rd_rates": {
+        "1y": 6.2,
+        "2y": 7.0,
+        "3y": 6.5,
+        "5y": 6.2
+      },
+      "savings_rate": 3.5,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "ActivMoney Auto Sweep"
+      ],
+      "min_fd_amount": 5000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "IndusInd Bank",
+      "short_name": "IndusInd",
+      "type": "private",
+      "country": "India",
+      "established": "1994",
+      "headquarters": "Pune",
+      "total_branches": "2600+",
+      "website": "https://indusind.com",
+      "customer_care": "1860-267-7777",
+      "fd_rates": {
+        "1y": 7.75,
+        "2y": 7.75,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "rd_rates": {
+        "1y": 7.75,
+        "2y": 7.75,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "savings_rate": 4.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "High Yield FDs"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Yes Bank",
+      "short_name": "Yes",
+      "type": "private",
+      "country": "India",
+      "established": "2004",
+      "headquarters": "Mumbai",
+      "total_branches": "1100+",
+      "website": "https://yesbank.in",
+      "customer_care": "1800-1200",
+      "fd_rates": {
+        "1y": 7.75,
+        "2y": 7.5,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "rd_rates": {
+        "1y": 7.75,
+        "2y": 7.5,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "savings_rate": 4.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Yes Respect FD for Seniors"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Federal Bank",
+      "short_name": "Federal",
+      "type": "private",
+      "country": "India",
+      "established": "1931",
+      "headquarters": "Aluva",
+      "total_branches": "1300+",
+      "website": "https://federalbank.co.in",
+      "customer_care": "1800-425-1199",
+      "fd_rates": {
+        "1y": 7.1,
+        "2y": 7.1,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.1,
+        "2y": 7.1,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "savings_rate": 3.05,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Resident Cash Certificate"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "IDBI Bank",
+      "short_name": "IDBI",
+      "type": "private",
+      "country": "India",
+      "established": "1964",
+      "headquarters": "Mumbai",
+      "total_branches": "1900+",
+      "website": "https://idbibank.in",
+      "customer_care": "1800-209-4324",
+      "fd_rates": {
+        "1y": 6.75,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 6.75,
+        "2y": 6.75,
+        "3y": 6.5,
+        "5y": 6.5
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Utsav Callable FD"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Bandhan Bank",
+      "short_name": "Bandhan",
+      "type": "private",
+      "country": "India",
+      "established": "2015",
+      "headquarters": "Kolkata",
+      "total_branches": "1500+",
+      "website": "https://bandhanbank.com",
+      "customer_care": "1800-258-8181",
+      "fd_rates": {
+        "1y": 7.25,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "rd_rates": {
+        "1y": 7.25,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Advantage FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "RBL Bank",
+      "short_name": "RBL",
+      "type": "private",
+      "country": "India",
+      "established": "1943",
+      "headquarters": "Mumbai",
+      "total_branches": "500+",
+      "website": "https://rblbank.com",
+      "customer_care": "1800-123-8040",
+      "fd_rates": {
+        "1y": 7.5,
+        "2y": 7.5,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "rd_rates": {
+        "1y": 7.5,
+        "2y": 7.5,
+        "3y": 7.0,
+        "5y": 7.0
+      },
+      "savings_rate": 4.25,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Super Senior Citizen Bonus"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Ujjivan SFB",
+      "short_name": "Ujjivan",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2017",
+      "headquarters": "Bengaluru",
+      "total_branches": "600+",
+      "website": "https://ujjivansfb.in",
+      "customer_care": "1800-208-2121",
+      "fd_rates": {
+        "1y": 8.25,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "rd_rates": {
+        "1y": 8.25,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "savings_rate": 7.25,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Platina FD with extra returns"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Equitas SFB",
+      "short_name": "Equitas",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2016",
+      "headquarters": "Chennai",
+      "total_branches": "900+",
+      "website": "https://equitasbank.com",
+      "customer_care": "1800-103-1222",
+      "fd_rates": {
+        "1y": 8.0,
+        "2y": 8.0,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "rd_rates": {
+        "1y": 8.0,
+        "2y": 8.0,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "savings_rate": 7.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "High Interest Savings"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "AU SFB",
+      "short_name": "AU",
+      "type": "small_finance",
+      "country": "India",
+      "established": "1996",
+      "headquarters": "Jaipur",
+      "total_branches": "1000+",
+      "website": "https://aubank.in",
+      "customer_care": "1800-1200-1500",
+      "fd_rates": {
+        "1y": 7.75,
+        "2y": 7.5,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "rd_rates": {
+        "1y": 7.75,
+        "2y": 7.5,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "savings_rate": 7.25,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Monthly Interest Payouts"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Jana SFB",
+      "short_name": "Jana",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2018",
+      "headquarters": "Bengaluru",
+      "total_branches": "700+",
+      "website": "https://janabank.com",
+      "customer_care": "1800-2080",
+      "fd_rates": {
+        "1y": 8.0,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.25
+      },
+      "rd_rates": {
+        "1y": 8.0,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.25
+      },
+      "savings_rate": 7.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "FD Plus Scheme"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Suryoday SFB",
+      "short_name": "Suryoday",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2017",
+      "headquarters": "Navi Mumbai",
+      "total_branches": "500+",
+      "website": "https://suryodaybank.com",
+      "customer_care": "1800-266-7711",
+      "fd_rates": {
+        "1y": 8.6,
+        "2y": 8.25,
+        "3y": 7.75,
+        "5y": 7.75
+      },
+      "rd_rates": {
+        "1y": 8.6,
+        "2y": 8.25,
+        "3y": 7.75,
+        "5y": 7.75
+      },
+      "savings_rate": 7.25,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "5 Year Tax Saver"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "ESAF SFB",
+      "short_name": "ESAF",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2017",
+      "headquarters": "Thrissur",
+      "total_branches": "500+",
+      "website": "https://esafbank.com",
+      "customer_care": "1800-103-6999",
+      "fd_rates": {
+        "1y": 8.0,
+        "2y": 7.5,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "rd_rates": {
+        "1y": 8.0,
+        "2y": 7.5,
+        "3y": 7.25,
+        "5y": 7.25
+      },
+      "savings_rate": 7.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Special Rate for 999 Days"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Fincare SFB",
+      "short_name": "Fincare",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2017",
+      "headquarters": "Bengaluru",
+      "total_branches": "900+",
+      "website": "https://fincarebank.com",
+      "customer_care": "1800-313-313",
+      "fd_rates": {
+        "1y": 8.11,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "rd_rates": {
+        "1y": 8.11,
+        "2y": 8.0,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "savings_rate": 6.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "1000 Days Special FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Unity SFB",
+      "short_name": "Unity",
+      "type": "small_finance",
+      "country": "India",
+      "established": "2021",
+      "headquarters": "Mumbai",
+      "total_branches": "100+",
+      "website": "https://theunitybank.com",
+      "customer_care": "1800-209-1122",
+      "fd_rates": {
+        "1y": 8.5,
+        "2y": 8.5,
+        "3y": 8.0,
+        "5y": 8.0
+      },
+      "rd_rates": {
+        "1y": 8.5,
+        "2y": 8.5,
+        "3y": 8.0,
+        "5y": 8.0
+      },
+      "savings_rate": 7.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Unity Callable FD"
+      ],
+      "min_fd_amount": 1000,
+      "max_fd_tenure": "10 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal",
+        "Loan against FD"
+      ]
+    },
+    {
+      "name": "Citibank",
+      "short_name": "Citi",
+      "type": "foreign",
+      "country": "India",
+      "established": "1902",
+      "headquarters": "New York",
+      "total_branches": "30+",
+      "website": "https://citibank.co.in",
+      "customer_care": "1800-267-2425",
+      "fd_rates": {
+        "1y": 6.5,
+        "2y": 7.0,
+        "3y": 6.25,
+        "5y": 6.25
+      },
+      "rd_rates": {
+        "1y": 6.5,
+        "2y": 7.0,
+        "3y": 6.25,
+        "5y": 6.25
+      },
+      "savings_rate": 2.5,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Global Banking Privileges"
+      ],
+      "min_fd_amount": 100000,
+      "max_fd_tenure": "5 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal"
+      ]
+    },
+    {
+      "name": "HSBC",
+      "short_name": "HSBC",
+      "type": "foreign",
+      "country": "India",
+      "established": "1853",
+      "headquarters": "London",
+      "total_branches": "25+",
+      "website": "https://hsbc.co.in",
+      "customer_care": "1800-266-3456",
+      "fd_rates": {
+        "1y": 6.75,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 6.75,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "HSBC Premier FD"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "5 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal"
+      ]
+    },
+    {
+      "name": "Standard Chartered",
+      "short_name": "SC",
+      "type": "foreign",
+      "country": "India",
+      "established": "1858",
+      "headquarters": "London",
+      "total_branches": "100+",
+      "website": "https://sc.com/in",
+      "customer_care": "1800-345-1000",
+      "fd_rates": {
+        "1y": 7.0,
+        "2y": 7.5,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.0,
+        "2y": 7.5,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "savings_rate": 3.0,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "SC Priority Banking Returns"
+      ],
+      "min_fd_amount": 10000,
+      "max_fd_tenure": "5 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal"
+      ]
+    },
+    {
+      "name": "Deutsche Bank",
+      "short_name": "DB",
+      "type": "foreign",
+      "country": "India",
+      "established": "1980",
+      "headquarters": "Frankfurt",
+      "total_branches": "15+",
+      "website": "https://deutschebank.co.in",
+      "customer_care": "1800-123-4567",
+      "fd_rates": {
+        "1y": 7.5,
+        "2y": 7.75,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "rd_rates": {
+        "1y": 7.5,
+        "2y": 7.75,
+        "3y": 7.5,
+        "5y": 7.5
+      },
+      "savings_rate": 3.5,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "High Returns on Deposits"
+      ],
+      "min_fd_amount": 20000,
+      "max_fd_tenure": "5 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal"
+      ]
+    },
+    {
+      "name": "DBS Bank",
+      "short_name": "DBS",
+      "type": "foreign",
+      "country": "India",
+      "established": "1994",
+      "headquarters": "Singapore",
+      "total_branches": "30+",
+      "website": "https://dbs.com/in",
+      "customer_care": "1800-209-4555",
+      "fd_rates": {
+        "1y": 7.0,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "rd_rates": {
+        "1y": 7.0,
+        "2y": 7.25,
+        "3y": 7.0,
+        "5y": 6.5
+      },
+      "savings_rate": 2.75,
+      "senior_citizen_extra": 0.5,
+      "offers": [
+        "Digibank Special FD"
+      ],
+      "min_fd_amount": 5000,
+      "max_fd_tenure": "5 years",
+      "features": [
+        "Online FD Booking",
+        "Auto-Renewal"
+      ]
+    }
+  ],
+  "market_data": {
+    "sensex": {
+      "value": 83000.0,
+      "change": 0.5
+    },
+    "nifty50": {
+      "value": 25500.0,
+      "change": 0.4
+    },
+    "bankNifty": {
+      "value": 52000.0,
+      "change": 0.2
+    },
+    "gold10g": {
+      "value": 75000,
+      "change": 0.5
+    },
+    "silver1kg": {
+      "value": 90000,
+      "change": 0.3
+    },
+    "usdInr": {
+      "value": 83.5,
+      "change": -0.05
+    },
+    "crudeOil": {
+      "value": 80.0,
+      "change": 1.0
+    },
+    "rbiRepoRate": 6.5
+  }
+}

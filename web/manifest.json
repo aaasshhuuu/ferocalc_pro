@@ -1,0 +1,38 @@
+{
+    "name": "FeroCalc – FD, RD, SIP & EMI Calculator",
+    "short_name": "FeroCalc",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0A1628",
+    "theme_color": "#0A1628",
+    "description": "Premium financial calculator app. Calculate FD, RD, SIP, EMI, PPF, NPS & more. Compare 50+ bank rates live. Real-time market data.",
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "categories": ["finance", "utilities", "productivity"],
+    "lang": "en",
+    "scope": ".",
+    "icons": [
+        {
+            "src": "icons/ferocalc-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/ferocalc-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/ferocalc-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/ferocalc-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

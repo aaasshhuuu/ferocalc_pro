@@ -1,0 +1,586 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../config/themes/app_colors.dart';
+import '../../../../config/themes/app_gradients.dart';
+import '../../../../core/widgets/glassmorphic_card.dart';
+import '../../../../core/data/bank_data.dart';
+import 'dart:ui';
+
+import 'dart:async';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isLoading = false;
+  Timer? _refreshTimer;
+
+  String _lastUpdated = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) => _fetchData());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchData() async {
+    if (mounted) setState(() => _isLoading = true);
+    await BankDataService.fetchAllBanks();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        final now = DateTime.now();
+        _lastUpdated = '${now.hour}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+      });
+    }
+  }
+
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Themed background
+      body: SafeArea(
+        child: Builder(
+        builder: (context) {
+          try {
+            return LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth > 1024;
+            final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth <= 1024;
+            
+            int crossAxisCount = 3;
+            if (isTablet) crossAxisCount = 4;
+            if (isDesktop) crossAxisCount = 6;
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: RefreshIndicator(
+                  onRefresh: _fetchData,
+                  color: const Color(0xFFC9A96E),
+                  child: ListView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 48 : (isTablet ? 32 : 16),
+                      vertical: 24,
+                    ),
+                    children: [
+                      // Welcome Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_getGreeting()} 👋',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context).textTheme.bodySmall?.color,
+                              ),
+                            ).animate().fade(duration: 300.ms, ),
+                            const SizedBox(height: 4),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'FeroCalc',
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                    foreground: Paint()
+                                      ..shader = LinearGradient(
+                                        colors: [const Color(0xFFC9A96E), Theme.of(context).colorScheme.secondary],
+                                      ).createShader(const Rect.fromLTWH(0, 0, 150, 40)),
+                                  ),
+                                ),
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  height: 2,
+                                  width: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFC9A96E), Colors.transparent],
+                                    ),
+                                    borderRadius: BorderRadius.circular(1),
+                                  ),
+                                ),
+                              ],
+                            ).animate().fade(delay: 200.ms, duration: 300.ms, ),
+                          ],
+                        ),
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: const Color(0xFFC9A96E).withOpacity(0.1),
+                          child: const Icon(Icons.notifications_outlined, color: Color(0xFFC9A96E)),
+                        ).animate(),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Quick Search - Glassmorphic
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Theme.of(context).dividerColor),
+                          ),
+                          child: TextField(
+                            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                            decoration: InputDecoration(
+                              hintText: 'Search calculators, banks...',
+                              hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+                              prefixIcon: const Icon(Icons.search_rounded, color: Theme.of(context).colorScheme.secondary),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            ),
+                            onTap: () => context.go('/calculators'),
+                            readOnly: true,
+                          ),
+                        ),
+                      ),
+                    ).animate().fade(delay: 300.ms),
+                    const SizedBox(height: 32),
+
+                    // Popular Calculators
+                    _SectionHeader(title: 'Popular Calculators', onSeeAll: () => context.go('/calculators')).animate().fade(),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 120,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          _CalculatorChip(icon: Icons.account_balance, label: 'EMI', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/emi')),
+                          _CalculatorChip(icon: Icons.savings, label: 'FD', color: Theme.of(context).colorScheme.secondary, onTap: () => context.go('/calculator/fd')),
+                          _CalculatorChip(icon: Icons.trending_up, label: 'SIP', color: Theme.of(context).colorScheme.primary, onTap: () => context.go('/calculator/sip')),
+                          _CalculatorChip(icon: Icons.account_balance_wallet, label: 'PPF', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/ppf')),
+                          _CalculatorChip(icon: Icons.receipt_long, label: 'Tax', color: Theme.of(context).colorScheme.secondary, onTap: () => context.go('/calculator/income_tax')),
+                          _CalculatorChip(icon: Icons.currency_rupee, label: 'GST', color: Theme.of(context).colorScheme.primary, onTap: () => context.go('/calculator/gst')),
+                          _CalculatorChip(icon: Icons.show_chart, label: 'Stock', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/stock_return')),
+                        ].animate(interval: 100.ms).fade(),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    if (isDesktop) 
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                              _SectionHeader(title: 'Top FD Rates Today', onSeeAll: () => context.go('/compare')),
+                                const SizedBox(height: 16),
+                                _buildTopRates(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 32),
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')),
+                                const SizedBox(height: 16),
+                                _buildTrendingTools(context, isDesktop: true),
+                              ],
+                            ),
+                          )
+                        ],
+                      )
+                    else ...[
+                      // Top FD Rates Today
+                      _SectionHeader(title: 'Top FD Rates Today', onSeeAll: () {}).animate().fade(),
+                      const SizedBox(height: 16),
+                      _buildTopRates().animate().fade(),
+                      const SizedBox(height: 32),
+
+                      // Trending Tools
+                      _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')).animate().fade(),
+                      const SizedBox(height: 16),
+                      _buildTrendingTools(context, isDesktop: false).animate().fade(),
+                    ],
+
+                    const SizedBox(height: 32),
+
+                    // All Calculators Quick Grid
+                    _SectionHeader(title: 'Quick Tools', onSeeAll: () => context.go('/calculators')).animate().fade(),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: isDesktop ? 1.5 : (isTablet ? 1.2 : 1.0),
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      children: [
+                        _MiniCalcButton(icon: Icons.account_balance, label: 'EMI', onTap: () => context.go('/calculator/emi')),
+                        _MiniCalcButton(icon: Icons.savings, label: 'FD', onTap: () => context.go('/calculator/fd')),
+                        _MiniCalcButton(icon: Icons.calendar_month, label: 'RD', onTap: () => context.go('/calculator/rd')),
+                        _MiniCalcButton(icon: Icons.trending_up, label: 'SIP', onTap: () => context.go('/calculator/sip')),
+                        _MiniCalcButton(icon: Icons.money_off, label: 'SWP', onTap: () => context.go('/calculator/swp')),
+                        _MiniCalcButton(icon: Icons.attach_money, label: 'Lumpsum', onTap: () => context.go('/calculator/lumpsum')),
+                        _MiniCalcButton(icon: Icons.account_balance_wallet, label: 'PPF', onTap: () => context.go('/calculator/ppf')),
+                        _MiniCalcButton(icon: Icons.work, label: 'EPF', onTap: () => context.go('/calculator/epf')),
+                        _MiniCalcButton(icon: Icons.elderly, label: 'NPS', onTap: () => context.go('/calculator/nps')),
+                        _MiniCalcButton(icon: Icons.receipt, label: 'GST', onTap: () => context.go('/calculator/gst')),
+                        _MiniCalcButton(icon: Icons.receipt_long, label: 'Tax', onTap: () => context.go('/calculator/income_tax')),
+                        _MiniCalcButton(icon: Icons.show_chart, label: 'CAGR', onTap: () => context.go('/calculator/cagr')),
+                      ].animate(interval: 50.ms).fade(),
+                    ),
+                    const SizedBox(height: 48),
+                  ],
+                ),
+              ),
+              );
+          } catch (e) {
+            return const Center(child: Text('Something went wrong. Pull to refresh.'));
+          }
+        },
+      ),
+    );
+  }
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopRates() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFFC9A96E)));
+    }
+    
+    final topBanks = BankDataService.getTopBanksByRate('1y', limit: 5);
+    final colors = [
+      const Color(0xFFC9A96E),
+      Theme.of(context).colorScheme.secondary,
+      Theme.of(context).colorScheme.primary,
+      const Color(0xFFC9A96E),
+      Theme.of(context).colorScheme.secondary,
+    ];
+    
+    return Column(
+      children: [
+        ...List.generate(topBanks.length, (index) {
+          final bank = topBanks[index];
+          final rateStr = '${bank.fdRates['1y']?.toStringAsFixed(2)}%';
+          return _TopBankCard(
+            rank: index + 1,
+            bank: bank.name,
+            rate: rateStr,
+            color: colors[index % colors.length],
+          );
+        }),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: BankDataService.isLive ? Colors.green : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              BankDataService.isLive ? 'Live Updates Active • Last updated: $_lastUpdated' : 'Offline Mode (Local Data)',
+              style: TextStyle(
+                color: BankDataService.isLive ? Colors.green : Colors.grey,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrendingTools(BuildContext context, {required bool isDesktop}) {
+    final items = [
+      _TrendingCard(title: 'Retirement\nPlanner', subtitle: 'Plan your future', gradient: const LinearGradient(colors: [Color(0xFFC9A96E), Color(0xFFA67C00)]), icon: Icons.elderly, onTap: () => context.go('/calculator/retirement')),
+      _TrendingCard(title: 'Goal\nPlanner', subtitle: 'Achieve your dreams', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.secondary, const Color(0xFF0077B6)]), icon: Icons.flag_rounded, onTap: () => context.go('/calculator/goal')),
+      _TrendingCard(title: 'CAGR\nCalculator', subtitle: 'Measure growth', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, const Color(0xFF047857)]), icon: Icons.show_chart, onTap: () => context.go('/calculator/cagr')),
+      _TrendingCard(title: 'Compare\nBanks', subtitle: 'Find the best rates', gradient: const LinearGradient(colors: [Color(0xFF1B263B), Color(0xFF415A77)]), icon: Icons.compare_arrows, onTap: () => context.go('/compare')),
+    ];
+
+    if (isDesktop) {
+      return GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 1.5,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        children: items,
+      );
+    } else {
+      return SizedBox(
+        height: 140,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: items,
+        ),
+      );
+    }
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final VoidCallback onSeeAll;
+  const _SectionHeader({required this.title, required this.onSeeAll});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
+        GestureDetector(
+          onTap: onSeeAll,
+          child: const Text('See All', style: TextStyle(color: Color(0xFFC9A96E), fontSize: 14, fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalculatorChip extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _CalculatorChip({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  State<_CalculatorChip> createState() => _CalculatorChipState();
+}
+
+class _CalculatorChipState extends State<_CalculatorChip> {
+  bool isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovered = true),
+      onExit: (_) => setState(() => isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 85,
+          margin: const EdgeInsets.only(right: 16),
+          child: Column(
+            children: [
+              Container(
+                width: 65,
+                height: 65,
+                decoration: BoxDecoration(
+                  color: isHovered ? widget.color.withOpacity(0.15) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isHovered ? const Color(0xFFC9A96E) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.1),
+                    width: isHovered ? 1.5 : 1,
+                  ),
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.label, 
+                style: const TextStyle(
+                  fontSize: 13, 
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).textTheme.bodySmall?.color
+                ), 
+                textAlign: TextAlign.center
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopBankCard extends StatelessWidget {
+  final int rank;
+  final String bank;
+  final String rate;
+  final Color color;
+  const _TopBankCard({required this.rank, required this.bank, required this.rate, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05)),
+      ),
+      child: InkWell(
+        onTap: () => context.go('/bank/${Uri.encodeComponent(bank)}'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(child: Text('#$rank', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14))),
+              ),
+              const SizedBox(width: 16),
+              Expanded(child: Text(bank, style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 15))),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [color.withOpacity(0.2), color.withOpacity(0.05)]),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withOpacity(0.2)),
+                ),
+                child: Text(rate, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrendingCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Gradient gradient;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _TrendingCard({required this.title, required this.subtitle, required this.gradient, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 170,
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: 24),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15, height: 1.2)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.8), fontSize: 11)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniCalcButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _MiniCalcButton({required this.icon, required this.label, required this.onTap});
+
+  @override
+  State<_MiniCalcButton> createState() => _MiniCalcButtonState();
+}
+
+class _MiniCalcButtonState extends State<_MiniCalcButton> {
+  bool isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovered = true),
+      onExit: (_) => setState(() => isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: isHovered ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.08) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.03),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isHovered ? const Color(0xFFC9A96E).withOpacity(0.5) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, size: 28, color: isHovered ? const Color(0xFFC9A96E) : Theme.of(context).colorScheme.secondary),
+              const SizedBox(height: 12),
+              Text(
+                widget.label, 
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodySmall?.color), 
+                textAlign: TextAlign.center
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
