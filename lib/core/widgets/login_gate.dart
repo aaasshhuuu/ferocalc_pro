@@ -25,54 +25,8 @@ class LoginGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          return child;
-        }
-        
-        return Scaffold(
-          backgroundColor: const Color(0xFF0A0E21),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.lock_outline, size: 64, color: Color(0xFFC9A96E)),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Premium Feature',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: const Color(0xFFC9A96E),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in to access $featureName and other premium features.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => _showLoginPrompt(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00B4D8),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Sign In Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    // Guest mode bypasses authentication completely
+    return child;
   }
 }
 
@@ -134,7 +88,8 @@ class _LoginPromptSheet extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                context.read<AuthBloc>().add(const LoginRequested('user@FeroCalc.app', 'password'));
+                // Instead of hardcoded fake login, just show Guest flow or real auth flow trigger
+                // We'll leave this button just popping the dialog as per guest flow requirement
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,

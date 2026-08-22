@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:intl/intl.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
@@ -28,7 +29,7 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '\u20B9', decimalDigits: 0);
 
   @override
   void initState() {
@@ -45,25 +46,24 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
   }
 
   void _calculateLumpsum() {
-    _totalValue = _investmentAmount * pow((1 + _expectedReturn / 100), _periodYears);
+    _totalValue = FinancialMath.calculateLumpsum(
+      principal: _investmentAmount,
+      annualReturn: _expectedReturn,
+      years: _periodYears,
+    );
     _estimatedReturns = _totalValue - _investmentAmount;
-    
     _animationController.forward(from: 0.0);
     setState(() {});
   }
 
-
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
-    );
+    final text = 'FeroCalc Lumpsum Calculator\n\nInvestment: \u20B9${_investmentAmount.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(1)}%\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nTotal Value: \u20B9${_totalValue.toStringAsFixed(0)}\nEst. Returns: \u20B9${_estimatedReturns.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
+    Share.share(text);
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    final text = 'FeroCalc Lumpsum Report\n\nInvestment: \u20B9${_investmentAmount.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(1)}%\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nTotal Value: \u20B9${_totalValue.toStringAsFixed(0)}\nEst. Returns: \u20B9${_estimatedReturns.toStringAsFixed(0)}';
+    Share.share(text, subject: 'FeroCalc - Lumpsum Report');
   }
 
   @override
@@ -71,7 +71,12 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Lumpsum Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white), onPressed: () => _exportPdf(context)),
+          const SizedBox(width: 16),
+          IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -80,93 +85,89 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
             physics: const BouncingScrollPhysics(),
             padding: Responsive.screenPadding(context),
             child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GlassmorphicCard(
-              child: Column(
-                children: [
-                  InputSliderField(
-                    label: 'Total Investment',
-                    value: _investmentAmount,
-                    min: 5000,
-                    max: 10000000,
-                    prefix: '₹',
-                    onChanged: (val) {
-                      setState(() => _investmentAmount = val);
-                      _calculateLumpsum();
-                    },
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GlassmorphicCard(
+                  child: Column(
+                    children: [
+                      InputSliderField(
+                        label: 'Total Investment',
+                        value: _investmentAmount,
+                        min: 5000,
+                        max: 10000000,
+                        prefix: '\u20B9',
+                        onChanged: (val) {
+                          setState(() => _investmentAmount = val);
+                          _calculateLumpsum();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      InputSliderField(
+                        label: 'Expected Return Rate (p.a)',
+                        value: _expectedReturn,
+                        min: 1,
+                        max: 30,
+                        suffix: '%',
+                        onChanged: (val) {
+                          setState(() => _expectedReturn = val);
+                          _calculateLumpsum();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      InputSliderField(
+                        label: 'Time Period',
+                        value: _periodYears,
+                        min: 1,
+                        max: 40,
+                        suffix: ' Yrs',
+                        onChanged: (val) {
+                          setState(() => _periodYears = val);
+                          _calculateLumpsum();
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  InputSliderField(
-                    label: 'Expected Return Rate (p.a)',
-                    value: _expectedReturn,
-                    min: 1,
-                    max: 30,
-                    suffix: '%',
-                    onChanged: (val) {
-                      setState(() => _expectedReturn = val);
-                      _calculateLumpsum();
-                    },
+                ),
+                const SizedBox(height: 24),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: ResultDisplayCard(
+                    mainLabel: 'Total Value',
+                    mainValue: _currencyFormat.format(_totalValue),
+                    subResults: [
+                      SubResult(label: 'Invested Amount', value: _currencyFormat.format(_investmentAmount)),
+                      SubResult(label: 'Est. Returns', value: _currencyFormat.format(_estimatedReturns)),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  InputSliderField(
-                    label: 'Time Period',
-                    value: _periodYears,
-                    min: 1,
-                    max: 40,
-                    suffix: ' Yrs',
-                    onChanged: (val) {
-                      setState(() => _periodYears = val);
-                      _calculateLumpsum();
-                    },
+                ),
+                const SizedBox(height: 24),
+                _buildChart(context),
+                const SizedBox(height: 24),
+                GradientButton(
+                  text: 'Export PDF',
+                  onPressed: () => _exportPdf(context),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                  child: Text(
+                    'Disclaimer: Estimated returns are not guaranteed. Results are for informational purposes only.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
-            const SizedBox(height: 24),
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: ResultDisplayCard(
-                mainLabel: 'Total Value',
-                mainValue: _currencyFormat.format(_totalValue),
-                subResults: [
-                  SubResult(label: 'Invested Amount', value: _currencyFormat.format(_investmentAmount)),
-                  SubResult(label: 'Est. Returns', value: _currencyFormat.format(_estimatedReturns)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildChart(context),
-            const SizedBox(height: 24),
-            GradientButton(text: 'Export PDF',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PDF exported!'), backgroundColor: Color(0xFF10B981)),
-                );
-              }),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              child: Text(
-                'Disclaimer: Results are for informational purposes only. Not financial advice.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildChart(BuildContext context) {
-    // Only show if calculated
     if (_totalValue <= 0) return const SizedBox.shrink();
-    
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(20),
@@ -229,6 +230,4 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
       ],
     );
   }
-
 }
-

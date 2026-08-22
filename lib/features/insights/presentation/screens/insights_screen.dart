@@ -30,24 +30,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   late String _currentTip;
   late Timer _timer;
-  late Timer _marketTimer;
   
-  final Map<String, dynamic> fallbackMarket = {
-    'sensex': {'value': 82365.77, 'change': 0.45},
-    'nifty50': {'value': 25145.10, 'change': 0.38},
-    'bankNifty': {'value': 51234.60, 'change': -0.12},
-    'gold10g': {'value': 73850, 'change': 0.65},
-    'silver1kg': {'value': 89200, 'change': 0.42},
-    'usdInr': {'value': 83.42, 'change': -0.08},
-    'crudeOil': {'value': 78.50, 'change': 1.20},
-    'rbiRepoRate': 6.50,
-  };
-
-  bool _isLoading = false;
-  bool _isLive = false;
-  MarketData? _marketData;
-  String _lastUpdated = 'Not synced';
-
   @override
   void initState() {
     super.initState();
@@ -59,55 +42,11 @@ class _InsightsScreenState extends State<InsightsScreen> {
         });
       }
     });
-    
-    _fetchMarketData();
-    _marketTimer = Timer.periodic(const Duration(seconds: 30), (_) => _fetchMarketData());
-  }
-
-  double _getMarketValue(String key, String field) {
-    try {
-      if (_marketData != null && _marketData!.data.containsKey(key)) {
-        final item = _marketData!.data[key];
-        if (item is Map && item.containsKey(field)) {
-          return (item[field] as num).toDouble();
-        }
-      }
-      final fb = fallbackMarket[key];
-      if (fb is Map && fb.containsKey(field)) {
-        return (fb[field] as num).toDouble();
-      }
-      return 0.0;
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  Future<void> _fetchMarketData() async {
-    if (mounted) setState(() => _isLoading = true);
-    try {
-      final data = await BankRateApiService.fetchMarketData();
-      if (mounted) {
-        setState(() {
-          _marketData = data;
-          _isLive = true;
-          _lastUpdated = '${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}:${DateTime.now().second.toString().padLeft(2, '0')}';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLive = false;
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   @override
   void dispose() {
     _timer.cancel();
-    _marketTimer.cancel();
     super.dispose();
   }
 
@@ -136,89 +75,54 @@ class _InsightsScreenState extends State<InsightsScreen> {
             _buildDailyTipCard(gold).animate().fade(),
             const SizedBox(height: 24),
 
-            // Market Overview
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Market Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-                if (_isLoading)
-                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                else if (_isLive)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.circle, color: Colors.green, size: 8)
-                            .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                            .fade(duration: 300.ms, begin: 0.2, end: 1.0),
-                        const SizedBox(width: 4),
-                        const Text('Live', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-              ],
-            ).animate().fade(delay: 100.ms),
+            // Market Data Section
+            Text('Market Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
             const SizedBox(height: 12),
             GlassmorphicCard(
-              child: Column(
-                children: [
-                  if (Responsive.isDesktop(context))
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 32,
-                      childAspectRatio: 5,
-                      children: [
-                        _buildMarketRow('SENSEX', _getMarketValue('sensex', 'value').toString(), '${_getMarketValue('sensex', 'change') >= 0 ? '+' : ''}${_getMarketValue('sensex', 'change')}%', _getMarketValue('sensex', 'change') >= 0, isDark),
-                        _buildMarketRow('NIFTY 50', _getMarketValue('nifty50', 'value').toString(), '${_getMarketValue('nifty50', 'change') >= 0 ? '+' : ''}${_getMarketValue('nifty50', 'change')}%', _getMarketValue('nifty50', 'change') >= 0, isDark),
-                        _buildMarketRow('Bank NIFTY', _getMarketValue('bankNifty', 'value').toString(), '${_getMarketValue('bankNifty', 'change') >= 0 ? '+' : ''}${_getMarketValue('bankNifty', 'change')}%', _getMarketValue('bankNifty', 'change') >= 0, isDark),
-                        _buildMarketRow('Gold (10g)', '₹${_getMarketValue('gold10g', 'value')}', '${_getMarketValue('gold10g', 'change') >= 0 ? '+' : ''}${_getMarketValue('gold10g', 'change')}%', _getMarketValue('gold10g', 'change') >= 0, isDark),
-                        _buildMarketRow('Silver (1kg)', '₹${_getMarketValue('silver1kg', 'value')}', '${_getMarketValue('silver1kg', 'change') >= 0 ? '+' : ''}${_getMarketValue('silver1kg', 'change')}%', _getMarketValue('silver1kg', 'change') >= 0, isDark),
-                        _buildMarketRow('USD/INR', '₹${_getMarketValue('usdInr', 'value')}', '${_getMarketValue('usdInr', 'change') >= 0 ? '+' : ''}${_getMarketValue('usdInr', 'change')}%', _getMarketValue('usdInr', 'change') >= 0, isDark),
-                        _buildMarketRow('Crude Oil', '\$${_getMarketValue('crudeOil', 'value')}', '${_getMarketValue('crudeOil', 'change') >= 0 ? '+' : ''}${_getMarketValue('crudeOil', 'change')}%', _getMarketValue('crudeOil', 'change') >= 0, isDark),
-                      ],
-                    )
-                  else ...[
-                    _buildMarketRow('SENSEX', _getMarketValue('sensex', 'value').toString(), '${_getMarketValue('sensex', 'change') >= 0 ? '+' : ''}${_getMarketValue('sensex', 'change')}%', _getMarketValue('sensex', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('NIFTY 50', _getMarketValue('nifty50', 'value').toString(), '${_getMarketValue('nifty50', 'change') >= 0 ? '+' : ''}${_getMarketValue('nifty50', 'change')}%', _getMarketValue('nifty50', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('Bank NIFTY', _getMarketValue('bankNifty', 'value').toString(), '${_getMarketValue('bankNifty', 'change') >= 0 ? '+' : ''}${_getMarketValue('bankNifty', 'change')}%', _getMarketValue('bankNifty', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('Gold (10g)', '₹${_getMarketValue('gold10g', 'value')}', '${_getMarketValue('gold10g', 'change') >= 0 ? '+' : ''}${_getMarketValue('gold10g', 'change')}%', _getMarketValue('gold10g', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('Silver (1kg)', '₹${_getMarketValue('silver1kg', 'value')}', '${_getMarketValue('silver1kg', 'change') >= 0 ? '+' : ''}${_getMarketValue('silver1kg', 'change')}%', _getMarketValue('silver1kg', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('USD/INR', '₹${_getMarketValue('usdInr', 'value')}', '${_getMarketValue('usdInr', 'change') >= 0 ? '+' : ''}${_getMarketValue('usdInr', 'change')}%', _getMarketValue('usdInr', 'change') >= 0, isDark),
-                    const Divider(),
-                    _buildMarketRow('Crude Oil', '\$${_getMarketValue('crudeOil', 'value')}', '${_getMarketValue('crudeOil', 'change') >= 0 ? '+' : ''}${_getMarketValue('crudeOil', 'change')}%', _getMarketValue('crudeOil', 'change') >= 0, isDark),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(Icons.signal_wifi_off, size: 48, color: isDark ? Colors.white38 : Colors.black38),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Market Data Unavailable',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Live market data requires a verified data provider. This feature will be available when a market-data source is configured.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54),
+                    ),
                   ],
-                  const SizedBox(height: 12),
-                  Text(_isLive ? 'Live data • Last updated $_lastUpdated' : 'Indicative data • Offline mode', style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black54)),
-                ],
+                ),
               ),
-            ).animate().fade(delay: 200.ms),
+            ),
             const SizedBox(height: 24),
 
             // Interest Rate Tracker
-            Text('Interest Rate Tracker', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor))
-                .animate().fade(delay: 300.ms),
+            Text('Interest Rate Tracker', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
             const SizedBox(height: 12),
             GlassmorphicCard(
               child: Column(
                 children: [
-                  _buildInterestRow('RBI Repo Rate', '${_marketData?.data['rbiRepoRate'] ?? fallbackMarket['rbiRepoRate']}%', isDark, gold),
+                  _buildInterestRow('RBI Repo Rate', '6.50%', isDark, gold),
                   const Divider(),
                   _buildInterestRow('SBI Base Rate', '10.40%', isDark, gold),
                   const Divider(),
                   _buildInterestRow('PPF Rate', '7.10%', isDark, gold),
                   const Divider(),
                   _buildInterestRow('Sukanya Samriddhi', '8.20%', isDark, gold),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Indicative rates for reference only. Verify current rates with official sources before making financial decisions.',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
-            ).animate().fade(),
+            ),
             const SizedBox(height: 24),
 
             // Financial News/Tips Cards
@@ -337,35 +241,6 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildMarketRow(String name, String value, String change, bool isPositive, bool isDark) {
-    final Color emerald = const Color(0xFF10B981);
-    final Color coral = const Color(0xFFEF4444);
-    final textColor = isDark ? Colors.white : Colors.black87;
-    
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(name, style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-              Text(
-                change,
-                style: TextStyle(
-                  color: isPositive ? emerald : coral,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildInterestRow(String name, String rate, bool isDark, Color gold) {
     final textColor = isDark ? Colors.white : Colors.black87;

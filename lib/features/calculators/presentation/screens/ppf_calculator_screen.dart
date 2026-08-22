@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -20,7 +21,7 @@ class PpfCalculatorScreen extends StatefulWidget {
 class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTickerProviderStateMixin {
   double _yearlyInvestment = 150000;
   double _periodYears = 15;
-  final double _interestRate = 7.1; // Preset rate
+  final double _interestRate = 7.1;
 
   double _totalInvestment = 0;
   double _totalInterest = 0;
@@ -28,7 +29,7 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '\u20B9', decimalDigits: 0);
 
   @override
   void initState() {
@@ -45,36 +46,26 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
   }
 
   void _calculatePpf() {
-    int years = _periodYears.toInt();
-    double balance = 0;
-    
-    _totalInvestment = _yearlyInvestment * years;
-    
-    for (int i = 0; i < years; i++) {
-      balance += _yearlyInvestment;
-      double interest = balance * (_interestRate / 100);
-      balance += interest;
-    }
-    
-    _maturityValue = balance;
-    _totalInterest = _maturityValue - _totalInvestment;
-    
+    final result = FinancialMath.calculatePPF(
+      yearlyDeposit: _yearlyInvestment,
+      annualRate: _interestRate,
+      years: _periodYears.toInt(),
+    );
+    _maturityValue = result['maturityValue']!;
+    _totalInvestment = result['totalDeposit']!;
+    _totalInterest = result['totalInterest']!;
     _animationController.forward(from: 0.0);
     setState(() {});
   }
 
-
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
-    );
+    final text = 'FeroCalc PPF Calculator\n\nYearly Investment: \u20B9${_yearlyInvestment.toStringAsFixed(0)}\nRate: ${_interestRate}% p.a.\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nMaturity Value: \u20B9${_maturityValue.toStringAsFixed(0)}\nTotal Investment: \u20B9${_totalInvestment.toStringAsFixed(0)}\nTotal Interest: \u20B9${_totalInterest.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
+    Share.share(text);
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    final text = 'FeroCalc PPF Report\n\nYearly Investment: \u20B9${_yearlyInvestment.toStringAsFixed(0)}\nRate: ${_interestRate}% p.a.\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nMaturity Value: \u20B9${_maturityValue.toStringAsFixed(0)}\nTotal Investment: \u20B9${_totalInvestment.toStringAsFixed(0)}\nTotal Interest: \u20B9${_totalInterest.toStringAsFixed(0)}';
+    Share.share(text, subject: 'FeroCalc - PPF Report');
   }
 
   @override
@@ -82,7 +73,12 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
     return Scaffold(
       appBar: CustomAppBar(
         title: 'PPF Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white), onPressed: () => _exportPdf(context)),
+          const SizedBox(width: 16),
+          IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -91,86 +87,85 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
             physics: const BouncingScrollPhysics(),
             padding: Responsive.screenPadding(context),
             child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GlassmorphicCard(
-              child: Column(
-                children: [
-                  InputSliderField(
-                    label: 'Yearly Investment',
-                    value: _yearlyInvestment,
-                    min: 500,
-                    max: 150000,
-                    prefix: '₹',
-                    onChanged: (val) {
-                      setState(() => _yearlyInvestment = val);
-                      _calculatePpf();
-                    },
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GlassmorphicCard(
+                  child: Column(
+                    children: [
+                      InputSliderField(
+                        label: 'Yearly Investment',
+                        value: _yearlyInvestment,
+                        min: 500,
+                        max: 150000,
+                        prefix: '\u20B9',
+                        onChanged: (val) {
+                          setState(() => _yearlyInvestment = val);
+                          _calculatePpf();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      InputSliderField(
+                        label: 'Time Period',
+                        value: _periodYears,
+                        min: 15,
+                        max: 50,
+                        suffix: ' Yrs',
+                        onChanged: (val) {
+                          setState(() => _periodYears = val);
+                          _calculatePpf();
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'Current Rate: $_interestRate% p.a.',
+                          style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  InputSliderField(
-                    label: 'Time Period',
-                    value: _periodYears,
-                    min: 15,
-                    max: 50,
-                    suffix: ' Yrs',
-                    onChanged: (val) {
-                      setState(() => _periodYears = val);
-                      _calculatePpf();
-                    },
+                ),
+                const SizedBox(height: 24),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: ResultDisplayCard(
+                    mainLabel: 'Maturity Value',
+                    mainValue: _currencyFormat.format(_maturityValue),
+                    subResults: [
+                      SubResult(label: 'Total Investment', value: _currencyFormat.format(_totalInvestment)),
+                      SubResult(label: 'Total Interest', value: _currencyFormat.format(_totalInterest)),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text('Current Rate: $_interestRate% p.a.', style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 24),
+                _buildChart(context),
+                const SizedBox(height: 24),
+                GradientButton(
+                  text: 'Export Schedule',
+                  onPressed: () => _exportPdf(context),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                  child: Text(
+                    'Disclaimer: PPF interest rate is set by the Government of India and may change quarterly. Verify current rate with official sources.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
-            const SizedBox(height: 24),
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: ResultDisplayCard(
-                mainLabel: 'Maturity Value',
-                mainValue: _currencyFormat.format(_maturityValue),
-                subResults: [
-                  SubResult(label: 'Total Investment', value: _currencyFormat.format(_totalInvestment)),
-                  SubResult(label: 'Total Interest', value: _currencyFormat.format(_totalInterest)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildChart(context),
-            const SizedBox(height: 24),
-            GradientButton(text: 'Export Schedule',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PDF exported!'), backgroundColor: Color(0xFF10B981)),
-                );
-              }),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-              child: Text(
-                'Disclaimer: Results are for informational purposes only. Not financial advice.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildChart(BuildContext context) {
-    // Only show if calculated
     if (_maturityValue <= 0) return const SizedBox.shrink();
-    
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(20),
@@ -233,6 +228,4 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
       ],
     );
   }
-
 }
-

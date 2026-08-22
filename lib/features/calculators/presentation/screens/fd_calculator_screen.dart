@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -53,32 +54,34 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
     super.dispose();
   }
 
-  void _calculateFd() {
-    double p = _principal;
-    double r = (_isSeniorCitizen ? _interestRate + 0.5 : _interestRate) / 100;
-    
-    double t = _years + (_months / 12.0) + (_days / 365.0);
-    
-    int n = 4; // Quarterly by default
+  int _getCompoundingFrequency() {
     switch (_compoundingFrequency) {
-      case 'Monthly': n = 12; break;
-      case 'Quarterly': n = 4; break;
-      case 'Half-Yearly': n = 2; break;
-      case 'Yearly': n = 1; break;
+      case 'Monthly': return 12;
+      case 'Quarterly': return 4;
+      case 'Half-Yearly': return 2;
+      case 'Yearly': return 1;
+      default: return 4;
     }
+  }
 
-    if (t == 0) {
-      _maturityValue = p;
-      _totalInterest = 0;
-    } else {
-      _maturityValue = p * pow((1 + (r / n)), n * t);
-      _totalInterest = _maturityValue - p;
-    }
-    
+  void _calculateFd() {
+    double years = FinancialMath.combinedTenureToYears(
+      years: _years.toInt(),
+      months: _months.toInt(),
+      days: _days.toInt(),
+    );
+    int n = _getCompoundingFrequency();
+    double effectiveRate = _isSeniorCitizen ? _interestRate + 0.5 : _interestRate;
+    _maturityValue = FinancialMath.calculateFDMaturity(
+      principal: _principal,
+      annualRate: effectiveRate,
+      years: years,
+      compoundingFrequency: n,
+    );
+    _totalInterest = _maturityValue - _principal;
     _animationController.forward(from: 0.0);
     setState(() {});
   }
-
 
   void _shareResult(BuildContext context) {
     final text = 'FeroCalc FD Calculator\n\nPrincipal: ₹${_principal.toStringAsFixed(0)}\nRate: ${_interestRate.toStringAsFixed(2)}%\nTenure: ${_years}Y ${_months}M ${_days}D\nMaturity Value: ₹${_maturityValue.toStringAsFixed(0)}\nTotal Interest: ₹${_totalInterest.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
@@ -356,4 +359,3 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
   }
 
 }
-

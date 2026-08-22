@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -47,21 +48,14 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
   }
 
   void _calculateRd() {
-    double p = _monthlyDeposit;
-    double r = _interestRate / 100;
     int n = _tenureMonths.toInt();
-    
-    _totalDeposit = p * n;
-    
-    double maturity = 0;
-    for (int i = 1; i <= n; i++) {
-      double timeInYears = (n - i + 1) / 12.0;
-      maturity += p * pow((1 + r / 4), 4 * timeInYears);
-    }
-    
-    _maturityValue = maturity;
+    _totalDeposit = _monthlyDeposit * n;
+    _maturityValue = FinancialMath.calculateRDMaturity(
+      monthlyDeposit: _monthlyDeposit,
+      annualRate: _interestRate,
+      months: n,
+    );
     _interestEarned = _maturityValue - _totalDeposit;
-    
     _animationController.forward(from: 0.0);
     setState(() {});
   }

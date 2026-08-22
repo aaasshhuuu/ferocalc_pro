@@ -53,18 +53,14 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
   }
 
   void _calculateEmi() {
-    double p = _loanAmount;
-    double r = _interestRate / 12 / 100;
     double n = _isMonths ? _tenure : _tenure * 12;
-
-    if (r == 0) {
-      _emi = p / n;
-    } else {
-      _emi = (p * r * pow(1 + r, n)) / (pow(1 + r, n) - 1);
-    }
+    _emi = FinancialMath.calculateEMI(
+      principal: _loanAmount,
+      annualRate: _interestRate,
+      months: n.toInt(),
+    );
     _totalPayment = _emi * n;
-    _totalInterest = _totalPayment - p;
-    
+    _totalInterest = _totalPayment - _loanAmount;
     _animationController.forward(from: 0.0);
     setState(() {});
   }
@@ -290,4 +286,3 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
   }
 
 }
-

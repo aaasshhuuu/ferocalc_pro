@@ -113,7 +113,7 @@ class BankRateApiService {
           fdRates: Map<String, double>.from((b['fd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
           rdRates: Map<String, double>.from((b['rd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
           savingsRate: b['savings_rate']?.toDouble(),
-          lastUpdated: 'Live',
+          lastUpdated: 'Unverified',
           shortName: b['short_name'] ?? '',
           established: b['established'] ?? '',
           headquarters: b['headquarters'] ?? '',
@@ -137,6 +137,9 @@ class BankRateApiService {
     try {
       final response = await _dio.get('$baseUrl/market');
       if (response.statusCode == 200) {
+        if (response.data['status'] == 'unavailable') {
+          throw Exception('Market data unavailable');
+        }
         final prefs = await SharedPreferences.getInstance();
         prefs.setString(_marketCacheKey, jsonEncode(response.data));
         return MarketData.fromJson(response.data);

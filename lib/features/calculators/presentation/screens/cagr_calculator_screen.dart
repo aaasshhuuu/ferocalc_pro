@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -34,13 +35,12 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
     double end = double.tryParse(_endCtrl.text) ?? 20000;
     double years = double.tryParse(_yearsCtrl.text) ?? 5;
     
-    if (begin > 0 && years > 0) {
-      _cagr = (pow((end / begin), (1 / years)) - 1) * 100;
-      _absReturn = ((end - begin) / begin) * 100;
-    } else {
-      _cagr = 0;
-      _absReturn = 0;
-    }
+    _cagr = FinancialMath.calculateCAGR(
+      initialValue: begin,
+      finalValue: end,
+      years: years,
+    );
+    _absReturn = begin > 0 ? ((end - begin) / begin) * 100 : 0;
     setState(() {});
   }
 

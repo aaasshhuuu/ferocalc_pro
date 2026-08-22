@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -46,24 +47,17 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
   }
 
   void _calculateSip() {
-    double p = _monthlyInvestment;
-    double r = _expectedReturn / 12 / 100;
-    double n = _periodYears * 12;
-
-    _investedAmount = p * n;
-    
-    if (r == 0) {
-      _totalValue = _investedAmount;
-    } else {
-      _totalValue = p * ((pow(1 + r, n) - 1) / r) * (1 + r);
-    }
-    
+    int months = (_periodYears * 12).toInt();
+    _investedAmount = _monthlyInvestment * months;
+    _totalValue = FinancialMath.calculateSIPMaturity(
+      monthlyInvestment: _monthlyInvestment,
+      annualReturn: _expectedReturn,
+      months: months,
+    );
     _estimatedReturns = _totalValue - _investedAmount;
-    
     _animationController.forward(from: 0.0);
     setState(() {});
   }
-
 
   void _shareResult(BuildContext context) {
     final text = 'FeroCalc SIP Calculator\n\nMonthly Investment: ₹${_monthlyInvestment.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(2)}%\nTime Period: ${_periodYears.toStringAsFixed(0)} Years\nInvested Amount: ₹${_investedAmount.toStringAsFixed(0)}\nEstimated Returns: ₹${_estimatedReturns.toStringAsFixed(0)}\nTotal Value: ₹${_totalValue.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
@@ -243,4 +237,3 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
   }
 
 }
-
