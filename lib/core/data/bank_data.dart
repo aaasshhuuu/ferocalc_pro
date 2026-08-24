@@ -752,7 +752,7 @@ class BankDataService {
     try {
       final response = await BankRateApiService.fetchRates();
       lastUpdated = response.lastUpdated;
-      isLive = true;
+      isLive = false; // Data from API is unverified — never claim "Live"
       return response.banks;
     } catch (e) {
       isLive = false;

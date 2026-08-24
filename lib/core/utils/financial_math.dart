@@ -61,11 +61,15 @@ class FinancialMath {
     required double annualRate,
     required int months,
   }) {
+    principal = _validatePositive(principal);
+    annualRate = _validatePositive(annualRate);
+    if (months <= 0) return 0;
+    if (principal <= 0) return 0;
     if (annualRate == 0) return principal / months;
-    if (months == 0) return 0;
     final double r = annualRate / (12 * 100);
     final double factor = pow(1 + r, months).toDouble();
-    return (principal * r * factor) / (factor - 1);
+    final result = (principal * r * factor) / (factor - 1);
+    return _validateFinite(result, 0);
   }
 
   /// Reverse calculate maximum Loan Amount from EMI
@@ -167,18 +171,28 @@ class FinancialMath {
 
   /// Calculate FD Maturity Amount (Compound Interest)
   /// Formula: A = P × (1 + r/n)^(n×t)
-  /// Supports combined tenure (years + months + days)
+  ///
+  /// Day-count methodology:
+  /// - Uses 365-day year (standard for Indian bank FDs)
+  /// - Quarterly compounding (default for most Indian banks)
+  /// - Does not account for leap years — results are approximate
+  /// - For exact maturity values, consult your bank
   static double calculateFDMaturity({
     required double principal,
     required double annualRate,
     required double years,
     int compoundingFrequency = 4, // Quarterly default for Indian banks
   }) {
+    principal = _validatePositive(principal);
+    annualRate = _validatePositive(annualRate);
+    years = _validatePositive(years);
+    if (principal <= 0 || years <= 0) return principal;
     if (annualRate == 0) return principal;
     final double r = annualRate / 100;
-    return principal *
+    final result = principal *
         pow(1 + (r / compoundingFrequency), compoundingFrequency * years)
             .toDouble();
+    return _validateFinite(result, principal);
   }
 
   /// Calculate FD Interest
@@ -198,6 +212,9 @@ class FinancialMath {
   }
 
   /// Convert combined tenure (Y + M + D) to fractional years
+  ///
+  /// Approximation: uses 365-day year and 30-day months.
+  /// For exact day counts, use actual calendar arithmetic.
   static double combinedTenureToYears({
     int years = 0,
     int months = 0,
@@ -207,6 +224,8 @@ class FinancialMath {
   }
 
   /// Convert combined tenure to total days
+  ///
+  /// Approximation: 1 year = 365 days, 1 month = 30 days.
   static int combinedTenureToDays({
     int years = 0,
     int months = 0,

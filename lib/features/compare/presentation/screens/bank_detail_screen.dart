@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/data/bank_data.dart';
+import '../../../../core/data/bank_rate_repository.dart';
+import '../../../../core/models/bank.dart';
+import '../../../../core/models/fd_rate.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/widgets/glassmorphic_card.dart';
+import '../../../../core/widgets/verification_badge.dart';
 import '../../../../core/utils/responsive.dart';
 import 'dart:math';
 
@@ -14,41 +18,45 @@ class BankDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bank = BankDataService.getBankByName(bankName);
+    // Try new model first, fall back to legacy
+    final legacyBank = BankDataService.getBankByName(bankName);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gold = const Color(0xFFC9A96E);
-    final emerald = const Color(0xFF10B981);
-    final teal = const Color(0xFF00B4D8);
 
-    if (bank == null) {
+    if (legacyBank == null) {
       return Scaffold(
         appBar: const CustomAppBar(title: 'Bank Not Found'),
         body: const Center(child: Text('Bank details could not be found.')),
       );
     }
 
+    // Find the new Bank model
+    final bankId = bankName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final bank = BankRateRepository.getBankById(bankId);
+    final allRates = bank != null ? BankRateRepository.getRatesForBank(bankId) : <FdRate>[];
+    final regularRates = allRates.where((r) => r.customerType == CustomerType.regular).toList();
+    final seniorRates = allRates.where((r) => r.customerType == CustomerType.seniorCitizen).toList();
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: CustomAppBar(title: bank.name),
+      appBar: CustomAppBar(title: legacyBank.name),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: ListView(
             padding: Responsive.screenPadding(context),
             children: [
-              _buildHeader(context, bank, gold).animate().fade(),
+              _buildHeader(context, legacyBank, bank, gold).animate().fade(),
               const SizedBox(height: 24),
-              _buildRatesSection(context, bank, gold, emerald).animate().fade(delay: 100.ms),
+              _buildRateTable(context, 'FD Rates — Regular', regularRates, gold).animate().fade(delay: 100.ms),
+              const SizedBox(height: 16),
+              _buildRateTable(context, 'FD Rates — Senior Citizen', seniorRates, gold).animate().fade(delay: 200.ms),
               const SizedBox(height: 24),
-              _buildSavingsSection(context, bank, teal).animate().fade(delay: 200.ms),
+              _buildDataDisclaimer(context).animate().fade(delay: 250.ms),
               const SizedBox(height: 24),
-              _buildOffersSection(context, gold).animate().fade(delay: 300.ms),
+              _buildBankInfo(context, legacyBank, bank, gold).animate().fade(delay: 300.ms),
               const SizedBox(height: 24),
-              _buildFeaturesSection(context, teal).animate().fade(),
-              const SizedBox(height: 24),
-              _buildQuickInfoSection(context, bank, gold).animate().fade(),
-              const SizedBox(height: 32),
-              _buildQuickActions(context, gold).animate().fade(),
+              _buildQuickActions(context, gold).animate().fade(delay: 400.ms),
               const SizedBox(height: 48),
             ],
           ),
@@ -57,7 +65,7 @@ class BankDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, BankInfo bank, Color gold) {
+  Widget _buildHeader(BuildContext context, BankInfo legacyBank, Bank? bank, Color gold) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -65,7 +73,7 @@ class BankDetailScreen extends StatelessWidget {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: gold.withOpacity(0.1),
             shape: BoxShape.circle,
             border: Border.all(color: gold, width: 2),
           ),
@@ -73,28 +81,31 @@ class BankDetailScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          bank.name,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: gold,
-          ),
+          legacyBank.name,
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: gold),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildBadge(bank.type.toUpperCase(), Theme.of(context).primaryColor),
-            const SizedBox(width: 8),
-            _buildBadge(bank.country, Colors.blueGrey),
+            _buildBadge(bank?.typeLabel ?? legacyBank.type.toUpperCase(), Theme.of(context).primaryColor),
+            if (legacyBank.headquarters.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _buildBadge(legacyBank.headquarters, Colors.blueGrey),
+            ],
           ],
         ),
-        const SizedBox(height: 12),
-        Text(
-          'Established: 1990 • Headquarters: ${bank.country}',
-          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
-        ),
+        const SizedBox(height: 8),
+        // Only show real data
+        if (legacyBank.established.isNotEmpty || legacyBank.headquarters.isNotEmpty)
+          Text(
+            [
+              if (legacyBank.established.isNotEmpty) 'Est. ${legacyBank.established}',
+              if (legacyBank.headquarters.isNotEmpty) legacyBank.headquarters,
+            ].join(' \u2022 '),
+            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+          ),
       ],
     );
   }
@@ -107,96 +118,76 @@ class BankDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.5)),
       ),
-      child: Text(
-        text,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-      ),
+      child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildRatesSection(BuildContext context, BankInfo bank, Color gold, Color emerald) {
+  Widget _buildRateTable(BuildContext context, String title, List<FdRate> rates, Color gold) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GlassmorphicCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Fixed Deposit (FD) Rates',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
+              Expanded(
+                child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: gold.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('Senior Citizen Extra: +0.50%', style: TextStyle(color: gold, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
+              if (rates.isNotEmpty)
+                VerificationBadge(status: rates.first.verificationStatus),
             ],
           ),
           const SizedBox(height: 16),
-          _buildRatesTable(context, bank.fdRates, gold),
-          const SizedBox(height: 24),
-          Text(
-            'Recurring Deposit (RD) Rates',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
-          ),
-          const SizedBox(height: 16),
-          _buildRatesTable(context, bank.rdRates, gold),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRatesTable(BuildContext context, Map<String, double> rates, Color gold) {
-    if (rates.isEmpty) return const Text('Rates not available');
-
-    final maxRate = rates.values.reduce(max);
-    
-    // Sort duration keys logically if possible. For simplicity, just use entries.
-    final entries = rates.entries.toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Table(
-          border: TableBorder(
-            horizontalInside: BorderSide(color: Theme.of(context).dividerColor),
-            verticalInside: BorderSide(color: Theme.of(context).dividerColor),
-          ),
-          columnWidths: const {
-            0: FlexColumnWidth(2),
-            1: FlexColumnWidth(1.5),
-            2: FlexColumnWidth(2),
-          },
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.05)),
-              children: [
-                _buildTableCell(context, 'Duration', isHeader: true),
-                _buildTableCell(context, 'Rate', isHeader: true),
-                _buildTableCell(context, 'Senior Citizen', isHeader: true),
-              ],
+          if (rates.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No rate data available', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38)),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Table(
+                  border: TableBorder(
+                    horizontalInside: BorderSide(color: Theme.of(context).dividerColor),
+                    verticalInside: BorderSide(color: Theme.of(context).dividerColor),
+                  ),
+                  columnWidths: const {
+                    0: FlexColumnWidth(2),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(2),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.05)),
+                      children: [
+                        _buildTableCell(context, 'Tenure', isHeader: true),
+                        _buildTableCell(context, 'Rate', isHeader: true),
+                        _buildTableCell(context, 'Status', isHeader: true),
+                      ],
+                    ),
+                    ...rates.map((rate) {
+                      final maxRate = rates.map((r) => r.interestRate).reduce(max);
+                      final isHighest = rate.interestRate == maxRate;
+                      return TableRow(
+                        decoration: isHighest ? BoxDecoration(color: gold.withOpacity(0.05)) : null,
+                        children: [
+                          _buildTableCell(context, rate.tenureDescription, isHighlight: isHighest, gold: gold),
+                          _buildTableCell(context, '${rate.interestRate.toStringAsFixed(2)}% p.a.', isHighlight: isHighest, gold: gold),
+                          _buildTableCell(context, 'Pending review', isHighlight: false),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
             ),
-            ...entries.map((e) {
-              final isHighest = e.value == maxRate;
-              return TableRow(
-                decoration: isHighest ? BoxDecoration(color: gold.withOpacity(0.05)) : null,
-                children: [
-                  _buildTableCell(context, e.key, isHighlight: isHighest, gold: gold),
-                  _buildTableCell(context, '${e.value.toStringAsFixed(2)}%', isHighlight: isHighest, gold: gold),
-                  _buildTableCell(context, '${(e.value + 0.5).toStringAsFixed(2)}%', isHighlight: isHighest, gold: gold),
-                ],
-              );
-            }).toList(),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -208,6 +199,7 @@ class BankDetailScreen extends StatelessWidget {
         text,
         style: TextStyle(
           fontWeight: isHeader || isHighlight ? FontWeight.bold : FontWeight.normal,
+          fontSize: isHeader ? 13 : 13,
           color: isHighlight ? gold : Theme.of(context).textTheme.bodyMedium?.color,
         ),
         textAlign: isHeader ? TextAlign.center : TextAlign.left,
@@ -215,20 +207,26 @@ class BankDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSavingsSection(BuildContext context, BankInfo bank, Color teal) {
-    if (bank.savingsRate == null) return const SizedBox.shrink();
-    return GlassmorphicCard(
+  Widget _buildDataDisclaimer(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.08 : 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.2)),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.savings, size: 32, color: teal),
-          const SizedBox(width: 16),
+          const Icon(Icons.info_outline, size: 18, color: Color(0xFFF59E0B)),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Savings Account Rate', style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color)),
-                Text('${bank.savingsRate!.toStringAsFixed(2)}% p.a.', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: teal)),
-              ],
+            child: Text(
+              'All rates shown are unverified and may not reflect current bank rates. '
+              'Verify with the bank directly before making financial decisions. '
+              'Senior citizen premiums are approximate and subject to change.',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black54, height: 1.5),
             ),
           ),
         ],
@@ -236,73 +234,25 @@ class BankDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOffersSection(BuildContext context, Color gold) {
-    final offers = [
-      'Extra 0.50% for Senior Citizens across all tenures.',
-      'Special FD: 7.25% for 444 days.',
-      'Zero penalty on premature withdrawal for FDs above 1 Lakh.',
-    ];
+  Widget _buildBankInfo(BuildContext context, BankInfo legacyBank, Bank? bank, Color gold) {
     return GlassmorphicCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Current Offers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
-          const SizedBox(height: 12),
-          ...offers.map((offer) => Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.check_circle, size: 20, color: gold),
-                const SizedBox(width: 8),
-                Expanded(child: Text(offer, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, height: 1.4))),
-              ],
-            ),
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeaturesSection(BuildContext context, Color teal) {
-    final features = [
-      'Online FD Booking',
-      'Auto-Renewal',
-      'Loan against FD',
-      'Tax Saver FD',
-      'Flexible Payouts',
-      'Premature Withdrawal',
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Features', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: features.map((f) => Chip(
-            label: Text(f, style: const TextStyle(fontSize: 12)),
-            backgroundColor: teal.withOpacity(0.05),
-            side: BorderSide(color: teal.withOpacity(0.2)),
-          )).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickInfoSection(BuildContext context, BankInfo bank, Color gold) {
-    return GlassmorphicCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Quick Info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
+          Text('Bank Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
           const SizedBox(height: 16),
-          _buildInfoRow(context, Icons.money, 'Min FD Amount', '₹1,000'),
-          _buildInfoRow(context, Icons.calendar_today, 'Max Tenure', '10 Years'),
-          _buildInfoRow(context, Icons.support_agent, 'Customer Care', '1800-XXX-XXXX', isLink: true, color: gold),
-          _buildInfoRow(context, Icons.language, 'Website', 'www.${bank.name.replaceAll(' ', '').toLowerCase()}.com', isLink: true, color: gold),
-          _buildInfoRow(context, Icons.location_city, 'Total Branches', '5,000+'),
+          if (legacyBank.minFdAmount > 0)
+            _buildInfoRow(context, Icons.money, 'Min FD Amount', '\u20B9${legacyBank.minFdAmount}'),
+          if (legacyBank.maxFdTenure.isNotEmpty)
+            _buildInfoRow(context, Icons.calendar_today, 'Max Tenure', legacyBank.maxFdTenure),
+          if (legacyBank.customerCare.isNotEmpty)
+            _buildInfoRow(context, Icons.support_agent, 'Customer Care', legacyBank.customerCare, color: gold),
+          if (legacyBank.website.isNotEmpty)
+            _buildInfoRow(context, Icons.language, 'Website', legacyBank.website, isLink: true, color: gold),
+          if (legacyBank.totalBranches.isNotEmpty)
+            _buildInfoRow(context, Icons.location_city, 'Branches', legacyBank.totalBranches),
+          if (legacyBank.established.isNotEmpty)
+            _buildInfoRow(context, Icons.history, 'Established', legacyBank.established),
         ],
       ),
     );
@@ -317,12 +267,16 @@ class BankDetailScreen extends StatelessWidget {
           const SizedBox(width: 12),
           Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
           const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isLink ? (color ?? Theme.of(context).primaryColor) : Theme.of(context).textTheme.bodyMedium?.color,
-              decoration: isLink ? TextDecoration.underline : null,
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: isLink ? (color ?? Theme.of(context).primaryColor) : Theme.of(context).textTheme.bodyMedium?.color,
+                decoration: isLink ? TextDecoration.underline : null,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

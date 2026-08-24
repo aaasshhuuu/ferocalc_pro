@@ -194,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                              _SectionHeader(title: 'Top FD Rates Today', onSeeAll: () => context.go('/compare')),
+                              _SectionHeader(title: 'Top FD Rates (Unverified)', onSeeAll: () => context.go('/compare')),
                                 const SizedBox(height: 16),
                                 _buildTopRates(),
                               ],
@@ -215,8 +215,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       )
                     else ...[
-                      // Top FD Rates Today
-                      _SectionHeader(title: 'Top FD Rates Today', onSeeAll: () {}).animate().fade(),
+                      // Top FD Rates (Unverified)
+                      _SectionHeader(title: 'Top FD Rates (Unverified)', onSeeAll: () {}).animate().fade(),
                       const SizedBox(height: 16),
                       _buildTopRates().animate().fade(),
                       const SizedBox(height: 32),

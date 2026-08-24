@@ -341,4 +341,112 @@ void main() {
       expect(change.isSuspicious, isFalse);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  // INPUT VALIDATION
+  // ═══════════════════════════════════════════════════════════════
+  group('Input Validation', () {
+    test('EMI with negative principal returns 0', () {
+      final result = FinancialMath.calculateEMI(principal: -100000, annualRate: 10, months: 12);
+      expect(result, equals(0));
+    });
+
+    test('EMI with NaN rate treats as 0% interest', () {
+      final result = FinancialMath.calculateEMI(principal: 100000, annualRate: double.nan, months: 12);
+      // NaN rate → validated to 0 → simple division (principal / months)
+      expect(result, closeTo(100000 / 12, 0.01));
+    });
+
+    test('FD with negative principal returns 0', () {
+      final result = FinancialMath.calculateFDMaturity(principal: -50000, annualRate: 7.0, years: 1);
+      expect(result, equals(0));
+    });
+
+    test('FD with Infinity rate returns principal', () {
+      final result = FinancialMath.calculateFDMaturity(principal: 50000, annualRate: double.infinity, years: 1);
+      expect(result, equals(50000));
+    });
+
+    test('FD with zero years returns principal', () {
+      final result = FinancialMath.calculateFDMaturity(principal: 100000, annualRate: 7.0, years: 0);
+      expect(result, equals(100000));
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // CURRENCY FORMATTING
+  // ═══════════════════════════════════════════════════════════════
+  group('Currency Formatting', () {
+    test('formatCurrency with 2 decimals', () {
+      final result = FinancialMath.formatCurrency(123456.789);
+      expect(result, contains('1,23,456.79'));
+    });
+
+    test('formatCurrencyRounded with 0 decimals', () {
+      final result = FinancialMath.formatCurrencyRounded(123456.789);
+      expect(result, contains('1,23,457'));
+    });
+
+    test('formatPercent', () {
+      expect(FinancialMath.formatPercent(7.125), equals('7.13%'));
+      expect(FinancialMath.formatPercent(7.1, decimalDigits: 1), equals('7.1%'));
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // ADDITIONAL CALCULATOR TESTS (Phase 3)
+  // ═══════════════════════════════════════════════════════════════
+  group('SWP Calculator', () {
+    test('SWP with zero withdrawal returns original investment', () {
+      final result = FinancialMath.calculateSWP(
+        investment: 1000000, withdrawal: 0, annualReturn: 10, months: 12,
+      );
+      expect(result['finalBalance'], greaterThan(1000000));
+    });
+  });
+
+  group('GST Calculator', () {
+    test('GST exclusive calculation', () {
+      final result = FinancialMath.calculateGST(amount: 1000, gstRate: 18, isInclusive: false, isInterState: false);
+      expect(result['gstAmount'], closeTo(180, 0.01));
+      expect(result['totalAmount'], closeTo(1180, 0.01));
+    });
+
+    test('GST inclusive calculation', () {
+      final result = FinancialMath.calculateGST(amount: 1180, gstRate: 18, isInclusive: true, isInterState: false);
+      expect(result['originalAmount'], closeTo(1000, 1));
+      expect(result['gstAmount'], closeTo(180, 1));
+    });
+  });
+
+  group('Income Tax Calculator', () {
+    test('New regime - income below 3L is zero tax', () {
+      final result = FinancialMath.calculateIncomeTaxNewRegime(250000);
+      expect(result, equals(0));
+    });
+
+    test('New regime - income 10L produces tax', () {
+      final result = FinancialMath.calculateIncomeTaxNewRegime(1000000);
+      expect(result, greaterThan(0));
+      expect(result, lessThan(200000));
+    });
+  });
+
+  group('Inflation Calculator', () {
+    test('Inflation adjusted value increases over time', () {
+      final result = FinancialMath.calculateInflationAdjustedValue(
+        presentValue: 100000, inflationRate: 6, years: 10,
+      );
+      expect(result, greaterThan(100000));
+    });
+  });
+
+  group('Stock Return Calculator', () {
+    test('Profit calculation', () {
+      final result = FinancialMath.calculateStockReturn(
+        buyPrice: 100, sellPrice: 150, quantity: 10, holdingYears: 1, annualDividendPerShare: 0, brokeragePercent: 0,
+      );
+      expect(result['netProfit'], closeTo(500, 1));
+    });
+  });
 }
