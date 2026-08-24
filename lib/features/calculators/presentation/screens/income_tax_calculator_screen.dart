@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -34,48 +35,15 @@ class _IncomeTaxCalculatorScreenState extends State<IncomeTaxCalculatorScreen> {
   }
 
   void _calculateTax() {
-    // Standard deduction
-    double oldStdDed = 50000;
-    double newStdDed = 75000;
-
-    double oldTaxable = _annualIncome - _deductions80c - _otherDeductions - oldStdDed;
-    if (oldTaxable < 0) oldTaxable = 0;
+    _taxOldRegime = FinancialMath.calculateIncomeTaxOldRegime(
+      grossIncome: _annualIncome,
+      ageGroup: 0,
+      deduction80C: _deductions80c,
+      otherDeductions: _otherDeductions,
+      standardDeduction: 50000,
+    );
+    _taxNewRegime = FinancialMath.calculateIncomeTaxNewRegime(_annualIncome);
     
-    // Old Regime calc (simplified <60 yrs slabs)
-    _taxOldRegime = 0;
-    if (oldTaxable > 1000000) {
-      _taxOldRegime += (oldTaxable - 1000000) * 0.30 + 112500;
-    } else if (oldTaxable > 500000) {
-      _taxOldRegime += (oldTaxable - 500000) * 0.20 + 12500;
-    } else if (oldTaxable > 250000) {
-      _taxOldRegime += (oldTaxable - 250000) * 0.05;
-    }
-    // Rebate 87A for Old
-    if (oldTaxable <= 500000) _taxOldRegime = 0;
-
-    // New Regime calc (FY 24-25)
-    double newTaxable = _annualIncome - newStdDed;
-    if (newTaxable < 0) newTaxable = 0;
-
-    _taxNewRegime = 0;
-    if (newTaxable > 1500000) {
-      _taxNewRegime += (newTaxable - 1500000) * 0.30 + 150000;
-    } else if (newTaxable > 1200000) {
-      _taxNewRegime += (newTaxable - 1200000) * 0.20 + 90000;
-    } else if (newTaxable > 1000000) {
-      _taxNewRegime += (newTaxable - 1000000) * 0.15 + 60000;
-    } else if (newTaxable > 700000) {
-      _taxNewRegime += (newTaxable - 700000) * 0.10 + 30000;
-    } else if (newTaxable > 300000) {
-      _taxNewRegime += (newTaxable - 300000) * 0.05;
-    }
-    // Rebate 87A for New (up to 7L)
-    if (newTaxable <= 700000) _taxNewRegime = 0;
-
-    // Add 4% cess
-    if (_taxOldRegime > 0) _taxOldRegime *= 1.04;
-    if (_taxNewRegime > 0) _taxNewRegime *= 1.04;
-
     if (_taxOldRegime < _taxNewRegime) {
       _recommended = 'Old Regime';
       _taxSaved = _taxNewRegime - _taxOldRegime;

@@ -1,8 +1,55 @@
 import 'dart:math';
+import 'package:intl/intl.dart';
 
-/// Comprehensive financial calculation engine for FinCalc Pro.
+/// Comprehensive financial calculation engine for FeroCalc.
 /// All formulas are mathematically verified for Indian financial standards.
+///
+/// RULES:
+/// - All methods reject NaN, Infinity, and negative inputs where inappropriate.
+/// - Rounding happens only at presentation boundaries.
+/// - Internal calculations use full double precision.
 class FinancialMath {
+  // ═══════════════════════════════════════════════════════════════
+  // INPUT VALIDATION
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Validates that a value is a finite, non-negative number.
+  /// Returns the value if valid, or [fallback] if invalid.
+  static double _validatePositive(double value, [double fallback = 0]) {
+    if (value.isNaN || value.isInfinite || value < 0) return fallback;
+    return value;
+  }
+
+  /// Validates that a value is finite (can be negative for CAGR etc.).
+  static double _validateFinite(double value, [double fallback = 0]) {
+    if (value.isNaN || value.isInfinite) return fallback;
+    return value;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // CURRENCY FORMATTING
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Format as Indian currency with 2 decimal places (financial precision).
+  static String formatCurrency(double amount, {int decimalDigits = 2}) {
+    final fmt = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '\u20B9',
+      decimalDigits: decimalDigits,
+    );
+    return fmt.format(amount);
+  }
+
+  /// Format as Indian currency with 0 decimal places (display-friendly).
+  static String formatCurrencyRounded(double amount) {
+    return formatCurrency(amount, decimalDigits: 0);
+  }
+
+  /// Format percentage with appropriate precision.
+  static String formatPercent(double value, {int decimalDigits = 2}) {
+    return '${value.toStringAsFixed(decimalDigits)}%';
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // LOAN CALCULATORS
   // ═══════════════════════════════════════════════════════════════

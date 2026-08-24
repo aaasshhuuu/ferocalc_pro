@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -35,15 +36,16 @@ class _CreditCardEmiScreenState extends State<CreditCardEmiScreen> {
   }
 
   void _calculateEmi() {
-    double p = _outstandingAmount;
-    double r = _interestRate / 12 / 100;
-    double n = _tenureMonths;
-
-    _emi = (p * r * pow(1 + r, n)) / (pow(1 + r, n) - 1);
-    _totalPayment = _emi * n;
-    _totalInterest = _totalPayment - p;
-    _processingFeeAmount = p * (_processingFeePercent / 100);
-    
+    final result = FinancialMath.calculateCreditCardEMI(
+      outstanding: _outstandingAmount,
+      annualRate: _interestRate,
+      months: _tenureMonths.toInt(),
+      processingFeePercent: _processingFeePercent,
+    );
+    _emi = result['emi']!;
+    _totalInterest = result['totalInterest']!;
+    _processingFeeAmount = result['processingFee']!;
+    _totalPayment = result['totalPayment']! - _processingFeeAmount;
     setState(() {});
   }
 

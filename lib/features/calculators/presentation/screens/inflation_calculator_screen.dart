@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -32,7 +33,11 @@ class _InflationCalculatorScreenState extends State<InflationCalculatorScreen> {
   }
 
   void _calculateInflation() {
-    _futureCost = _currentCost * pow((1 + _inflationRate / 100), _years);
+    _futureCost = FinancialMath.calculateInflationAdjustedValue(
+      presentValue: _currentCost,
+      inflationRate: _inflationRate,
+      years: _years,
+    );
     _increaseAmount = _futureCost - _currentCost;
     setState(() {});
   }

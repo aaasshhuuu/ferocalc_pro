@@ -5,6 +5,8 @@ import '../../../../config/themes/app_colors.dart';
 import '../../../../config/themes/app_gradients.dart';
 import '../../../../core/widgets/glassmorphic_card.dart';
 import '../../../../core/data/bank_data.dart';
+import '../../../../core/data/bank_rate_repository.dart';
+import '../../../../core/widgets/fd_rate_card.dart';
 import 'dart:ui';
 
 import 'dart:async';
@@ -269,25 +271,24 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFC9A96E)));
     }
     
-    final topBanks = BankDataService.getTopBanksByRate('1y', limit: 5);
-    final colors = [
-      const Color(0xFFC9A96E),
-      Theme.of(context).colorScheme.secondary,
-      Theme.of(context).colorScheme.primary,
-      const Color(0xFFC9A96E),
-      Theme.of(context).colorScheme.secondary,
-    ];
+    final topRates = BankRateRepository.getTopRates(tenureDays: 365, limit: 5);
     
+    if (topRates.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('No rate data available', style: TextStyle(color: Colors.grey)),
+      );
+    }
+
     return Column(
       children: [
-        ...List.generate(topBanks.length, (index) {
-          final bank = topBanks[index];
-          final rateStr = '${bank.fdRates['1y']?.toStringAsFixed(2)}%';
-          return _TopBankCard(
-            rank: index + 1,
-            bank: bank.name,
-            rate: rateStr,
-            color: colors[index % colors.length],
+        ...topRates.map((rate) {
+          final bank = BankRateRepository.getBankById(rate.bankId);
+          if (bank == null) return const SizedBox.shrink();
+          return FdRateCard(
+            bank: bank,
+            rate: rate,
+            onTap: () => context.go('/compare'),
           );
         }),
         const SizedBox(height: 8),
@@ -297,16 +298,16 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: BankDataService.isLive ? Colors.green : Colors.grey,
+                color: Color(0xFFF59E0B),
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              BankDataService.isLive ? 'Live Updates Active • Last updated: $_lastUpdated' : 'Offline Mode (Local Data)',
+            const Text(
+              'Static data \u2022 Rates pending verification',
               style: TextStyle(
-                color: BankDataService.isLive ? Colors.green : Colors.grey,
+                color: Color(0xFFF59E0B),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -32,11 +33,8 @@ class _EducationPlannerScreenState extends State<EducationPlannerScreen> {
   void initState() {
     super.initState();
     _calculateEducation();
-  }
-
-  void _calculateEducation() {
-    double years = _startAge - _childAge;
-    if (years <= 0) {
+  }  void _calculateEducation() {
+    if ((_startAge - _childAge) <= 0) {
       _futureCost = _currentCost;
       _monthlySip = 0;
       _lumpsumNeeded = _currentCost;
@@ -44,14 +42,17 @@ class _EducationPlannerScreenState extends State<EducationPlannerScreen> {
       return;
     }
 
-    _futureCost = _currentCost * pow((1 + _inflationRate / 100), years);
-    
-    double r = _expectedReturn / 12 / 100;
-    double n = years * 12;
-    if (r > 0) {
-      _monthlySip = _futureCost * r / (pow(1 + r, n) - 1);
-      _lumpsumNeeded = _futureCost / pow(1 + _expectedReturn / 100, years);
-    }
+    final result = FinancialMath.calculateEducationPlanner(
+      childAge: _childAge.toInt(),
+      educationStartAge: _startAge.toInt(),
+      currentCost: _currentCost,
+      educationInflation: _inflationRate,
+      expectedReturn: _expectedReturn,
+    );
+
+    _futureCost = result['inflationAdjustedGoal'] ?? 0;
+    _monthlySip = result['monthlySIPNeeded'] ?? 0;
+    _lumpsumNeeded = result['lumpsumNeeded'] ?? 0;
     setState(() {});
   }
 

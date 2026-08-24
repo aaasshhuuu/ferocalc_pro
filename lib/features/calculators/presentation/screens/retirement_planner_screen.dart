@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -33,40 +34,26 @@ class _RetirementPlannerScreenState extends State<RetirementPlannerScreen> {
   void initState() {
     super.initState();
     _calculateRetirement();
-  }
-
-  void _calculateRetirement() {
-    double yearsToRetire = _retirementAge - _currentAge;
-    double yearsInRetirement = _lifeExpectancy - _retirementAge;
-    
-    if (yearsToRetire <= 0 || yearsInRetirement <= 0) {
+  }  void _calculateRetirement() {
+    if (_retirementAge <= _currentAge || _lifeExpectancy <= _retirementAge) {
       _corpusNeeded = 0;
       _monthlySipNeeded = 0;
       setState(() {});
       return;
     }
 
-    // Future monthly expense
-    double futureMonthlyExpense = _monthlyExpense * pow((1 + _inflationRate / 100), yearsToRetire);
-    double annualExpenseAtRetirement = futureMonthlyExpense * 12;
+    final result = FinancialMath.calculateRetirementCorpus(
+      currentAge: _currentAge.toInt(),
+      retirementAge: _retirementAge.toInt(),
+      monthlyExpense: _monthlyExpense,
+      inflationRate: _inflationRate,
+      preRetirementReturn: _preRetirementReturn,
+      postRetirementReturn: _postRetirementReturn,
+      lifeExpectancy: _lifeExpectancy.toInt(),
+    );
 
-    // Inflation adjusted return post retirement
-    double realReturn = ((1 + _postRetirementReturn / 100) / (1 + _inflationRate / 100)) - 1;
-    
-    // Corpus needed (PV of annuity)
-    if (realReturn > 0) {
-      _corpusNeeded = annualExpenseAtRetirement * (1 - pow(1 + realReturn, -yearsInRetirement)) / realReturn;
-    } else {
-      _corpusNeeded = annualExpenseAtRetirement * yearsInRetirement;
-    }
-
-    // SIP Needed
-    double r = _preRetirementReturn / 12 / 100;
-    double n = yearsToRetire * 12;
-    if (r > 0) {
-      _monthlySipNeeded = _corpusNeeded * r / (pow(1 + r, n) - 1);
-    }
-    
+    _corpusNeeded = result['corpusNeeded'] ?? 0;
+    _monthlySipNeeded = result['monthlySIPNeeded'] ?? 0;
     setState(() {});
   }
 

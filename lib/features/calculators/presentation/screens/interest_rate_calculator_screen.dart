@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -45,12 +46,9 @@ class _InterestRateCalculatorScreenState extends State<InterestRateCalculatorScr
   }
 
   void _calculateRate() {
-    double p = _loanAmount;
-    double emi = _emi;
     double n = _isMonths ? _tenure : _tenure * 12;
 
-    // Minimum possible EMI for 0% interest
-    if (emi * n <= p) {
+    if (_emi * n <= _loanAmount) {
       setState(() {
         _isPossible = false;
         _calculatedRate = 0;
@@ -59,22 +57,12 @@ class _InterestRateCalculatorScreenState extends State<InterestRateCalculatorScr
     }
 
     _isPossible = true;
-    double r = 0.005; // initial guess
-    double tolerance = 1e-6;
     
-    for (int i = 0; i < 100; i++) {
-      double f = p * r * pow(1 + r, n) - emi * (pow(1 + r, n) - 1);
-      double fPrime = p * pow(1 + r, n) + p * r * n * pow(1 + r, n - 1) - emi * n * pow(1 + r, n - 1);
-      
-      double newR = r - (f / fPrime);
-      if ((newR - r).abs() < tolerance) {
-        r = newR;
-        break;
-      }
-      r = newR;
-    }
-
-    _calculatedRate = r * 12 * 100; // converting back to annual percentage
+    _calculatedRate = FinancialMath.calculateInterestRate(
+      principal: _loanAmount,
+      emi: _emi,
+      months: n.toInt(),
+    );
     
     _animationController.forward(from: 0.0);
     setState(() {});

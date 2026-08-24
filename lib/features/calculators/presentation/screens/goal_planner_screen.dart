@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -32,17 +33,17 @@ class _GoalPlannerScreenState extends State<GoalPlannerScreen> {
   void initState() {
     super.initState();
     _calculateGoal();
-  }
+  }  void _calculateGoal() {
+    final result = FinancialMath.calculateGoalPlanner(
+      goalAmount: _currentCost,
+      yearsToGoal: _years.toInt(),
+      inflationRate: _inflationRate,
+      expectedReturn: _expectedReturn,
+    );
 
-  void _calculateGoal() {
-    _inflatedGoal = _currentCost * pow((1 + _inflationRate / 100), _years);
-    
-    double r = _expectedReturn / 12 / 100;
-    double n = _years * 12;
-    if (r > 0) {
-      _monthlySip = _inflatedGoal * r / (pow(1 + r, n) - 1);
-      _lumpsumNeeded = _inflatedGoal / pow(1 + _expectedReturn / 100, _years);
-    }
+    _inflatedGoal = result['inflationAdjustedGoal'] ?? 0;
+    _monthlySip = result['monthlySIPNeeded'] ?? 0;
+    _lumpsumNeeded = result['lumpsumNeeded'] ?? 0;
     setState(() {});
   }
 

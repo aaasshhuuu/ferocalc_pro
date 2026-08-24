@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -37,33 +38,20 @@ class _EpfCalculatorScreenState extends State<EpfCalculatorScreen> {
   }
 
   void _calculateEpf() {
-    int months = ((_retirementAge - _age) * 12).toInt();
-    if (months <= 0) return;
-
-    double balance = _currentBalance;
-    double currentSalary = _basicSalary;
-    
-    _totalEmployee = 0;
-    _totalEmployer = 0;
-
-    for (int m = 1; m <= months; m++) {
-      double employeeShare = currentSalary * (_epfContribution / 100);
-      double employerShare = currentSalary * 0.0367; // 3.67% to EPF, 8.33% to EPS
-      
-      _totalEmployee += employeeShare;
-      _totalEmployer += employerShare;
-      balance += employeeShare + employerShare;
-      
-      // Interest added monthly (simple interest compounded annually)
-      balance += balance * ((_interestRate / 100) / 12);
-
-      if (m % 12 == 0) {
-        currentSalary *= (1 + _annualIncrease / 100);
-      }
-    }
-
-    _maturityAmount = balance;
-    _totalInterest = _maturityAmount - _currentBalance - _totalEmployee - _totalEmployer;
+    final result = FinancialMath.calculateEPF(
+      basicSalary: _basicSalary,
+      employeeContribution: _epfContribution,
+      employerContribution: 3.67,
+      annualRate: _interestRate,
+      annualSalaryIncrease: _annualIncrease,
+      currentBalance: _currentBalance,
+      currentAge: _age.toInt(),
+      retirementAge: _retirementAge.toInt(),
+    );
+    _maturityAmount = result['maturityValue']!;
+    _totalEmployee = result['totalEmployeeContribution']!;
+    _totalEmployer = result['totalEmployerContribution']!;
+    _totalInterest = result['totalInterest']!;
     setState(() {});
   }
 

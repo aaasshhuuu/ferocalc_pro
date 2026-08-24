@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -38,20 +39,17 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
 
   void _calculateGst() {
     double amount = double.tryParse(_amountController.text) ?? 0;
-    
-    if (_isExclusive) {
-      _originalAmount = amount;
-      _gstAmount = amount * (_gstRate / 100);
-      _totalAmount = _originalAmount + _gstAmount;
-    } else {
-      _totalAmount = amount;
-      _gstAmount = amount - (amount * (100 / (100 + _gstRate)));
-      _originalAmount = _totalAmount - _gstAmount;
-    }
-
-    _cgst = _gstAmount / 2;
-    _sgst = _gstAmount / 2;
-
+    final result = FinancialMath.calculateGST(
+      amount: amount,
+      gstRate: _gstRate,
+      isInclusive: !_isExclusive,
+      isInterState: false,
+    );
+    _originalAmount = result['originalAmount']!;
+    _gstAmount = result['gstAmount']!;
+    _totalAmount = result['totalAmount']!;
+    _cgst = result['cgst']!;
+    _sgst = result['sgst']!;
     setState(() {});
   }
 

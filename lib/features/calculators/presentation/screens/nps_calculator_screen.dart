@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -36,20 +37,16 @@ class _NpsCalculatorScreenState extends State<NpsCalculatorScreen> {
   }
 
   void _calculateNps() {
-    double years = _retirementAge - _age;
-    if (years <= 0) return;
-
-    double r = _expectedReturn / 12 / 100;
-    double n = years * 12;
-
-    _totalInvestment = _monthlyInvestment * n;
-    _maturityAmount = _monthlyInvestment * ((pow(1 + r, n) - 1) / r) * (1 + r);
-    
-    // 60% Lumpsum, 40% Annuity
-    _lumpsum = _maturityAmount * 0.60;
-    double annuityCorpus = _maturityAmount * 0.40;
-    
-    _monthlyPension = (annuityCorpus * (_annuityRate / 100)) / 12;
+    final result = FinancialMath.calculateNPS(
+      monthlyInvestment: _monthlyInvestment,
+      expectedReturn: _expectedReturn,
+      currentAge: _age.toInt(),
+      retirementAge: _retirementAge.toInt(),
+    );
+    _totalInvestment = result['totalInvestment']!;
+    _maturityAmount = result['maturityValue']!;
+    _lumpsum = result['lumpSum']!;
+    _monthlyPension = (result['annuityCorpus']! * (_annuityRate / 100)) / 12;
     setState(() {});
   }
 

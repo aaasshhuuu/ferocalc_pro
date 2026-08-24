@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -47,14 +48,13 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
   }
 
   void _calculateLoanAmount() {
-    double r = _interestRate / 12 / 100;
     double n = _isMonths ? _tenure : _tenure * 12;
 
-    if (r == 0) {
-      _maxLoanAmount = _emi * n;
-    } else {
-      _maxLoanAmount = (_emi * (pow(1 + r, n) - 1)) / (r * pow(1 + r, n));
-    }
+    _maxLoanAmount = FinancialMath.calculateLoanAmount(
+      emi: _emi,
+      annualRate: _interestRate,
+      months: n.toInt(),
+    );
     
     _totalPayment = _emi * n;
     _totalInterest = _totalPayment - _maxLoanAmount;

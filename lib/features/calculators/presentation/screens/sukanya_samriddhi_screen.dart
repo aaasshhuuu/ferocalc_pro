@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -40,26 +41,15 @@ class _SukanyaSamriddhiScreenState extends State<SukanyaSamriddhiScreen> {
   }
 
   void _calculateSsy() {
-    double balance = 0;
-    double r = _interestRate / 100;
-    _totalInvestment = 0;
-    
-    // Deposit period is 15 years, maturity is 21 years from account opening
-    for (int year = 1; year <= 21; year++) {
-      double depositThisYear = 0;
-      if (year <= 15) {
-        depositThisYear = _isVariable ? _variableDeposits[year - 1] : _fixedYearlyDeposit;
-        _totalInvestment += depositThisYear;
-      }
-      
-      // Interest is calculated yearly on the balance
-      balance += depositThisYear;
-      double interestThisYear = balance * r;
-      balance += interestThisYear;
-    }
-    
-    _maturityValue = balance;
-    _totalInterest = _maturityValue - _totalInvestment;
+    final List<double> deposits = _isVariable ? _variableDeposits : List.filled(15, _fixedYearlyDeposit);
+    final result = FinancialMath.calculateSSY(
+      yearlyDeposits: deposits,
+      annualRate: _interestRate,
+      girlAge: _girlAge.toInt(),
+    );
+    _maturityValue = result['maturityValue']!;
+    _totalInvestment = result['totalDeposit']!;
+    _totalInterest = result['totalInterest']!;
     setState(() {});
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -45,23 +46,15 @@ class _SwpCalculatorScreenState extends State<SwpCalculatorScreen> with SingleTi
   }
 
   void _calculateSwp() {
-    double balance = _totalInvestment;
-    double r = _expectedReturn / 12 / 100;
-    int months = (_periodYears * 12).toInt();
-    
-    _totalWithdrawal = _withdrawalAmount * months;
-    
-    for (int i = 0; i < months; i++) {
-      balance = balance * (1 + r);
-      balance -= _withdrawalAmount;
-      if (balance < 0) {
-        balance = 0;
-        break;
-      }
-    }
-    
-    _finalValue = balance;
-    _totalEarnings = (_totalWithdrawal + _finalValue) - _totalInvestment;
+    final result = FinancialMath.calculateSWP(
+      investment: _totalInvestment,
+      withdrawal: _withdrawalAmount,
+      annualReturn: _expectedReturn,
+      months: (_periodYears * 12).toInt(),
+    );
+    _finalValue = result['finalBalance']!;
+    _totalWithdrawal = result['totalWithdrawn']!;
+    _totalEarnings = result['totalEarnings']!;
     
     _animationController.forward(from: 0.0);
     setState(() {});

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -50,27 +51,23 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
     double years = double.tryParse(_yearsCtrl.text) ?? 1;
     if (years <= 0) years = 1;
 
-    _totalInvestment = buy * qty;
+    final result = FinancialMath.calculateStockReturn(
+      buyPrice: buy,
+      sellPrice: sell,
+      quantity: qty.toInt(),
+      holdingYears: years,
+      annualDividendPerShare: divPerShare,
+      brokeragePercent: brokerageRate,
+    );
+    
+    _totalInvestment = result['totalInvestment']!;
+    _capitalGain = result['capitalGain']!;
+    _dividendIncome = result['dividendIncome']!;
+    _brokerageCost = result['brokerageCost']!;
+    _netProfit = result['netProfit']!;
+    _cagr = result['cagr']!;
     _totalSale = sell * qty;
     
-    double buyBrokerage = _totalInvestment * (brokerageRate / 100);
-    double sellBrokerage = _totalSale * (brokerageRate / 100);
-    _brokerageCost = buyBrokerage + sellBrokerage;
-
-    _dividendIncome = divPerShare * qty * years;
-    
-    _capitalGain = _totalSale - _totalInvestment;
-    _netProfit = _capitalGain + _dividendIncome - _brokerageCost;
-
-    double actualInvested = _totalInvestment + buyBrokerage;
-    double actualReturned = _totalSale - sellBrokerage + _dividendIncome;
-
-    if (actualInvested > 0) {
-      _cagr = (pow((actualReturned / actualInvested), (1 / years)) - 1) * 100;
-    } else {
-      _cagr = 0;
-    }
-
     setState(() {});
   }
 

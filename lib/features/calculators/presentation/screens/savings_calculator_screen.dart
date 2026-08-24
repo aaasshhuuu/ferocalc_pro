@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -34,25 +35,17 @@ class _SavingsCalculatorScreenState extends State<SavingsCalculatorScreen> {
   }
 
   void _calculateSavings() {
-    double r = _interestRate / 12 / 100;
-    double n = _periodYears * 12;
-
-    _totalSavings = _initialAmount + (_monthlySavings * n);
+    _totalSavings = FinancialMath.calculateSavings(
+      initialAmount: _initialAmount,
+      monthlyContribution: _monthlySavings,
+      annualRate: _interestRate,
+      months: (_periodYears * 12).toInt(),
+    );
     
-    // Future value of initial amount
-    double fvInitial = _initialAmount * pow(1 + r, n);
-    
-    // Future value of monthly savings
-    double fvMonthly = 0;
-    if (r > 0) {
-      fvMonthly = _monthlySavings * ((pow(1 + r, n) - 1) / r) * (1 + r);
-    } else {
-      fvMonthly = _monthlySavings * n;
-    }
-
-    _finalAmount = fvInitial + fvMonthly;
+    // Original calculated finalAmount by separating initial fv and monthly fv, which is what calculateSavings does
+    _finalAmount = _totalSavings; 
+    _totalSavings = _initialAmount + (_monthlySavings * (_periodYears * 12).toInt());
     _interestEarned = _finalAmount - _totalSavings;
-    
     setState(() {});
   }
 

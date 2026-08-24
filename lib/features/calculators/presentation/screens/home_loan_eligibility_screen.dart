@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -31,25 +32,18 @@ class _HomeLoanEligibilityScreenState extends State<HomeLoanEligibilityScreen> {
   void initState() {
     super.initState();
     _calculateEligibility();
-  }
+  }  void _calculateEligibility() {
+    final result = FinancialMath.calculateHomeLoanEligibility(
+      monthlyIncome: _monthlyIncome,
+      monthlyExpenses: 0,
+      annualRate: _interestRate,
+      tenureMonths: (_tenureYears * 12).toInt(),
+      existingEMIs: _otherEmis,
+      foir: _foir,
+    );
 
-  void _calculateEligibility() {
-    double totalObligationCapacity = _monthlyIncome * (_foir / 100);
-    _eligibleEmi = totalObligationCapacity - _otherEmis;
-    
-    if (_eligibleEmi <= 0) {
-      _eligibleEmi = 0;
-      _maxLoanAmount = 0;
-      setState(() {});
-      return;
-    }
-
-    double r = _interestRate / 12 / 100;
-    double n = _tenureYears * 12;
-    
-    if (r > 0) {
-      _maxLoanAmount = (_eligibleEmi * (pow(1 + r, n) - 1)) / (r * pow(1 + r, n));
-    }
+    _eligibleEmi = result['eligibleEMI'] ?? 0;
+    _maxLoanAmount = result['maxLoanAmount'] ?? 0;
     setState(() {});
   }
 

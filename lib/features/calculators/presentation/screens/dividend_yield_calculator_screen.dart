@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
@@ -32,33 +33,25 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
   void initState() {
     super.initState();
     _calculateYield();
-  }
-
-  void _calculateYield() {
+  }  void _calculateYield() {
     double price = double.tryParse(_priceCtrl.text) ?? 500;
     double divPerShare = double.tryParse(_divCtrl.text) ?? 20;
     double shares = double.tryParse(_sharesCtrl.text) ?? 100;
     double growth = double.tryParse(_growthCtrl.text) ?? 5;
     int years = int.tryParse(_yearsCtrl.text) ?? 10;
     
-    if (price > 0) {
-      _currentYield = (divPerShare / price) * 100;
-    }
-    
-    _annualIncome = divPerShare * shares;
-    
-    _totalDividend = 0;
-    double currentDiv = _annualIncome;
-    for (int i = 0; i < years; i++) {
-      _totalDividend += currentDiv;
-      currentDiv = currentDiv * (1 + (growth / 100));
-    }
-    
-    double totalCost = price * shares;
-    if (totalCost > 0) {
-      // final year dividend / original cost
-      _yieldOnCost = (currentDiv / totalCost) * 100;
-    }
+    final result = FinancialMath.calculateDividendYield(
+      sharePrice: price,
+      annualDividend: divPerShare,
+      numberOfShares: shares.toInt(),
+      dividendGrowthRate: growth,
+      years: years,
+    );
+
+    _currentYield = result['currentYield'] ?? 0;
+    _annualIncome = result['annualIncome'] ?? 0;
+    _totalDividend = result['totalDividend'] ?? 0;
+    _yieldOnCost = result['yieldOnCost'] ?? 0;
 
     setState(() {});
   }

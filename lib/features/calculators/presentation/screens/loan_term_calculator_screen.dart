@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
 
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
@@ -44,12 +45,13 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
   }
 
   void _calculateTerm() {
-    double p = _loanAmount;
-    double emi = _emi;
-    double r = _interestRate / 12 / 100;
+    int totalMonthsInt = FinancialMath.calculateLoanTenure(
+      principal: _loanAmount,
+      annualRate: _interestRate,
+      emi: _emi,
+    );
 
-    // Check if EMI is enough to cover monthly interest
-    if (emi <= p * r) {
+    if (totalMonthsInt == -1) {
       setState(() {
         _isPossible = false;
         _totalMonths = 0;
@@ -58,9 +60,7 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
     }
 
     _isPossible = true;
-    
-    // Formula: n = -log(1 - P*r/EMI) / log(1+r)
-    _totalMonths = -log(1 - (p * r / emi)) / log(1 + r);
+    _totalMonths = totalMonthsInt.toDouble();
     
     _animationController.forward(from: 0.0);
     setState(() {});
