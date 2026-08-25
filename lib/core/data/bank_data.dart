@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import '../services/bank_rate_api_service.dart';
 
 class BankInfo {

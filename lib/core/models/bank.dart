@@ -60,22 +60,22 @@ class Bank {
   };
 
   factory Bank.fromJson(Map<String, dynamic> json) => Bank(
-    id: json['id'] ?? '',
-    name: json['name'] ?? '',
-    shortName: json['shortName'] ?? '',
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    shortName: json['shortName']?.toString() ?? '',
     type: BankType.values.firstWhere(
-      (e) => e.name == json['type'],
+      (e) => e.name == json['type']?.toString(),
       orElse: () => BankType.private,
     ),
     status: BankStatus.values.firstWhere(
-      (e) => e.name == json['status'],
+      (e) => e.name == json['status']?.toString(),
       orElse: () => BankStatus.active,
     ),
-    successorBankId: json['successorBankId'],
-    officialWebsite: json['officialWebsite'],
-    established: json['established'],
-    headquarters: json['headquarters'],
-    customerCareNumber: json['customerCareNumber'],
-    totalBranches: json['totalBranches'],
+    successorBankId: json['successorBankId']?.toString(),
+    officialWebsite: json['officialWebsite']?.toString(),
+    established: json['established']?.toString(),
+    headquarters: json['headquarters']?.toString(),
+    customerCareNumber: json['customerCareNumber']?.toString(),
+    totalBranches: json['totalBranches']?.toString(),
   );
 }

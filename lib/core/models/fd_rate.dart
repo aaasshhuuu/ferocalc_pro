@@ -113,34 +113,34 @@ class FdRate {
   };
 
   factory FdRate.fromJson(Map<String, dynamic> json) => FdRate(
-    rateId: json['rateId'] ?? '',
-    bankId: json['bankId'] ?? '',
+    rateId: json['rateId']?.toString() ?? '',
+    bankId: json['bankId']?.toString() ?? '',
     customerType: CustomerType.values.firstWhere(
-      (e) => e.name == json['customerType'],
+      (e) => e.name == json['customerType']?.toString(),
       orElse: () => CustomerType.regular,
     ),
-    minTenureDays: json['minTenureDays'] ?? 0,
-    maxTenureDays: json['maxTenureDays'] ?? 0,
-    minDeposit: json['minDeposit']?.toDouble(),
-    maxDeposit: json['maxDeposit']?.toDouble(),
-    interestRate: (json['interestRate'] ?? 0).toDouble(),
+    minTenureDays: (json['minTenureDays'] as int?) ?? 0,
+    maxTenureDays: (json['maxTenureDays'] as int?) ?? 0,
+    minDeposit: (json['minDeposit'] as num?)?.toDouble(),
+    maxDeposit: (json['maxDeposit'] as num?)?.toDouble(),
+    interestRate: ((json['interestRate'] as num?) ?? 0).toDouble(),
     productType: json['productType'] != null
       ? FdProductType.values.firstWhere(
-          (e) => e.name == json['productType'],
+          (e) => e.name == json['productType']?.toString(),
           orElse: () => FdProductType.callable,
         )
       : null,
-    effectiveFrom: json['effectiveFrom'] != null ? DateTime.tryParse(json['effectiveFrom']) : null,
-    effectiveUntil: json['effectiveUntil'] != null ? DateTime.tryParse(json['effectiveUntil']) : null,
+    effectiveFrom: json['effectiveFrom'] != null ? DateTime.tryParse(json['effectiveFrom'].toString()) : null,
+    effectiveUntil: json['effectiveUntil'] != null ? DateTime.tryParse(json['effectiveUntil'].toString()) : null,
     verificationStatus: VerificationStatus.values.firstWhere(
-      (e) => e.name == json['verificationStatus'],
+      (e) => e.name == json['verificationStatus']?.toString(),
       orElse: () => VerificationStatus.pendingReview,
     ),
-    verifiedAt: json['verifiedAt'] != null ? DateTime.tryParse(json['verifiedAt']) : null,
-    sourceUrl: json['sourceUrl'],
-    sourceName: json['sourceName'],
-    sourceDocument: json['sourceDocument'],
-    prematureWithdrawalAllowed: json['prematureWithdrawalAllowed'] ?? true,
-    prematureWithdrawalPenalty: json['prematureWithdrawalPenalty']?.toDouble(),
+    verifiedAt: json['verifiedAt'] != null ? DateTime.tryParse(json['verifiedAt'].toString()) : null,
+    sourceUrl: json['sourceUrl']?.toString(),
+    sourceName: json['sourceName']?.toString(),
+    sourceDocument: json['sourceDocument']?.toString(),
+    prematureWithdrawalAllowed: (json['prematureWithdrawalAllowed'] as bool?) ?? true,
+    prematureWithdrawalPenalty: (json['prematureWithdrawalPenalty'] as num?)?.toDouble(),
   );
 }

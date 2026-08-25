@@ -1,6 +1,5 @@
 import '../models/bank.dart';
 import '../models/fd_rate.dart';
-import '../models/rate_change.dart';
 import '../services/rate_freshness_service.dart';
 import 'bank_data.dart';
 
