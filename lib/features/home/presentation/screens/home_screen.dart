@@ -323,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _TrendingCard(title: 'Retirement\nPlanner', subtitle: 'Plan your future', gradient: const LinearGradient(colors: [Color(0xFFC9A96E), Color(0xFFA67C00)]), icon: Icons.elderly, onTap: () => context.go('/calculator/retirement')),
       _TrendingCard(title: 'Goal\nPlanner', subtitle: 'Achieve your dreams', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.primary]), icon: Icons.flag_rounded, onTap: () => context.go('/calculator/goal')),
       _TrendingCard(title: 'CAGR\nCalculator', subtitle: 'Measure growth', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary]), icon: Icons.show_chart, onTap: () => context.go('/calculator/cagr')),
-      _TrendingCard(title: 'Compare\nBanks', subtitle: 'Find the best rates', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.surface, Theme.of(context).cardColor]), icon: Icons.compare_arrows, onTap: () => context.go('/compare')),
+      _TrendingCard(title: 'Compare\nBanks', subtitle: 'Compare bank rates', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.surface, Theme.of(context).cardColor]), icon: Icons.compare_arrows, onTap: () => context.go('/compare')),
     ];
 
     if (isDesktop) {

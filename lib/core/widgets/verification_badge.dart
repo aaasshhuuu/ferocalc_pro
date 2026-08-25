@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/fd_rate.dart';
+import 'verification_detail_sheet.dart';
 
 /// Displays a colored verification status badge.
+/// Tap to see full verification details when [rate] is provided.
 ///
 /// VERIFIED → Green shield
 /// PENDING_REVIEW → Amber clock
@@ -12,11 +14,15 @@ import '../models/fd_rate.dart';
 class VerificationBadge extends StatelessWidget {
   final VerificationStatus status;
   final bool compact;
+  final FdRate? rate;
+  final String? bankName;
 
   const VerificationBadge({
     Key? key,
     required this.status,
     this.compact = false,
+    this.rate,
+    this.bankName,
   }) : super(key: key);
 
   @override
@@ -24,37 +30,49 @@ class VerificationBadge extends StatelessWidget {
     final config = _getConfig(status);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    Widget badge;
+
     if (compact) {
-      return Tooltip(
+      badge = Tooltip(
         message: config.label,
         child: Icon(config.icon, size: 16, color: config.color),
       );
+    } else {
+      badge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: config.color.withOpacity(isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: config.color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(config.icon, size: 12, color: config.color),
+            const SizedBox(width: 4),
+            Text(
+              config.label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: config.color,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: config.color.withOpacity(isDark ? 0.15 : 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: config.color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(config.icon, size: 12, color: config.color),
-          const SizedBox(width: 4),
-          Text(
-            config.label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: config.color,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ],
-      ),
-    );
+    // If rate is available, make tappable to show detail sheet
+    if (rate != null) {
+      return GestureDetector(
+        onTap: () => VerificationDetailSheet.show(context, rate!, bankName: bankName),
+        child: badge,
+      );
+    }
+
+    return badge;
   }
 
   static _BadgeConfig _getConfig(VerificationStatus status) {

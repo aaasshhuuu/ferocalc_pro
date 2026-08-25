@@ -83,7 +83,7 @@ class FdRateCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                VerificationBadge(status: rate.verificationStatus),
+                VerificationBadge(status: rate.verificationStatus, rate: rate, bankName: bank.name),
               ],
             ),
             const SizedBox(height: 12),

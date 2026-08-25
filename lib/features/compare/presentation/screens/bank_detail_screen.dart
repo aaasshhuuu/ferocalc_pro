@@ -135,7 +135,7 @@ class BankDetailScreen extends StatelessWidget {
                 child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
               ),
               if (rates.isNotEmpty)
-                VerificationBadge(status: rates.first.verificationStatus),
+                VerificationBadge(status: rates.first.verificationStatus, rate: rates.first, bankName: bankName),
             ],
           ),
           const SizedBox(height: 16),

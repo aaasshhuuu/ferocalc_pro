@@ -27,7 +27,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     final pages = [
       _buildPage(Icons.calculate, 'Smart Financial Planning', 'Calculate EMI, FD, SIP in seconds.'),
-      _buildPage(Icons.account_balance, 'Compare & Save', 'Find the best bank rates across 50+ banks.'),
+      _buildPage(Icons.account_balance, 'Compare & Save', 'Compare FD rates across 30+ Indian banks.'),
       _buildPage(Icons.trending_up, 'Your Money, Your Way', 'Track, plan, and grow your wealth.'),
     ];
 

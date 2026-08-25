@@ -10,7 +10,7 @@ class ComparisonDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'Top Banks Dashboard'),
+      appBar: const CustomAppBar(title: 'Banks Dashboard'),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
