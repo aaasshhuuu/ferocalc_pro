@@ -292,11 +292,11 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
                               itemBuilder: (context, index) {
                                 final item = items[index];
                                 return _CalculatorTile(
-                                  name: item['name'],
-                                  icon: item['icon'],
-                                  desc: item['desc'],
+                                  name: item['name'] as String,
+                                  icon: item['icon'] as IconData,
+                                  desc: item['desc'] as String,
                                   isDark: isDark,
-                                  onTap: () => context.go(_getRoute(item['name'])),
+                                  onTap: () => context.go(_getRoute(item['name'] as String)),
                                   animationDelay: Duration(milliseconds: 40 * index),
                                 );
                               },

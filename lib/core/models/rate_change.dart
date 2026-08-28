@@ -51,14 +51,14 @@ class RateChange {
   };
 
   factory RateChange.fromJson(Map<String, dynamic> json) => RateChange(
-    changeId: json['changeId'] ?? '',
-    rateId: json['rateId'] ?? '',
-    bankId: json['bankId'] ?? '',
-    previousRate: (json['previousRate'] ?? 0).toDouble(),
-    newRate: (json['newRate'] ?? 0).toDouble(),
-    changedAt: DateTime.parse(json['changedAt']),
-    changedBy: json['changedBy'],
-    reason: json['reason'],
-    sourceUrl: json['sourceUrl'],
+    changeId: json['changeId']?.toString() ?? '',
+    rateId: json['rateId']?.toString() ?? '',
+    bankId: json['bankId']?.toString() ?? '',
+    previousRate: ((json['previousRate'] as num?) ?? 0).toDouble(),
+    newRate: ((json['newRate'] as num?) ?? 0).toDouble(),
+    changedAt: DateTime.parse(json['changedAt'].toString()),
+    changedBy: json['changedBy']?.toString(),
+    reason: json['reason']?.toString(),
+    sourceUrl: json['sourceUrl']?.toString(),
   );
 }

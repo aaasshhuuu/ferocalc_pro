@@ -18,30 +18,30 @@ class BankRateResponse {
     var banksList = json['banks'] as List? ?? [];
     List<BankInfo> banks = banksList.map((b) {
       return BankInfo(
-        name: b['name'] ?? '',
-        type: b['type'] ?? '',
-        country: b['country'] ?? 'India',
-        fdRates: Map<String, double>.from((b['fd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
-        rdRates: Map<String, double>.from((b['rd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
-        savingsRate: b['savings_rate']?.toDouble(),
-        lastUpdated: json['last_updated'] ?? 'August 2026',
-        shortName: b['short_name'] ?? '',
-        established: b['established'] ?? '',
-        headquarters: b['headquarters'] ?? '',
-        totalBranches: b['total_branches'] ?? '',
-        website: b['website'] ?? '',
-        customerCare: b['customer_care'] ?? '',
-        seniorCitizenExtra: (b['senior_citizen_extra'] ?? 0.50).toDouble(),
-        offers: List<String>.from(b['offers'] ?? []),
-        minFdAmount: b['min_fd_amount'] ?? 1000,
-        maxFdTenure: b['max_fd_tenure'] ?? '10 years',
-        features: List<String>.from(b['features'] ?? []),
+        name: b['name']?.toString() ?? '',
+        type: b['type']?.toString() ?? '',
+        country: b['country']?.toString() ?? 'India',
+        fdRates: Map<String, double>.from(((b['fd_rates'] as Map?) ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
+        rdRates: Map<String, double>.from(((b['rd_rates'] as Map?) ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
+        savingsRate: (b['savings_rate'] as num?)?.toDouble(),
+        lastUpdated: json['last_updated']?.toString() ?? 'August 2026',
+        shortName: b['short_name']?.toString() ?? '',
+        established: b['established']?.toString() ?? '',
+        headquarters: b['headquarters']?.toString() ?? '',
+        totalBranches: b['total_branches']?.toString() ?? '',
+        website: b['website']?.toString() ?? '',
+        customerCare: b['customer_care']?.toString() ?? '',
+        seniorCitizenExtra: ((b['senior_citizen_extra'] as num?) ?? 0.50).toDouble(),
+        offers: List<String>.from((b['offers'] as List?) ?? []),
+        minFdAmount: (b['min_fd_amount'] as int?) ?? 1000,
+        maxFdTenure: b['max_fd_tenure']?.toString() ?? '10 years',
+        features: List<String>.from((b['features'] as List?) ?? []),
       );
     }).toList();
 
     return BankRateResponse(
-      lastUpdated: json['last_updated'] ?? '',
-      updateFrequency: json['update_frequency'] ?? 'daily',
+      lastUpdated: json['last_updated']?.toString() ?? '',
+      updateFrequency: json['update_frequency']?.toString() ?? 'daily',
       banks: banks,
     );
   }
@@ -86,7 +86,7 @@ class BankRateApiService {
     try {
       final response = await _dio.get('$baseUrl/rates');
       if (response.statusCode == 200) {
-        final data = BankRateResponse.fromJson(response.data);
+        final data = BankRateResponse.fromJson(response.data as Map<String, dynamic>);
         await cacheRates(data);
         return data;
       }
@@ -107,24 +107,24 @@ class BankRateApiService {
       if (response.statusCode == 200) {
         var list = response.data as List;
         return list.map((b) => BankInfo(
-          name: b['name'] ?? '',
-          type: b['type'] ?? '',
-          country: b['country'] ?? 'India',
-          fdRates: Map<String, double>.from((b['fd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
-          rdRates: Map<String, double>.from((b['rd_rates'] ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
-          savingsRate: b['savings_rate']?.toDouble(),
+          name: b['name']?.toString() ?? '',
+          type: b['type']?.toString() ?? '',
+          country: b['country']?.toString() ?? 'India',
+          fdRates: Map<String, double>.from(((b['fd_rates'] as Map?) ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
+          rdRates: Map<String, double>.from(((b['rd_rates'] as Map?) ?? {}).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))),
+          savingsRate: (b['savings_rate'] as num?)?.toDouble(),
           lastUpdated: 'Unverified',
-          shortName: b['short_name'] ?? '',
-          established: b['established'] ?? '',
-          headquarters: b['headquarters'] ?? '',
-          totalBranches: b['total_branches'] ?? '',
-          website: b['website'] ?? '',
-          customerCare: b['customer_care'] ?? '',
-          seniorCitizenExtra: (b['senior_citizen_extra'] ?? 0.50).toDouble(),
-          offers: List<String>.from(b['offers'] ?? []),
-          minFdAmount: b['min_fd_amount'] ?? 1000,
-          maxFdTenure: b['max_fd_tenure'] ?? '10 years',
-          features: List<String>.from(b['features'] ?? []),
+          shortName: b['short_name']?.toString() ?? '',
+          established: b['established']?.toString() ?? '',
+          headquarters: b['headquarters']?.toString() ?? '',
+          totalBranches: b['total_branches']?.toString() ?? '',
+          website: b['website']?.toString() ?? '',
+          customerCare: b['customer_care']?.toString() ?? '',
+          seniorCitizenExtra: ((b['senior_citizen_extra'] as num?) ?? 0.50).toDouble(),
+          offers: List<String>.from((b['offers'] as List?) ?? []),
+          minFdAmount: (b['min_fd_amount'] as int?) ?? 1000,
+          maxFdTenure: b['max_fd_tenure']?.toString() ?? '10 years',
+          features: List<String>.from((b['features'] as List?) ?? []),
         )).toList();
       }
       throw Exception('Failed to load top banks');
@@ -142,14 +142,14 @@ class BankRateApiService {
         }
         final prefs = await SharedPreferences.getInstance();
         prefs.setString(_marketCacheKey, jsonEncode(response.data));
-        return MarketData.fromJson(response.data);
+        return MarketData.fromJson(response.data as Map<String, dynamic>);
       }
       throw Exception('Failed to load market data');
     } catch (e) {
       final prefs = await SharedPreferences.getInstance();
       final cachedStr = prefs.getString(_marketCacheKey);
       if (cachedStr != null) {
-        return MarketData.fromJson(jsonDecode(cachedStr));
+        return MarketData.fromJson(jsonDecode(cachedStr) as Map<String, dynamic>);
       }
       throw e;
     }
@@ -165,7 +165,7 @@ class BankRateApiService {
     final cachedStr = prefs.getString(_cacheKey);
     if (cachedStr != null) {
       try {
-        return BankRateResponse.fromJson(jsonDecode(cachedStr));
+        return BankRateResponse.fromJson(jsonDecode(cachedStr) as Map<String, dynamic>);
       } catch (e) {
         return null;
       }

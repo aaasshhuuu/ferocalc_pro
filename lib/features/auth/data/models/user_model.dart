@@ -21,13 +21,13 @@ class UserModel extends User {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] ?? '',
-      email: json['email'] ?? '',
-      displayName: json['displayName'] ?? '',
-      photoUrl: json['photoUrl'] ?? '',
-      authProvider: json['authProvider'] ?? 'email',
-      role: json['role'] ?? 'user',
-      isPremium: json['isPremium'] ?? false,
+      id: json['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      displayName: json['displayName']?.toString() ?? '',
+      photoUrl: json['photoUrl']?.toString() ?? '',
+      authProvider: json['authProvider']?.toString() ?? 'email',
+      role: json['role']?.toString() ?? 'user',
+      isPremium: (json['isPremium'] as bool?) ?? false,
     );
   }
 
