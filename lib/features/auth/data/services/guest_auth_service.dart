@@ -17,7 +17,7 @@ class GuestAuthService {
     if (isGuest) {
       return const User(
         id: 'guest_id',
-        email: 'guest@FeroCalc.app',
+        email: '',
         displayName: 'Guest',
         photoUrl: '',
         authProvider: 'guest',
@@ -25,7 +25,7 @@ class GuestAuthService {
         isPremium: false,
       );
     } else if (isLoggedIn) {
-      final email = _prefs.getString(_userEmailKey) ?? 'user@FeroCalc.app';
+      final email = _prefs.getString(_userEmailKey) ?? '';
       return User(
         id: 'user_id',
         email: email,

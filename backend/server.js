@@ -1,11 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+app.use(helmet());
 
 // CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -14,7 +18,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
-// Rate Limiting
+// Rate Limiting (in-memory, per-instance — NOT globally distributed)
+// Sufficient for MVP. For production scale, replace with Redis-backed limiter.
 const rateLimit = {};
 const rateLimitMiddleware = (maxReqs, windowMs) => (req, res, next) => {
   const ip = req.ip;
@@ -150,18 +155,7 @@ app.get('/api/market', publicRateLimit, (req, res) => {
   }
 });
 
-app.get('/api/market/live', publicRateLimit, (req, res) => {
-  try {
-    res.json({
-      status: 'unavailable',
-      message: 'Market data source not configured. Connect a verified market-data provider.',
-      data: null,
-      meta: { timestamp: new Date().toISOString() }
-    });
-  } catch (err) {
-    res.status(500).json(createResponse('error', null, 'Internal server error'));
-  }
-});
+// /api/market/live removed — no frontend dependency, endpoint was never live.
 
 app.post('/api/admin/update-rates', adminRateLimit, (req, res) => {
   try {
