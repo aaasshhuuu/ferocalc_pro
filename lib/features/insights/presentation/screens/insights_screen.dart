@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/widgets/glassmorphic_card.dart';
-import '../../../../core/services/bank_rate_api_service.dart';
 import '../../../../core/utils/responsive.dart';
 
 

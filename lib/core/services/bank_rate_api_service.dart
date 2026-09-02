@@ -74,13 +74,18 @@ class MarketData {
 }
 
 class BankRateApiService {
-  static String baseUrl = 'https://backend-ten-livid-14.vercel.app/api';
+  static const String defaultBaseUrl = 'https://backend-ten-livid-14.vercel.app/api';
+  static String baseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: defaultBaseUrl,
+  );
   static final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 5),
   ));
   static const String _cacheKey = 'cached_bank_rates';
   static const String _marketCacheKey = 'cached_market_data';
+  static bool isLastResponseFromCache = false;
 
   static Future<BankRateResponse> fetchRates() async {
     try {
@@ -88,12 +93,16 @@ class BankRateApiService {
       if (response.statusCode == 200) {
         final data = BankRateResponse.fromJson(response.data as Map<String, dynamic>);
         await cacheRates(data);
+        isLastResponseFromCache = false;
         return data;
       }
       throw Exception('Failed to load rates');
     } catch (e) {
       final cached = await loadCachedRates();
-      if (cached != null) return cached;
+      if (cached != null) {
+        isLastResponseFromCache = true;
+        return cached;
+      }
       throw e;
     }
   }
@@ -105,7 +114,16 @@ class BankRateApiService {
         'limit': limit,
       });
       if (response.statusCode == 200) {
-        var list = response.data as List;
+        final dynamic rawData = response.data;
+        final List<dynamic> list;
+        if (rawData is Map && rawData.containsKey('data')) {
+          list = (rawData['data'] as List<dynamic>?) ?? [];
+        } else if (rawData is List) {
+          list = rawData;
+        } else {
+          list = [];
+        }
+        isLastResponseFromCache = false;
         return list.map((b) => BankInfo(
           name: b['name']?.toString() ?? '',
           type: b['type']?.toString() ?? '',

@@ -20,7 +20,6 @@ class BankDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Try new model first, fall back to legacy
     final legacyBank = BankDataService.getBankByName(bankName);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final gold = const Color(0xFFC9A96E);
 
     if (legacyBank == null) {

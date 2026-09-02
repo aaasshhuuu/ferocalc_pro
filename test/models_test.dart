@@ -4,6 +4,7 @@ import 'package:fincalc_pro/core/models/fd_rate.dart';
 import 'package:fincalc_pro/core/models/rate_change.dart';
 import 'package:fincalc_pro/core/services/rate_freshness_service.dart';
 import 'package:fincalc_pro/core/data/bank_rate_repository.dart';
+import 'package:fincalc_pro/core/services/bank_rate_api_service.dart';
 
 void main() {
   // ═══════════════════════════════════════════════════════════════
@@ -342,6 +343,50 @@ void main() {
         expect(entry['rate'], isNotNull);
         expect(entry['freshness'], isNotNull);
       }
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // BANK RATE API SERVICE CONFIGURATION & PARSING
+  // ═══════════════════════════════════════════════════════════════
+  group('BankRateApiService Configuration & Parsing', () {
+    test('Default base URL points to production backend', () {
+      expect(
+        BankRateApiService.defaultBaseUrl,
+        equals('https://backend-ten-livid-14.vercel.app/api'),
+      );
+      expect(
+        BankRateApiService.baseUrl,
+        equals('https://backend-ten-livid-14.vercel.app/api'),
+      );
+    });
+
+    test('BankRateResponse parses API response format correctly', () {
+      final apiResponse = {
+        'status': 'ok',
+        'data': {
+          'last_updated': '2026-08-31T00:00:00Z',
+          'banks': [
+            {
+              'name': 'Test Bank',
+              'type': 'public',
+              'country': 'India',
+              'fd_rates': {'1y': 7.0, '2y': 7.25},
+              'rd_rates': {'1y': 6.5},
+              'savings_rate': 3.5,
+              'senior_citizen_extra': 0.5,
+              'min_fd_amount': 1000,
+            }
+          ]
+        },
+        'meta': {'timestamp': '2026-08-31T15:00:00Z'}
+      };
+
+      final parsed = BankRateResponse.fromJson(apiResponse['data'] as Map<String, dynamic>);
+      expect(parsed.banks.length, equals(1));
+      expect(parsed.banks.first.name, equals('Test Bank'));
+      expect(parsed.banks.first.fdRates['1y'], equals(7.0));
+      expect(parsed.banks.first.seniorCitizenExtra, equals(0.5));
     });
   });
 }

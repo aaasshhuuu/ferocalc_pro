@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
-import '../../../../core/widgets/glassmorphic_card.dart';
 import '../../../../core/data/bank_rate_repository.dart';
 import '../../../../core/models/bank.dart';
 import '../../../../core/models/fd_rate.dart';

@@ -24,7 +24,7 @@ class ApiClient {
       },
       onError: (DioException e, handler) {
         if (kDebugMode) {
-          print('DioError: \${e.message}');
+          debugPrint('DioError: ${e.message}');
         }
         return handler.next(e);
       },

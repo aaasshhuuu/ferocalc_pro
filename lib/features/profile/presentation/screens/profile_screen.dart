@@ -157,10 +157,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // --- About FeroCalc ---
         _buildSectionHeader('About FeroCalc'),
         _buildListTile(context, Icons.info_outline, 'Privacy Policy', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
+          Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyScreen()));
         }),
         _buildListTile(context, Icons.description_outlined, 'Terms of Service', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsScreen()));
+          Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
         }),
         _buildVersionTile(context),
         const SizedBox(height: 16),
@@ -168,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // --- Support ---
         _buildSectionHeader('Support'),
         _buildListTile(context, Icons.star_rate_outlined, 'Rate Us', () {
-          showDialog(
+          showDialog<void>(
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Rate Us'),
@@ -237,10 +237,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // --- About FeroCalc ---
         _buildSectionHeader('About FeroCalc'),
         _buildListTile(context, Icons.info_outline, 'Privacy Policy', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
+          Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyScreen()));
         }),
         _buildListTile(context, Icons.description_outlined, 'Terms of Service', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsScreen()));
+          Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
         }),
         _buildVersionTile(context),
         const SizedBox(height: 16),
@@ -377,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 12),
           InkWell(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsScreen()));
+              Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
             },
             child: const Row(
               mainAxisSize: MainAxisSize.min,

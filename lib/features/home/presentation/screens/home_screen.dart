@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../config/themes/app_colors.dart';
-import '../../../../config/themes/app_gradients.dart';
-import '../../../../core/widgets/glassmorphic_card.dart';
 import '../../../../core/data/bank_data.dart';
 import '../../../../core/data/bank_rate_repository.dart';
+import '../../../../core/services/bank_rate_api_service.dart';
 import '../../../../core/widgets/fd_rate_card.dart';
 import 'dart:ui';
 
@@ -21,8 +19,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   Timer? _refreshTimer;
-
-  String _lastUpdated = '';
 
   @override
   void initState() {
@@ -43,8 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _isLoading = false;
-        final now = DateTime.now();
-        _lastUpdated = '${now.hour}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
       });
     }
   }
@@ -292,27 +286,37 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFFF59E0B),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Static data \u2022 Rates pending verification',
-              style: TextStyle(
-                color: Color(0xFFF59E0B),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        Builder(
+          builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final isCached = BankRateApiService.isLastResponseFromCache;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCached ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isCached
+                      ? 'Cached offline data \u2022 Rates pending verification'
+                      : 'API synced \u2022 Rates pending verification',
+                  style: TextStyle(
+                    color: isCached
+                        ? const Color(0xFFF59E0B)
+                        : (isDark ? Colors.white70 : Colors.black54),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
