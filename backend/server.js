@@ -5,6 +5,10 @@ const helmet = require('helmet');
 const fs = require('fs');
 const path = require('path');
 
+// Verified FD Rate Engine routes (Phase I / F)
+const verifiedRatesRouter = require('./routes/verified_rates');
+const adminRatesRouter    = require('./routes/admin_rates');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -17,6 +21,14 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : ['http://localhost:3000', 'http://localhost:8080'];
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
+
+// ============================================================
+// Verified FD Rate Engine — new routes (coexists with legacy)
+// ============================================================
+// Public — anon key, VERIFIED-only via RLS + view
+app.use('/api/verified-rates', verifiedRatesRouter);
+// Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER
+app.use('/api/admin', adminRatesRouter);
 
 // Rate Limiting (in-memory, per-instance — NOT globally distributed)
 // Sufficient for MVP. For production scale, replace with Redis-backed limiter.
