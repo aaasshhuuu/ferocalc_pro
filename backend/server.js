@@ -22,14 +22,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
-// ============================================================
-// Verified FD Rate Engine — new routes (coexists with legacy)
-// ============================================================
-// Public — anon key, VERIFIED-only via RLS + view
-app.use('/api/verified-rates', verifiedRatesRouter);
-// Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER
-app.use('/api/admin', adminRatesRouter);
-
 // Rate Limiting (in-memory, per-instance — NOT globally distributed)
 // Sufficient for MVP. For production scale, replace with Redis-backed limiter.
 const rateLimit = {};
@@ -51,6 +43,14 @@ const adminRateLimit = rateLimitMiddleware(
   parseInt(process.env.RATE_LIMIT_MAX_ADMIN) || 10, 
   parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000
 );
+
+// ============================================================
+// Verified FD Rate Engine — new routes (coexists with legacy)
+// ============================================================
+// Public — anon key, VERIFIED-only via RLS + view, rate-limited
+app.use('/api/verified-rates', publicRateLimit, verifiedRatesRouter);
+// Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER, rate-limited
+app.use('/api/admin', adminRateLimit, adminRatesRouter);
 
 // Admin Startup Check
 const adminApiKey = process.env.ADMIN_API_KEY;

@@ -73,6 +73,85 @@ function isOfficialDomain(url) {
 }
 
 // ============================================================
+// Helpers: rate_category / scheme_name validation
+// ============================================================
+
+const VALID_RATE_CATEGORIES = ['STANDARD', 'SPECIAL_SCHEME'];
+
+/**
+ * Validate and normalize rate_category + scheme_name.
+ * Returns { rateCategory, schemeName } on success or pushes to errors[].
+ */
+function validateCategoryFields(body, errors) {
+  const rateCategory = (body.rate_category ?? 'STANDARD').toString().toUpperCase().trim();
+  if (!VALID_RATE_CATEGORIES.includes(rateCategory)) {
+    errors.push(`rate_category must be one of: ${VALID_RATE_CATEGORIES.join(', ')}`);
+    return { rateCategory: 'STANDARD', schemeName: null };
+  }
+
+  const rawScheme = body.scheme_name != null ? String(body.scheme_name).trim().toUpperCase() : null;
+
+  if (rateCategory === 'SPECIAL_SCHEME') {
+    if (!rawScheme || rawScheme === '') {
+      errors.push('scheme_name is required and must be non-empty for SPECIAL_SCHEME rates');
+    }
+  } else {
+    // STANDARD must not carry a scheme_name
+    if (rawScheme != null && rawScheme !== '') {
+      errors.push('scheme_name must be null/absent for STANDARD rates');
+    }
+  }
+
+  return {
+    rateCategory,
+    schemeName: rateCategory === 'SPECIAL_SCHEME' ? rawScheme : null,
+  };
+}
+
+// ============================================================
+// Helper: build application-layer overlap pre-flight query.
+// Returns { conflicts, error }.
+// conflicts: array of conflicting rate objects (may be empty).
+// This check is for UX (returns useful 409 details) only.
+// The DB function's advisory-lock-protected check is authoritative.
+// ============================================================
+
+async function findOverlappingVerifiedRates(rate, excludeId) {
+  // Base query: same conflict domain, VERIFIED, active
+  let query = supabaseAdmin
+    .from('fd_rates')
+    .select('id, min_tenure_days, max_tenure_days, min_deposit, max_deposit, interest_rate')
+    .neq('id', excludeId)
+    .eq('bank_id', rate.bank_id)
+    .eq('customer_type', rate.customer_type)
+    .eq('is_callable', rate.is_callable)
+    .eq('rate_category', rate.rate_category)
+    .eq('status', 'VERIFIED')
+    .is('effective_until', null)
+    // Tenure overlap (closed-inclusive): conflict.min <= target.max AND target.min <= conflict.max
+    .lte('min_tenure_days', rate.max_tenure_days)
+    .gte('max_tenure_days', rate.min_tenure_days);
+
+  // For SPECIAL_SCHEME: only same scheme_name conflicts (stored normalized)
+  if (rate.rate_category === 'SPECIAL_SCHEME' && rate.scheme_name) {
+    query = query.eq('scheme_name', rate.scheme_name); // already normalized on write
+  }
+
+  // Deposit overlap (closed-inclusive, NULL = unbounded ceiling):
+  // Condition A: conflict.max_deposit IS NULL OR conflict.max_deposit >= target.min_deposit
+  query = query.or(`max_deposit.is.null,max_deposit.gte.${rate.min_deposit}`);
+
+  // Condition B: target.max_deposit IS NULL OR target.max_deposit >= conflict.min_deposit
+  // If target has a ceiling, add filter: conflict.min_deposit <= target.max_deposit
+  if (rate.max_deposit !== null && rate.max_deposit !== undefined) {
+    query = query.lte('min_deposit', rate.max_deposit);
+  }
+  // If target.max_deposit IS NULL (unbounded), condition B is always true — no filter needed.
+
+  return query.limit(10);
+}
+
+// ============================================================
 // POST /api/admin/rates/draft
 // Create a new DRAFT rate.
 // Validated fields only. No rate is marked VERIFIED here.
@@ -87,16 +166,22 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
       effective_from, source_url, review_notes,
     } = req.body;
 
-    // Server-side field validation
     const errors = [];
-    if (!bank_id) errors.push('bank_id is required');
-    if (!customer_type) errors.push('customer_type is required');
-    if (min_tenure_days == null || min_tenure_days < 0) errors.push('min_tenure_days must be >= 0');
-    if (max_tenure_days == null || max_tenure_days < min_tenure_days) errors.push('max_tenure_days must be >= min_tenure_days');
-    if (min_deposit == null || min_deposit < 0) errors.push('min_deposit must be >= 0');
-    if (max_deposit != null && max_deposit < min_deposit) errors.push('max_deposit must be >= min_deposit');
-    if (interest_rate == null || interest_rate < 0) errors.push('interest_rate must be >= 0');
-    if (!effective_from) errors.push('effective_from is required');
+
+    // Core field validation
+    if (!bank_id)                                    errors.push('bank_id is required');
+    if (!customer_type)                              errors.push('customer_type is required');
+    if (min_tenure_days == null || min_tenure_days < 0)  errors.push('min_tenure_days must be >= 0');
+    if (max_tenure_days == null || max_tenure_days < min_tenure_days)
+      errors.push('max_tenure_days must be >= min_tenure_days');
+    if (min_deposit == null || min_deposit < 0)      errors.push('min_deposit must be >= 0');
+    if (max_deposit != null && max_deposit < min_deposit)
+      errors.push('max_deposit must be >= min_deposit');
+    if (interest_rate == null || interest_rate < 0)  errors.push('interest_rate must be >= 0');
+    if (!effective_from)                             errors.push('effective_from is required');
+
+    // rate_category + scheme_name
+    const { rateCategory, schemeName } = validateCategoryFields(req.body, errors);
 
     if (errors.length > 0) {
       return res.status(400).json({ status: 'error', message: 'Validation failed', errors });
@@ -106,33 +191,34 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
       .from('fd_rates')
       .insert({
         bank_id,
-        customer_type: customer_type.toUpperCase(),
-        min_tenure_days: parseInt(min_tenure_days),
-        max_tenure_days: parseInt(max_tenure_days),
-        min_deposit: parseFloat(min_deposit) || 0,
-        max_deposit: max_deposit != null ? parseFloat(max_deposit) : null,
-        interest_rate: parseFloat(interest_rate),
-        is_callable: is_callable !== false,
+        customer_type:         customer_type.toUpperCase(),
+        min_tenure_days:       parseInt(min_tenure_days),
+        max_tenure_days:       parseInt(max_tenure_days),
+        min_deposit:           parseFloat(min_deposit) || 0,
+        max_deposit:           max_deposit != null ? parseFloat(max_deposit) : null,
+        interest_rate:         parseFloat(interest_rate),
+        is_callable:           is_callable !== false,
         compounding_frequency: compounding_frequency ?? 'QUARTERLY',
         effective_from,
-        status: 'DRAFT',
-        source_url: source_url ?? null,
-        created_by: req.adminUser.id,
-        review_notes: review_notes ?? null,
+        status:                'DRAFT',
+        source_url:            source_url ?? null,
+        created_by:            req.adminUser.id,
+        review_notes:          review_notes ?? null,
+        rate_category:         rateCategory,
+        scheme_name:           schemeName,
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    // Write audit log
     await supabaseAdmin.from('rate_audit_log').insert({
-      rate_id: data.id,
-      action: 'CREATE',
-      old_value: null,
-      new_value: { status: 'DRAFT', interest_rate, bank_id },
+      rate_id:      data.id,
+      action:       'CREATE',
+      old_value:    null,
+      new_value:    { status: 'DRAFT', interest_rate, bank_id, rate_category: rateCategory },
       performed_by: req.adminUser.id,
-      notes: 'Draft rate created',
+      notes:        'Draft rate created',
     });
 
     return res.status(201).json({ status: 'ok', data });
@@ -146,6 +232,15 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
 // ============================================================
 // PATCH /api/admin/rates/:id/transition
 // Transition a rate's status using the server-side state machine.
+//
+// For VERIFIED transitions:
+//   1. Validates source_url domain.
+//   2. Runs application-layer range-overlap pre-flight (UX quality check).
+//      On overlap → HTTP 409 with conflict details and supersede hint.
+//      NO automatic archiving. Explicit intent required.
+//   3. If no preflight conflict → calls transition_rate_status RPC, which
+//      is the authoritative concurrency-safe check (advisory lock + overlap).
+//   4. Translates DB "Overlap conflict" exception → HTTP 409.
 // ============================================================
 
 router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
@@ -161,12 +256,14 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
       });
     }
 
-    // Before VERIFY: validate source is official domain, then check for
-    // an existing active VERIFIED rate in the same logical bucket.
     if (new_status === 'VERIFIED') {
+      // ── Fetch rate fields for preflight checks ───────────────────────
       const { data: rate, error: fetchErr } = await supabaseAdmin
         .from('fd_rates')
-        .select('source_url, bank_id, customer_type, min_tenure_days, max_tenure_days, min_deposit, max_deposit, is_callable')
+        .select(
+          'source_url, bank_id, customer_type, min_tenure_days, max_tenure_days, ' +
+          'min_deposit, max_deposit, is_callable, rate_category, scheme_name'
+        )
         .eq('id', id)
         .single();
 
@@ -174,6 +271,7 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
         return res.status(404).json({ status: 'error', message: 'Rate not found' });
       }
 
+      // ── Source URL validation ────────────────────────────────────────
       if (!rate.source_url) {
         return res.status(400).json({
           status: 'error',
@@ -183,59 +281,39 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
       if (!isOfficialDomain(rate.source_url)) {
         return res.status(400).json({
           status: 'error',
-          message: `source_url must be from an official bank domain: ${ALLOWED_SOURCE_DOMAINS.join(', ')}. ` +
-                   `Got: ${rate.source_url}`,
+          message:
+            `source_url must be from an official bank domain: ${ALLOWED_SOURCE_DOMAINS.join(', ')}. ` +
+            `Got: ${rate.source_url}`,
         });
       }
 
-      // ================================================================
-      // Look for an existing ACTIVE VERIFIED rate for the same bucket.
-      // "Active" = status VERIFIED AND effective_until IS NULL.
-      // If found, we must atomically archive it and verify the new one
-      // using archive_and_supersede — the same transaction that creates
-      // the new VERIFIED record also sets effective_until on the old one.
-      // This mirrors the DB uniqueness constraint and preserves history.
-      // ================================================================
-      let existingQuery = supabaseAdmin
-        .from('fd_rates')
-        .select('id')
-        .neq('id', id)               // exclude the rate we are about to verify
-        .eq('bank_id', rate.bank_id)
-        .eq('customer_type', rate.customer_type)
-        .eq('min_tenure_days', rate.min_tenure_days)
-        .eq('max_tenure_days', rate.max_tenure_days)
-        .eq('min_deposit', rate.min_deposit)
-        .eq('is_callable', rate.is_callable)
-        .eq('status', 'VERIFIED')
-        .is('effective_until', null)
-        .limit(1);
+      // ── Application-layer overlap pre-flight ─────────────────────────
+      // This check is for UX quality only — provides actionable HTTP 409
+      // details with conflicting rate IDs and a supersede hint.
+      // The authoritative concurrency-safe check runs inside the DB RPC.
+      // We NEVER automatically archive an overlapping rate from here.
+      const { data: conflicts, error: conflictErr } =
+        await findOverlappingVerifiedRates(rate, id);
 
-      // max_deposit: NULL means open ceiling and must match NULL-to-NULL
-      if (rate.max_deposit !== null && rate.max_deposit !== undefined) {
-        existingQuery = existingQuery.eq('max_deposit', rate.max_deposit);
-      } else {
-        existingQuery = existingQuery.is('max_deposit', null);
+      if (conflictErr) throw conflictErr;
+
+      if (conflicts && conflicts.length > 0) {
+        return res.status(409).json({
+          status:    'conflict',
+          message:   'Cannot verify: overlapping active VERIFIED rate(s) exist.',
+          conflicts: conflicts.map(c => ({
+            id:               c.id,
+            min_tenure_days:  c.min_tenure_days,
+            max_tenure_days:  c.max_tenure_days,
+            min_deposit:      c.min_deposit,
+            max_deposit:      c.max_deposit,
+            interest_rate:    c.interest_rate,
+          })),
+          hint: 'To intentionally replace an existing rate, use POST /api/admin/rates/:id/supersede with old_rate_id.',
+        });
       }
 
-      const { data: existing, error: existErr } = await existingQuery;
-      if (existErr) throw existErr;
-
-      if (existing && existing.length > 0) {
-        // Supersede: archive old → verify new, atomically in PostgreSQL
-        const { data, error } = await supabaseAdmin
-          .rpc('archive_and_supersede', {
-            p_old_rate_id:  existing[0].id,
-            p_new_rate_id:  id,
-            p_performed_by: req.adminUser.id,
-            p_effective_at: new Date().toISOString(),
-            p_notes:        notes ?? null,
-          });
-
-        if (error) throw error;
-        return res.json({ status: 'ok', superseded: true, data });
-      }
-
-      // No existing active VERIFIED rate — simple transition
+      // ── Call the authoritative DB state machine (advisory-lock protected) ──
       const { data, error } = await supabaseAdmin
         .rpc('transition_rate_status', {
           p_rate_id:      id,
@@ -244,7 +322,17 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
           p_notes:        notes ?? null,
         });
 
-      if (error) throw error;
+      if (error) {
+        // Translate DB overlap exception → HTTP 409
+        if (error.message && error.message.includes('Overlap conflict')) {
+          return res.status(409).json({
+            status:  'conflict',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
+
       return res.json({ status: 'ok', superseded: false, data });
     }
 
@@ -267,6 +355,125 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
 });
 
 // ============================================================
+// POST /api/admin/rates/:id/supersede
+// Explicit, human-initiated replacement of one VERIFIED rate
+// by the rate identified by :id (which must be IN_REVIEW).
+//
+// Body: { old_rate_id: "<uuid>", notes?: "..." }
+//
+// Validation:
+//   - :id (new rate) must be IN_REVIEW
+//   - old_rate_id must be VERIFIED with effective_until IS NULL
+//   - Both rates must belong to the same bank
+//   - Both rates must share the same conflict domain fields
+//     (customer_type, is_callable, rate_category)
+//
+// On success: calls archive_and_supersede() atomically.
+// ============================================================
+
+router.post('/rates/:id/supersede', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { old_rate_id, notes } = req.body;
+
+    // Basic presence check
+    if (!old_rate_id) {
+      return res.status(400).json({
+        status:  'error',
+        message: 'old_rate_id is required in the request body',
+      });
+    }
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(id) || !UUID_RE.test(old_rate_id)) {
+      return res.status(400).json({ status: 'error', message: 'Both :id and old_rate_id must be valid UUIDs' });
+    }
+    if (id === old_rate_id) {
+      return res.status(400).json({ status: 'error', message: ':id and old_rate_id must be different rates' });
+    }
+
+    // Fetch both rates in parallel
+    const [newRateResult, oldRateResult] = await Promise.all([
+      supabaseAdmin.from('fd_rates')
+        .select('id, status, bank_id, customer_type, is_callable, rate_category, scheme_name, source_url')
+        .eq('id', id).single(),
+      supabaseAdmin.from('fd_rates')
+        .select('id, status, bank_id, customer_type, is_callable, rate_category, effective_until')
+        .eq('id', old_rate_id).single(),
+    ]);
+
+    if (newRateResult.error || !newRateResult.data) {
+      return res.status(404).json({ status: 'error', message: `New rate ${id} not found` });
+    }
+    if (oldRateResult.error || !oldRateResult.data) {
+      return res.status(404).json({ status: 'error', message: `Old rate ${old_rate_id} not found` });
+    }
+
+    const newRate = newRateResult.data;
+    const oldRate = oldRateResult.data;
+
+    const errors = [];
+
+    if (newRate.status !== 'IN_REVIEW') {
+      errors.push(`New rate must be IN_REVIEW (currently ${newRate.status})`);
+    }
+    if (oldRate.status !== 'VERIFIED') {
+      errors.push(`Old rate must be VERIFIED (currently ${oldRate.status})`);
+    }
+    if (oldRate.effective_until !== null) {
+      errors.push('Old rate is already expired (effective_until is set)');
+    }
+    if (newRate.bank_id !== oldRate.bank_id) {
+      errors.push('Both rates must belong to the same bank');
+    }
+    if (newRate.customer_type !== oldRate.customer_type) {
+      errors.push('Both rates must have the same customer_type');
+    }
+    if (newRate.is_callable !== oldRate.is_callable) {
+      errors.push('Both rates must have the same is_callable value');
+    }
+    if (newRate.rate_category !== oldRate.rate_category) {
+      errors.push('Both rates must have the same rate_category');
+    }
+    if (!newRate.source_url) {
+      errors.push('New rate must have a source_url before superseding');
+    } else if (!isOfficialDomain(newRate.source_url)) {
+      errors.push(`source_url must be from an official bank domain: ${ALLOWED_SOURCE_DOMAINS.join(', ')}`);
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ status: 'error', message: 'Validation failed', errors });
+    }
+
+    // Call archive_and_supersede atomically (advisory-lock protected in DB)
+    const { data, error } = await supabaseAdmin
+      .rpc('archive_and_supersede', {
+        p_old_rate_id:  old_rate_id,
+        p_new_rate_id:  id,
+        p_performed_by: req.adminUser.id,
+        p_effective_at: new Date().toISOString(),
+        p_notes:        notes ?? null,
+      });
+
+    if (error) {
+      if (error.message && error.message.includes('Overlap conflict')) {
+        return res.status(409).json({
+          status:  'conflict',
+          message: error.message,
+        });
+      }
+      throw error;
+    }
+
+    return res.json({ status: 'ok', superseded: true, data });
+
+  } catch (err) {
+    console.error('[admin/rates/supersede]', err?.message);
+    return res.status(500).json({ status: 'error', message: err?.message ?? 'Internal error' });
+  }
+});
+
+// ============================================================
 // PATCH /api/admin/rates/:id
 // Edit a DRAFT or REJECTED rate's field values.
 // Cannot edit VERIFIED or ARCHIVED rates.
@@ -276,7 +483,6 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Only allow editing mutable states
     const { data: existing } = await supabaseAdmin
       .from('fd_rates')
       .select('status')
@@ -288,7 +494,7 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
     }
     if (!['DRAFT', 'REJECTED'].includes(existing.status)) {
       return res.status(400).json({
-        status: 'error',
+        status:  'error',
         message: `Cannot edit a rate in status ${existing.status}. Only DRAFT or REJECTED rates can be edited.`,
       });
     }
@@ -307,6 +513,30 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    // Handle rate_category + scheme_name if either is being updated
+    if (req.body.rate_category !== undefined || req.body.scheme_name !== undefined) {
+      // If only scheme_name is changing, we need the existing rate_category
+      // to validate consistency.  Fetch it.
+      let effectiveCategory = req.body.rate_category ?? null;
+      if (effectiveCategory === null) {
+        const { data: current } = await supabaseAdmin
+          .from('fd_rates').select('rate_category').eq('id', id).single();
+        effectiveCategory = current?.rate_category ?? 'STANDARD';
+      }
+
+      const tempBody = {
+        rate_category: effectiveCategory,
+        scheme_name:   req.body.scheme_name,
+      };
+      const errors = [];
+      const { rateCategory, schemeName } = validateCategoryFields(tempBody, errors);
+      if (errors.length > 0) {
+        return res.status(400).json({ status: 'error', message: 'Validation failed', errors });
+      }
+      patch.rate_category = rateCategory;
+      patch.scheme_name   = schemeName;
+    }
+
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ status: 'error', message: 'No valid fields to update' });
     }
@@ -315,19 +545,33 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
       .from('fd_rates')
       .update(patch)
       .eq('id', id)
+      // FIX 1 (Migration 008 hardening): make the UPDATE itself the race guard.
+      // If the rate's status changed concurrently (e.g. DRAFT → IN_REVIEW between
+      // the pre-check above and this UPDATE), no row will match and maybeSingle()
+      // returns null — we then return HTTP 409 rather than silently mutating an
+      // IN_REVIEW rate's conflict-domain fields.
+      .in('status', ['DRAFT', 'REJECTED'])
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 
-    // Write audit log
+    if (!data) {
+      // No matching row: either the rate was not found or its status changed
+      // concurrently between the pre-check and this UPDATE.
+      return res.status(409).json({
+        status:  'conflict',
+        message: 'Rate status changed concurrently — cannot edit. The rate may have been submitted for review. Refresh and try again.',
+      });
+    }
+
     await supabaseAdmin.from('rate_audit_log').insert({
-      rate_id: id,
-      action: 'EDIT',
-      old_value: { status: existing.status },
-      new_value: patch,
+      rate_id:      id,
+      action:       'EDIT',
+      old_value:    { status: existing.status },
+      new_value:    patch,
       performed_by: req.adminUser.id,
-      notes: 'Draft fields updated',
+      notes:        'Draft fields updated',
     });
 
     return res.json({ status: 'ok', data });
@@ -360,7 +604,7 @@ router.get('/rates', requireAdmin, async (req, res) => {
       const statusUpper = status.toUpperCase();
       if (!validStatuses.includes(statusUpper)) {
         return res.status(400).json({
-          status: 'error',
+          status:  'error',
           message: `status must be one of: ${validStatuses.join(', ')}`,
         });
       }
