@@ -38,6 +38,47 @@ enum RateStatus {
   bool get isPublic => this == RateStatus.verified;
 }
 
+// ============================================================
+// RateCategory — mirrors PostgreSQL rate_category enum (Migration 007)
+// ============================================================
+
+/// Distinguishes a normal card-rate slab from a named promotional scheme.
+///
+/// STANDARD:      Normal tenure slab published in the bank's rate card.
+///                Standard slabs must not overlap in the same conflict domain.
+/// SPECIAL_SCHEME: Named promotional / fixed-day product (e.g. "AMRIT KALASH").
+///                Different scheme names may coexist with each other and with
+///                standard slabs.
+enum RateCategory {
+  standard,
+  specialScheme;
+
+  factory RateCategory.fromString(String? s) {
+    switch ((s ?? '').toUpperCase()) {
+      case 'SPECIAL_SCHEME': return RateCategory.specialScheme;
+      case 'STANDARD':
+      default:               return RateCategory.standard;
+    }
+  }
+
+  /// PostgreSQL / API wire value (matches enum name exactly).
+  String get apiValue {
+    switch (this) {
+      case RateCategory.standard:      return 'STANDARD';
+      case RateCategory.specialScheme: return 'SPECIAL_SCHEME';
+    }
+  }
+
+  String get displayLabel {
+    switch (this) {
+      case RateCategory.standard:      return 'Standard';
+      case RateCategory.specialScheme: return 'Special Scheme';
+    }
+  }
+
+  bool get isSpecialScheme => this == RateCategory.specialScheme;
+}
+
 enum VerifiedCustomerType {
   regular,
   seniorCitizen,
@@ -135,6 +176,14 @@ class VerifiedFdRate {
   final String? sourceUrl;
   final DateTime? verifiedAt;
   final String? reviewNotes;
+  // ── Migration 007 fields ──────────────────────────────────────────────
+  /// Rate category: STANDARD card-rate slab or SPECIAL_SCHEME promotion.
+  /// Defaults to [RateCategory.standard] when absent from API response
+  /// (backward-compatible with pre-007 responses).
+  final RateCategory rateCategory;
+  /// Normalised scheme name (upper-cased, trimmed). Non-null only when
+  /// [rateCategory] is [RateCategory.specialScheme].
+  final String? schemeName;
 
   const VerifiedFdRate({
     required this.id,
@@ -155,6 +204,8 @@ class VerifiedFdRate {
     this.sourceUrl,
     this.verifiedAt,
     this.reviewNotes,
+    this.rateCategory = RateCategory.standard,
+    this.schemeName,
   });
 
   factory VerifiedFdRate.fromJson(Map<String, dynamic> json) {
@@ -181,28 +232,34 @@ class VerifiedFdRate {
                               ? DateTime.tryParse(json['verified_at'].toString())
                               : null,
       reviewNotes:          json['review_notes']?.toString(),
+      // Migration 007: default to standard when field is absent (old API compat)
+      rateCategory:         RateCategory.fromString(json['rate_category']?.toString()),
+      schemeName:           json['scheme_name']?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id':                   id,
-    'bank_id':              bankId,
-    'bank_name':            bankName,
-    'bank_short_name':      bankShortName,
-    'bank_source_domain':   bankSourceDomain,
-    'customer_type':        customerType.name.toUpperCase(),
-    'min_tenure_days':      minTenureDays,
-    'max_tenure_days':      maxTenureDays,
-    'min_deposit':          minDeposit,
-    'max_deposit':          maxDeposit,
-    'interest_rate':        interestRate,
-    'is_callable':          isCallable,
+    'id':                    id,
+    'bank_id':               bankId,
+    'bank_name':             bankName,
+    'bank_short_name':       bankShortName,
+    'bank_source_domain':    bankSourceDomain,
+    'customer_type':         customerType.name.toUpperCase(),
+    'min_tenure_days':       minTenureDays,
+    'max_tenure_days':       maxTenureDays,
+    'min_deposit':           minDeposit,
+    'max_deposit':           maxDeposit,
+    'interest_rate':         interestRate,
+    'is_callable':           isCallable,
     'compounding_frequency': compoundingFrequency.name.toUpperCase(),
-    'effective_from':       effectiveFrom.toIso8601String(),
-    'effective_until':      effectiveUntil?.toIso8601String(),
-    'source_url':           sourceUrl,
-    'verified_at':          verifiedAt?.toIso8601String(),
-    'review_notes':         reviewNotes,
+    'effective_from':        effectiveFrom.toIso8601String(),
+    'effective_until':       effectiveUntil?.toIso8601String(),
+    'source_url':            sourceUrl,
+    'verified_at':           verifiedAt?.toIso8601String(),
+    'review_notes':          reviewNotes,
+    // Migration 007
+    'rate_category':         rateCategory.apiValue,
+    'scheme_name':           schemeName,
   };
 
   /// Human-readable tenure string
