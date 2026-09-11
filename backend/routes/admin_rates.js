@@ -109,6 +109,123 @@ function validateCategoryFields(body, errors) {
 }
 
 // ============================================================
+// Helpers: tenure_domain validation (Migration 009)
+// ============================================================
+
+const VALID_TENURE_DOMAINS = ['DAYS', 'CALENDAR'];
+const VALID_MIN_OPERATORS  = ['GTE', 'GT'];
+const VALID_MAX_OPERATORS  = ['LTE', 'LT'];
+
+// Fields that belong exclusively to the DAYS domain
+const DAYS_ONLY_FIELDS = ['min_tenure_days', 'max_tenure_days'];
+
+// Fields that belong exclusively to the CALENDAR domain
+const CALENDAR_ONLY_FIELDS = [
+  'min_years', 'min_months', 'min_days_cal', 'min_operator',
+  'max_years', 'max_months', 'max_days_cal', 'max_operator',
+  'source_tenure_text',
+];
+
+/**
+ * Validate tenure_domain and its associated fields.
+ * Returns { tenureDomain, tenurePayload } on success, pushes to errors[].
+ *
+ * DAYS:
+ *   - min_tenure_days + max_tenure_days required, non-negative, max >= min
+ *   - All calendar-only fields must be absent / null
+ *
+ * CALENDAR:
+ *   - min_tenure_days + max_tenure_days must be absent / null
+ *   - source_tenure_text required and non-empty
+ *   - at least one calendar component required
+ *   - min_operator in GTE/GT, max_operator in LTE/LT
+ *   - all present components non-negative, months in [0,11]
+ */
+function validateTenureDomain(body, errors) {
+  const tenureDomain = (body.tenure_domain ?? 'DAYS').toString().toUpperCase().trim();
+
+  if (!VALID_TENURE_DOMAINS.includes(tenureDomain)) {
+    errors.push(`tenure_domain must be one of: ${VALID_TENURE_DOMAINS.join(', ')}`);
+    return { tenureDomain: 'DAYS', tenurePayload: {} };
+  }
+
+  const payload = { tenure_domain: tenureDomain };
+
+  if (tenureDomain === 'DAYS') {
+    // Reject calendar-only fields in a DAYS payload
+    for (const f of CALENDAR_ONLY_FIELDS) {
+      if (body[f] != null && body[f] !== '') {
+        errors.push(`Field '${f}' must not be present for tenure_domain=DAYS`);
+      }
+    }
+    // Day fields are validated in the main field validation block (existing code).
+    // Just pass them through.
+    payload.min_tenure_days = body.min_tenure_days;
+    payload.max_tenure_days = body.max_tenure_days;
+    // source_tenure_text for DAYS is set by backfill/update path; not required from API
+    if (body.source_tenure_text != null) {
+      payload.source_tenure_text = body.source_tenure_text;
+    }
+
+  } else {
+    // CALENDAR
+
+    // Reject DAYS fields in a CALENDAR payload
+    if (body.min_tenure_days != null || body.max_tenure_days != null) {
+      errors.push('Fields min_tenure_days and max_tenure_days must not be present for tenure_domain=CALENDAR');
+    }
+    payload.min_tenure_days = null;
+    payload.max_tenure_days = null;
+
+    // source_tenure_text required
+    const srcText = body.source_tenure_text != null ? String(body.source_tenure_text).trim() : '';
+    if (!srcText) {
+      errors.push('source_tenure_text is required and must be non-empty for tenure_domain=CALENDAR');
+    }
+    payload.source_tenure_text = srcText || null;
+
+    // Calendar components
+    const toIntOrNull = v => (v == null ? null : parseInt(v, 10));
+    const minYears   = toIntOrNull(body.min_years);
+    const minMonths  = toIntOrNull(body.min_months);
+    const minDaysCal = toIntOrNull(body.min_days_cal);
+    const maxYears   = toIntOrNull(body.max_years);
+    const maxMonths  = toIntOrNull(body.max_months);
+    const maxDaysCal = toIntOrNull(body.max_days_cal);
+
+    // Non-negative validation
+    if (minYears   != null && (isNaN(minYears)   || minYears   < 0)) errors.push('min_years must be a non-negative integer');
+    if (minMonths  != null && (isNaN(minMonths)  || minMonths  < 0 || minMonths  > 11)) errors.push('min_months must be 0–11');
+    if (minDaysCal != null && (isNaN(minDaysCal) || minDaysCal < 0)) errors.push('min_days_cal must be a non-negative integer');
+    if (maxYears   != null && (isNaN(maxYears)   || maxYears   < 0)) errors.push('max_years must be a non-negative integer');
+    if (maxMonths  != null && (isNaN(maxMonths)  || maxMonths  < 0 || maxMonths  > 11)) errors.push('max_months must be 0–11');
+    if (maxDaysCal != null && (isNaN(maxDaysCal) || maxDaysCal < 0)) errors.push('max_days_cal must be a non-negative integer');
+
+    // Operator validation
+    const minOp = body.min_operator != null ? String(body.min_operator).toUpperCase().trim() : null;
+    const maxOp = body.max_operator != null ? String(body.max_operator).toUpperCase().trim() : null;
+
+    if (minOp != null && !VALID_MIN_OPERATORS.includes(minOp)) {
+      errors.push(`min_operator must be one of: ${VALID_MIN_OPERATORS.join(', ')} (got ${minOp})`);
+    }
+    if (maxOp != null && !VALID_MAX_OPERATORS.includes(maxOp)) {
+      errors.push(`max_operator must be one of: ${VALID_MAX_OPERATORS.join(', ')} (got ${maxOp})`);
+    }
+
+    payload.min_years    = isNaN(minYears)   ? null : minYears;
+    payload.min_months   = isNaN(minMonths)  ? null : minMonths;
+    payload.min_days_cal = isNaN(minDaysCal) ? null : minDaysCal;
+    payload.min_operator = minOp;
+    payload.max_years    = isNaN(maxYears)   ? null : maxYears;
+    payload.max_months   = isNaN(maxMonths)  ? null : maxMonths;
+    payload.max_days_cal = isNaN(maxDaysCal) ? null : maxDaysCal;
+    payload.max_operator = maxOp;
+  }
+
+  return { tenureDomain, tenurePayload: payload };
+}
+
+// ============================================================
 // Helper: build application-layer overlap pre-flight query.
 // Returns { conflicts, error }.
 // conflicts: array of conflicting rate objects (may be empty).
@@ -117,10 +234,20 @@ function validateCategoryFields(body, errors) {
 // ============================================================
 
 async function findOverlappingVerifiedRates(rate, excludeId) {
-  // Base query: same conflict domain, VERIFIED, active
+  // For CALENDAR tenure domain, the symbolic overlap check cannot be expressed
+  // via simple Supabase filter operators. We defer entirely to the authoritative
+  // DB advisory-lock-protected check in transition_rate_status().
+  // This means CALENDAR conflicts always surface via the DB (HTTP 409 from RPC
+  // error translation), which is the correct and safe behaviour.
+  if (rate.tenure_domain === 'CALENDAR') {
+    return { data: [], error: null };
+  }
+
+  // DAYS domain: existing integer overlap logic (unchanged)
+  // Base query: same conflict domain (DAYS), VERIFIED, active
   let query = supabaseAdmin
     .from('fd_rates')
-    .select('id, min_tenure_days, max_tenure_days, min_deposit, max_deposit, interest_rate')
+    .select('id, min_tenure_days, max_tenure_days, min_deposit, max_deposit, interest_rate, tenure_domain')
     .neq('id', excludeId)
     .eq('bank_id', rate.bank_id)
     .eq('customer_type', rate.customer_type)
@@ -128,6 +255,7 @@ async function findOverlappingVerifiedRates(rate, excludeId) {
     .eq('rate_category', rate.rate_category)
     .eq('status', 'VERIFIED')
     .is('effective_until', null)
+    .eq('tenure_domain', 'DAYS')
     // Tenure overlap (closed-inclusive): conflict.min <= target.max AND target.min <= conflict.max
     .lte('min_tenure_days', rate.max_tenure_days)
     .gte('max_tenure_days', rate.min_tenure_days);
@@ -151,6 +279,7 @@ async function findOverlappingVerifiedRates(rate, excludeId) {
   return query.limit(10);
 }
 
+
 // ============================================================
 // POST /api/admin/rates/draft
 // Create a new DRAFT rate.
@@ -160,7 +289,7 @@ async function findOverlappingVerifiedRates(rate, excludeId) {
 router.post('/rates/draft', requireAdmin, async (req, res) => {
   try {
     const {
-      bank_id, customer_type, min_tenure_days, max_tenure_days,
+      bank_id, customer_type,
       min_deposit, max_deposit, interest_rate,
       is_callable, compounding_frequency,
       effective_from, source_url, review_notes,
@@ -168,17 +297,26 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
 
     const errors = [];
 
-    // Core field validation
+    // Core field validation (always required regardless of tenure domain)
     if (!bank_id)                                    errors.push('bank_id is required');
     if (!customer_type)                              errors.push('customer_type is required');
-    if (min_tenure_days == null || min_tenure_days < 0)  errors.push('min_tenure_days must be >= 0');
-    if (max_tenure_days == null || max_tenure_days < min_tenure_days)
-      errors.push('max_tenure_days must be >= min_tenure_days');
     if (min_deposit == null || min_deposit < 0)      errors.push('min_deposit must be >= 0');
     if (max_deposit != null && max_deposit < min_deposit)
       errors.push('max_deposit must be >= min_deposit');
     if (interest_rate == null || interest_rate < 0)  errors.push('interest_rate must be >= 0');
     if (!effective_from)                             errors.push('effective_from is required');
+
+    // tenure_domain routing
+    const { tenureDomain, tenurePayload } = validateTenureDomain(req.body, errors);
+
+    // DAYS-specific validation (only when tenure_domain = DAYS)
+    if (tenureDomain === 'DAYS') {
+      const minD = req.body.min_tenure_days;
+      const maxD = req.body.max_tenure_days;
+      if (minD == null || minD < 0)              errors.push('min_tenure_days must be >= 0');
+      if (maxD == null || maxD < minD)
+        errors.push('max_tenure_days must be >= min_tenure_days');
+    }
 
     // rate_category + scheme_name
     const { rateCategory, schemeName } = validateCategoryFields(req.body, errors);
@@ -187,26 +325,35 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Validation failed', errors });
     }
 
+    // Build insert object — tenure fields come from tenurePayload
+    const insertObj = {
+      bank_id,
+      customer_type:         customer_type.toUpperCase(),
+      min_deposit:           parseFloat(min_deposit) || 0,
+      max_deposit:           max_deposit != null ? parseFloat(max_deposit) : null,
+      interest_rate:         parseFloat(interest_rate),
+      is_callable:           is_callable !== false,
+      compounding_frequency: compounding_frequency ?? 'QUARTERLY',
+      effective_from,
+      status:                'DRAFT',
+      source_url:            source_url ?? null,
+      created_by:            req.adminUser.id,
+      review_notes:          review_notes ?? null,
+      rate_category:         rateCategory,
+      scheme_name:           schemeName,
+      tenure_domain:         tenureDomain,
+      ...tenurePayload,
+    };
+
+    // For DAYS: parse day integers
+    if (tenureDomain === 'DAYS') {
+      insertObj.min_tenure_days = parseInt(req.body.min_tenure_days, 10);
+      insertObj.max_tenure_days = parseInt(req.body.max_tenure_days, 10);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('fd_rates')
-      .insert({
-        bank_id,
-        customer_type:         customer_type.toUpperCase(),
-        min_tenure_days:       parseInt(min_tenure_days),
-        max_tenure_days:       parseInt(max_tenure_days),
-        min_deposit:           parseFloat(min_deposit) || 0,
-        max_deposit:           max_deposit != null ? parseFloat(max_deposit) : null,
-        interest_rate:         parseFloat(interest_rate),
-        is_callable:           is_callable !== false,
-        compounding_frequency: compounding_frequency ?? 'QUARTERLY',
-        effective_from,
-        status:                'DRAFT',
-        source_url:            source_url ?? null,
-        created_by:            req.adminUser.id,
-        review_notes:          review_notes ?? null,
-        rate_category:         rateCategory,
-        scheme_name:           schemeName,
-      })
+      .insert(insertObj)
       .select()
       .single();
 
@@ -216,7 +363,7 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
       rate_id:      data.id,
       action:       'CREATE',
       old_value:    null,
-      new_value:    { status: 'DRAFT', interest_rate, bank_id, rate_category: rateCategory },
+      new_value:    { status: 'DRAFT', interest_rate, bank_id, rate_category: rateCategory, tenure_domain: tenureDomain },
       performed_by: req.adminUser.id,
       notes:        'Draft rate created',
     });
@@ -228,6 +375,7 @@ router.post('/rates/draft', requireAdmin, async (req, res) => {
     return res.status(500).json({ status: 'error', message: err?.message ?? 'Internal error' });
   }
 });
+
 
 // ============================================================
 // PATCH /api/admin/rates/:id/transition
@@ -262,7 +410,7 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
         .from('fd_rates')
         .select(
           'source_url, bank_id, customer_type, min_tenure_days, max_tenure_days, ' +
-          'min_deposit, max_deposit, is_callable, rate_category, scheme_name'
+          'min_deposit, max_deposit, is_callable, rate_category, scheme_name, tenure_domain'
         )
         .eq('id', id)
         .single();
@@ -288,9 +436,8 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
       }
 
       // ── Application-layer overlap pre-flight ─────────────────────────
-      // This check is for UX quality only — provides actionable HTTP 409
-      // details with conflicting rate IDs and a supersede hint.
-      // The authoritative concurrency-safe check runs inside the DB RPC.
+      // For DAYS: provides actionable HTTP 409 with conflicting rate IDs.
+      // For CALENDAR: deferred entirely to DB RPC (cannot express symbolically).
       // We NEVER automatically archive an overlapping rate from here.
       const { data: conflicts, error: conflictErr } =
         await findOverlappingVerifiedRates(rate, id);
@@ -323,8 +470,11 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
         });
 
       if (error) {
-        // Translate DB overlap exception → HTTP 409
-        if (error.message && error.message.includes('Overlap conflict')) {
+        // Translate DB overlap / cross-domain exception → HTTP 409
+        if (error.message && (
+          error.message.includes('Overlap conflict') ||
+          error.message.includes('Cross-domain conflict')
+        )) {
           return res.status(409).json({
             status:  'conflict',
             message: error.message,
@@ -335,6 +485,7 @@ router.patch('/rates/:id/transition', requireAdmin, async (req, res) => {
 
       return res.json({ status: 'ok', superseded: false, data });
     }
+
 
     // Non-VERIFIED transition: call state machine directly
     const { data, error } = await supabaseAdmin
@@ -504,6 +655,10 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
       'min_deposit', 'max_deposit', 'interest_rate',
       'is_callable', 'compounding_frequency',
       'effective_from', 'source_url', 'review_notes',
+      // Migration 009: calendar tenure fields
+      'source_tenure_text',
+      'min_years', 'min_months', 'min_days_cal', 'min_operator',
+      'max_years', 'max_months', 'max_days_cal', 'max_operator',
     ];
 
     const patch = {};
@@ -513,10 +668,30 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    // Handle tenure_domain if it or any tenure field is being updated
+    if (req.body.tenure_domain !== undefined ||
+        CALENDAR_ONLY_FIELDS.some(f => req.body[f] !== undefined) ||
+        DAYS_ONLY_FIELDS.some(f => req.body[f] !== undefined)) {
+      // Fetch existing tenure_domain to validate against
+      const { data: current } = await supabaseAdmin
+        .from('fd_rates').select('tenure_domain').eq('id', id).single();
+      const effectiveDomain = (req.body.tenure_domain ?? current?.tenure_domain ?? 'DAYS')
+        .toString().toUpperCase().trim();
+
+      const tenureErrors = [];
+      const { tenureDomain, tenurePayload } = validateTenureDomain(
+        { ...req.body, tenure_domain: effectiveDomain },
+        tenureErrors,
+      );
+      if (tenureErrors.length > 0) {
+        return res.status(400).json({ status: 'error', message: 'Validation failed', errors: tenureErrors });
+      }
+      // Merge tenure payload into patch (only actually-changed fields)
+      Object.assign(patch, { tenure_domain: tenureDomain, ...tenurePayload });
+    }
+
     // Handle rate_category + scheme_name if either is being updated
     if (req.body.rate_category !== undefined || req.body.scheme_name !== undefined) {
-      // If only scheme_name is changing, we need the existing rate_category
-      // to validate consistency.  Fetch it.
       let effectiveCategory = req.body.rate_category ?? null;
       if (effectiveCategory === null) {
         const { data: current } = await supabaseAdmin
@@ -536,6 +711,7 @@ router.patch('/rates/:id', requireAdmin, async (req, res) => {
       patch.rate_category = rateCategory;
       patch.scheme_name   = schemeName;
     }
+
 
     if (Object.keys(patch).length === 0) {
       return res.status(400).json({ status: 'error', message: 'No valid fields to update' });

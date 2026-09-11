@@ -92,16 +92,21 @@ router.get('/', requireSupabase, async (req, res) => {
       query = query.eq('bank_id', bankId);
     }
 
-    // Filter by tenure (rate must cover the requested tenure)
+    // Filter by tenure (rate must cover the requested tenure in integer days).
+    // Only DAYS-domain records have min/max_tenure_days populated.
+    // CALENDAR records must never match an integer-day query — enforce with
+    // an explicit tenure_domain filter so they are always excluded.
     if (tenureDays) {
       const days = parseInt(tenureDays, 10);
       if (isNaN(days) || days < 0) {
         return res.status(400).json({ status: 'error', message: 'tenureDays must be a non-negative integer' });
       }
       query = query
+        .eq('tenure_domain', 'DAYS')
         .lte('min_tenure_days', days)
         .gte('max_tenure_days', days);
     }
+
 
     // Filter by deposit amount (rate's deposit range must include this amount)
     if (depositAmount) {
@@ -153,7 +158,9 @@ router.get('/top', requireSupabase, async (req, res) => {
     if (tenureDays) {
       const days = parseInt(tenureDays, 10);
       if (!isNaN(days) && days >= 0) {
+        // CALENDAR records must never match integer-day queries
         query = query
+          .eq('tenure_domain', 'DAYS')
           .lte('min_tenure_days', days)
           .gte('max_tenure_days', days);
       }
