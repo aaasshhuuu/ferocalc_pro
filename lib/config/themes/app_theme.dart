@@ -14,7 +14,7 @@ class AppTheme {
       error: Color(0xFFEF4444),
     ),
     cardColor: const Color(0xFF0F1F35), // Slightly lighter navy for cards
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: const Color(0xFF0F1F35),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -55,7 +55,7 @@ class AppTheme {
       inactiveTrackColor: Color(0xFF333333),
       thumbColor: Color(0xFFC9A96E),
     ),
-    tabBarTheme: const TabBarTheme(
+    tabBarTheme: const TabBarThemeData(
       labelColor: Color(0xFFC9A96E),
       unselectedLabelColor: Color(0xFF888888),
       indicatorColor: Color(0xFFC9A96E),
@@ -75,7 +75,7 @@ class AppTheme {
       error: Color(0xFFDC3545),
     ),
     cardColor: const Color(0xFFFFFFFF), // Pure white cards
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: const Color(0xFFFFFFFF),
       elevation: 1,
       shadowColor: Color(0x14000000), // Colors.black.withOpacity(0.08)
@@ -118,7 +118,7 @@ class AppTheme {
       inactiveTrackColor: Color(0xFFE5E7EB),
       thumbColor: Color(0xFF1A5276),
     ),
-    tabBarTheme: const TabBarTheme(
+    tabBarTheme: const TabBarThemeData(
       labelColor: Color(0xFF1A5276),
       unselectedLabelColor: Color(0xFF999999),
       indicatorColor: Color(0xFF1A5276),

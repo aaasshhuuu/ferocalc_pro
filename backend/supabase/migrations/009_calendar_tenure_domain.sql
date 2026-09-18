@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- FeroCalc Verified FD Rate Engine
 -- Migration 009: Calendar-Aware Tenure Domain
 --
@@ -35,6 +35,16 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE boundary_op AS ENUM ('GTE', 'GT', 'LTE', 'LT');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Immutable wrapper for boundary_op ENUM → text cast.
+-- PostgreSQL marks the built-in enum-to-text cast as STABLE, but index
+-- expressions require IMMUTABLE functions.  This thin wrapper is safe to
+-- mark IMMUTABLE because boundary_op values are architectural constants
+-- (GTE, GT, LTE, LT) that are never renamed or reordered.
+CREATE OR REPLACE FUNCTION _boundary_op_text(boundary_op)
+RETURNS TEXT AS $$
+  SELECT $1::text;
+$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
 
 -- ============================================================
@@ -254,11 +264,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_fd_rates_active_verified_calendar
     COALESCE(min_years, -1),
     COALESCE(min_months, -1),
     COALESCE(min_days_cal, -1),
-    COALESCE(min_operator::text, ''),
+    COALESCE(_boundary_op_text(min_operator), ''),
     COALESCE(max_years, -1),
     COALESCE(max_months, -1),
     COALESCE(max_days_cal, -1),
-    COALESCE(max_operator::text, ''),
+    COALESCE(_boundary_op_text(max_operator), ''),
     min_deposit,
     COALESCE(max_deposit, -1::NUMERIC),
     is_callable,
@@ -803,4 +813,7 @@ REVOKE EXECUTE ON FUNCTION _cal_tuple_cmp(INTEGER, INTEGER, INTEGER, INTEGER)
 REVOKE EXECUTE ON FUNCTION _calendar_ranges_overlap(
   INTEGER, INTEGER, boundary_op, INTEGER, INTEGER, boundary_op,
   INTEGER, INTEGER, boundary_op, INTEGER, INTEGER, boundary_op)
+  FROM PUBLIC, anon, authenticated;
+
+REVOKE EXECUTE ON FUNCTION _boundary_op_text(boundary_op)
   FROM PUBLIC, anon, authenticated;

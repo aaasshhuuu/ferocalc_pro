@@ -207,7 +207,7 @@ class _CompareScreenState extends State<CompareScreen> {
                             return FdRateCard(
                               bank: bank,
                               rate: rate,
-                              onTap: () => context.go('/bank/\${Uri.encodeComponent(bank.name)}'),
+                              onTap: () => context.go('/bank/${Uri.encodeComponent(bank.name)}'),
                             );
                           },
                         ),

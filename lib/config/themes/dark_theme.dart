@@ -27,7 +27,7 @@ ThemeData getDarkTheme() {
       bodyMedium: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
       bodySmall: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.charcoal,
       elevation: 0,
       margin: EdgeInsets.zero,
