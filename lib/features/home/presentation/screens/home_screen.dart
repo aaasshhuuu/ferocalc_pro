@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/data/bank_data.dart';
@@ -19,17 +21,49 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   Timer? _refreshTimer;
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
 
   @override
   void initState() {
     super.initState();
+    _loadBannerAd();
     _fetchData();
     _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) => _fetchData());
   }
 
+  void _loadBannerAd() {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return;
+  }
+
+  final bannerAd = BannerAd(
+    adUnitId: kReleaseMode
+    ? 'ca-app-pub-6265679606207808/1405598858'
+    : 'ca-app-pub-3940256099942544/6300978111',
+    request: const AdRequest(),
+    size: AdSize.banner,
+    listener: BannerAdListener(
+      onAdLoaded: (ad) {
+        setState(() {
+          _bannerAd = ad as BannerAd;
+          _isBannerAdReady = true;
+        });
+      },
+      onAdFailedToLoad: (ad, error) {
+        ad.dispose();
+        debugPrint('Banner ad failed to load: $error');
+      },
+    ),
+  );
+
+  bannerAd.load();
+}
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -129,6 +163,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         ).animate(),
                       ],
                     ),
+                    if (_isBannerAdReady && _bannerAd != null)
+                      Center(
+                        child: SizedBox(
+                          width: _bannerAd!.size.width.toDouble(),
+                          height: _bannerAd!.size.height.toDouble(),
+                          child: AdWidget(ad: _bannerAd!),
+                        ),
+                      ),
+const SizedBox(height: 16),
                     const SizedBox(height: 32),
 
                     // Quick Search - Glassmorphic

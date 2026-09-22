@@ -37,6 +37,7 @@ import '../../features/compare/presentation/screens/comparison_dashboard_screen.
 import '../../features/compare/presentation/screens/bank_detail_screen.dart';
 import '../../features/insights/presentation/screens/insights_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/privacy_policy_screen.dart';
 import '../../core/widgets/custom_bottom_nav.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -182,6 +183,13 @@ final GoRouter appRouter = GoRouter(
         final bankName = state.pathParameters['name'] ?? '';
         return BankDetailScreen(bankName: Uri.decodeComponent(bankName));
       },
+    ),
+
+    // Privacy Policy (publicly accessible on web)
+    GoRoute(
+      path: '/privacy',
+      name: 'privacy',
+      builder: (context, state) => const PrivacyPolicyScreen(),
     ),
   ],
 );
