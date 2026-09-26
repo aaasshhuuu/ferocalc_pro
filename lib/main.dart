@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';  
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
 import 'injection_container.dart' as di;
 import 'features/theme/bloc/theme_bloc.dart';
@@ -10,11 +11,12 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   if (!kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS)) {
-  await MobileAds.instance.initialize();
-}
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    await MobileAds.instance.initialize();
+  }
 
   // Global Flutter error handling (M3)
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -75,7 +77,7 @@ void main() async {
       ),
     );
   };
-  
+
   // Initialize dependency injection
   await di.init();
 

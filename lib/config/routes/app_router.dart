@@ -191,6 +191,11 @@ final GoRouter appRouter = GoRouter(
       name: 'privacy',
       builder: (context, state) => const PrivacyPolicyScreen(),
     ),
+    GoRoute(
+      path: '/privacy-policy',
+      name: 'privacyPolicy',
+      builder: (context, state) => const PrivacyPolicyScreen(),
+    ),
   ],
 );
 
