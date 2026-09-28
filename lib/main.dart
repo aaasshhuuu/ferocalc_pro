@@ -15,7 +15,11 @@ void main() async {
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS)) {
-    await MobileAds.instance.initialize();
+    try {
+      await MobileAds.instance.initialize();
+    } catch (e) {
+      debugPrint('AdMob initialization failed (non-fatal): $e');
+    }
   }
 
   // Global Flutter error handling (M3)
