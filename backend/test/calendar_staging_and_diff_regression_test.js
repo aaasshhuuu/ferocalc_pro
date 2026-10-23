@@ -92,7 +92,7 @@ function makeBaseCandidate(overrides = {}) {
     isCallable: true,
     compoundingFrequency: 'QUARTERLY',
     effectiveFrom: '2026-08-19',
-    sourceUrl: 'https://www.hdfcbank.com/personal/save/deposits/fixed-deposit-interest-rate',
+    sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
     sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
     extractedAt: '2026-10-22T12:00:00.000Z',
     parserId: 'hdfc-retail-parser',
@@ -891,7 +891,7 @@ async function runTests() {
 
     // 1. Parser Extraction
     const extractionResult = parser.parse(html, {
-      sourceUrl: 'https://www.hdfcbank.com/personal/save/deposits/fixed-deposit-interest-rate',
+      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
       sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
       sourceId: 'hdfc-retail-domestic',
     });
@@ -1249,7 +1249,7 @@ async function runTests() {
     const parser = new HdfcRateParser();
 
     const result = parser.parse(html, {
-      sourceUrl: 'https://www.hdfcbank.com/personal/save/deposits/fixed-deposit-interest-rate',
+      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
       sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
       sourceId: 'hdfc-retail-domestic',
     });
