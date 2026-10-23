@@ -5,10 +5,10 @@
 // 2. Qualified SBI We-Care senior cell (7.05*) does NOT leak into regular candidate seniorCitizenRate (remains null)
 // 3. Senior scheme candidate remains SPECIAL_SCHEME with schemeName='SBI We-Care' and qualification notes
 // 4. Parsing a deterministic synthetic table fixture reproduces expected classification across all 16 candidates
-// 5. Existing approved rates and tenure boundaries for REV_001–REV_015 remain 100% concordant
+// 5. Synthetic rows exercise standard-rate and special-scheme classification; they are not official-rate evidence
 // 6. Ambiguous or malformed qualification markers fail closed rather than treating promotional rates as standard
 // 7. Whitespace variations (&nbsp;, tabs, trailing spaces) are handled safely without leakage
-// 8. Quarantined scheme candidate (REV_016) remains strictly excluded from the approved Batch 1A candidate set
+// 8. The qualified fixture row remains SPECIAL_SCHEME and is not counted as a standard rate
 
 'use strict';
 
@@ -123,9 +123,9 @@ runTest('4. Corresponding 5-10y senior candidate is marked SPECIAL_SCHEME with S
 });
 
 // ------------------------------------------------------------------
-// Group 2: Saved Official Synthetic Fixture Parsing & Batch Reconciliation
+// Group 2: Synthetic Fixture Parsing & Classification
 // ------------------------------------------------------------------
-console.log('\nGroup 2: Official Snapshot Parsing & Parity...');
+console.log('\nGroup 2: Synthetic Fixture Parsing & Classification...');
 
 // Deterministic synthetic fixture for parser classification and rate-field mapping.
 // Values below are test inputs; this fixture is not an official SBI evidence snapshot.
@@ -164,7 +164,7 @@ runTest('5. Synthetic fixture produces exactly 16 candidates (8 regular + 8 seni
   assert.strictEqual(fixtureResult.candidates.length, 16);
 });
 
-runTest('6. Fixture rows 1-7 regular candidates preserve co-published standard senior rates', () => {
+runTest('6. Synthetic fixture rows 1-7 preserve the co-published standard senior-rate fields', () => {
   const expectedStandardSeniorRates = [3.55, 5.40, 6.15, 6.40, 6.75, 6.90, 6.80];
   const regularSlabs1to7 = fixtureResult.candidates.filter(c => c.customerType === 'REGULAR' && c.minTenureDays < 1825);
   assert.strictEqual(regularSlabs1to7.length, 7);
@@ -176,7 +176,7 @@ runTest('6. Fixture rows 1-7 regular candidates preserve co-published standard s
   });
 });
 
-runTest('7. Fixture final row regular candidate (REV_015) has interestRate=6.05 and seniorCitizenRate=null', () => {
+runTest('7. Synthetic final regular fixture has interestRate=6.05 and no inferred standard senior rate', () => {
   const regSlab8 = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
   assert.ok(regSlab8);
   assert.strictEqual(regSlab8.interestRate, 6.05);
@@ -185,7 +185,7 @@ runTest('7. Fixture final row regular candidate (REV_015) has interestRate=6.05 
   assert.strictEqual(regSlab8.schemeName, null);
 });
 
-runTest('8. Fixture final row senior candidate (REV_016) has interestRate=7.05 and SPECIAL_SCHEME', () => {
+runTest('8. Synthetic final senior fixture has interestRate=7.05 and SPECIAL_SCHEME classification', () => {
   const senSlab8 = fixtureResult.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 1825);
   assert.ok(senSlab8);
   assert.strictEqual(senSlab8.interestRate, 7.05);
@@ -193,13 +193,13 @@ runTest('8. Fixture final row senior candidate (REV_016) has interestRate=7.05 a
   assert.strictEqual(senSlab8.schemeName, 'SBI We-Care');
 });
 
-runTest('9. Standard card rates (rateCategory === "STANDARD") yield exactly the 15 approved Batch 1A candidates', () => {
+runTest('9. Synthetic fixture yields exactly 15 STANDARD candidates and 1 SPECIAL_SCHEME candidate', () => {
   const standardCandidates = fixtureResult.candidates.filter(c => c.rateCategory === 'STANDARD');
-  assert.strictEqual(standardCandidates.length, 15, 'Exactly 15 STANDARD candidates must be produced');
+  assert.strictEqual(standardCandidates.length, 15, 'Exactly 15 STANDARD fixture candidates must be produced');
 
-  // Quarantined candidate 16 is excluded
+  // The fixture special-scheme candidate is excluded from STANDARD count
   const specialCandidates = fixtureResult.candidates.filter(c => c.rateCategory === 'SPECIAL_SCHEME');
-  assert.strictEqual(specialCandidates.length, 1, 'Exactly 1 SPECIAL_SCHEME candidate produced');
+  assert.strictEqual(specialCandidates.length, 1, 'Exactly 1 SPECIAL_SCHEME fixture candidate must be produced');
   assert.strictEqual(specialCandidates[0].schemeName, 'SBI We-Care');
 });
 
@@ -276,13 +276,13 @@ runTest('12. Alternative qualification marker (#) fails closed without leaking i
 // ------------------------------------------------------------------
 console.log('\nGroup 4: Batch 1A Concordance & Non-Inferrence Guard...');
 
-runTest('13. Parser does NOT infer 6.55% when senior rate is null', () => {
+runTest('13. Parser does NOT infer a standard senior rate when the fixture senior rate is marked qualified', () => {
   const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
   assert.strictEqual(reg5y.seniorCitizenRate, null);
   assert.notStrictEqual(reg5y.seniorCitizenRate, 6.55, 'Must not infer 6.55%');
 });
 
-runTest('14. Parsed 5-10y regular candidate matches the remediated staging row state (REV_015)', () => {
+runTest('14. Parsed synthetic 5-10y regular fixture candidate matches expected no-inference behavior', () => {
   const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
   assert.strictEqual(reg5y.bankCode, 'SBI');
   assert.strictEqual(reg5y.productType, 'RETAIL_DOMESTIC_TERM_DEPOSIT');
