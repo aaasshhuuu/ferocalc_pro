@@ -1,0 +1,69 @@
+{
+  "bankCode": "IDFC_FIRST",
+  "sourceUrl": "https://www.idfcfirst.bank.in/personal-banking/deposits/fixed-deposit/fd-interest-rates",
+  "productScope": "Domestic / NRO / NRE retail fixed deposits below INR 3 crore; standard table only",
+  "effectiveFrom": "2026-09-01",
+  "sourceReview": {
+    "reviewedOn": "2026-10-23",
+    "basis": "Official bank page text returned by indexed web retrieval; raw HTTP capture pending",
+    "rawSnapshotSha256": null,
+    "activationApproved": false
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates are not applicable to NRI customers.",
+    "Minimum tenure for NRE FD is one year; minimum NRE tenure is 365 days in a non-leap year and 366 days in a leap year.",
+    "Tax Saver Deposit and Green Deposit are separate products and excluded from this standard-rate baseline."
+  ],
+  "tenures": [
+    {
+      "label": "7 days – 29 days",
+      "regular": 3.25,
+      "senior": 3.5
+    },
+    {
+      "label": "30 days – 45 days",
+      "regular": 3.5,
+      "senior": 3.75
+    },
+    {
+      "label": "46 days – 90 days",
+      "regular": 4.5,
+      "senior": 4.75
+    },
+    {
+      "label": "91 days – 180 days",
+      "regular": 5,
+      "senior": 5.25
+    },
+    {
+      "label": "181 days – less than 1 Year",
+      "regular": 6.5,
+      "senior": 6.75
+    },
+    {
+      "label": "1 year – 370 days",
+      "regular": 6.5,
+      "senior": 6.75
+    },
+    {
+      "label": "371 days – 499 days",
+      "regular": 7,
+      "senior": 7.25
+    },
+    {
+      "label": "500 days – 3 years",
+      "regular": 7.1,
+      "senior": 7.35
+    },
+    {
+      "label": "3 years 1 day – 5 years",
+      "regular": 6.75,
+      "senior": 7
+    },
+    {
+      "label": "5 years 1 day – 10 years",
+      "regular": 6,
+      "senior": 6.25
+    }
+  ]
+}
