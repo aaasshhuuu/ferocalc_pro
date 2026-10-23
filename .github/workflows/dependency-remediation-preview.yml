@@ -1,0 +1,83 @@
+name: Dependency Remediation Preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/package.json"
+      - "backend/package-lock.json"
+      - ".github/workflows/dependency-remediation-preview.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preview-upgrades:
+    name: Test non-force npm audit remediation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out PR source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install current lockfile
+        run: npm ci
+
+      - name: Apply non-force compatible security updates
+        shell: bash
+        run: |
+          set +e
+          npm audit fix
+          status=$?
+          echo "npm audit fix exit code: $status"
+          exit 0
+
+      - name: Test node-cron 4 major upgrade and regenerate lockfile
+        run: npm install --save node-cron@^4.6.0
+
+      - name: Capture remaining audit findings
+        shell: bash
+        run: |
+          npm audit --json > npm-audit-candidate.json || true
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit-candidate.json', 'utf8'));
+          console.log('Dependency audit candidate:', JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+            const via = (item.via || []).map(entry => typeof entry === 'string' ? entry : { title: entry.title, url: entry.url, range: entry.range }).slice(0, 10);
+            console.log(JSON.stringify({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable, via }));
+          }
+          NODE
+
+      - name: Run backend regression suite against candidate upgrades
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee candidate-backend-test.log
+
+      - name: Export candidate dependency files
+        if: always()
+        run: |
+          mkdir -p ../dependency-remediation-candidate
+          cp package.json package-lock.json ../dependency-remediation-candidate/
+          if [ -f npm-audit-candidate.json ]; then cp npm-audit-candidate.json ../dependency-remediation-candidate/; fi
+          if [ -f candidate-backend-test.log ]; then cp candidate-backend-test.log ../dependency-remediation-candidate/; fi
+
+      - name: Upload candidate files for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-remediation-candidate
+          path: dependency-remediation-candidate/
+          if-no-files-found: error
+          retention-days: 3
