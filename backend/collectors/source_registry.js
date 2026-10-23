@@ -45,6 +45,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'ICICI Domestic Fixed Deposit Rates',
   },
+  {
+    id: 'idfc-first-retail-domestic',
+    bankCode: 'IDFC_FIRST',
+    bankName: 'IDFC FIRST Bank',
+    sourceUrl: 'https://www.idfcfirst.bank.in/personal-banking/deposits/fixed-deposit/fd-interest-rates',
+    sourceType: 'HTML',
+    parserId: 'idfc_first_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Retail fixed deposits below Rs. 3 crore; disabled pending live-fetch and official HTML parity verification',
+  },
 ];
 
 class SourceRegistry {

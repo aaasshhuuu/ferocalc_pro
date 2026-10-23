@@ -6,11 +6,13 @@
 const { SbiRateParser } = require('./sbi_parser');
 const { HdfcRateParser } = require('./hdfc_parser');
 const { IciciRateParser } = require('./icici_parser');
+const { IdfcFirstRateParser } = require('./idfc_first_parser');
 
 const PARSER_MAP = {
   SBI: new SbiRateParser(),
   HDFC: new HdfcRateParser(),
   ICICI: new IciciRateParser(),
+  IDFC_FIRST: new IdfcFirstRateParser(),
 };
 
 /**

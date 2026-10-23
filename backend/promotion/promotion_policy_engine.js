@@ -16,6 +16,7 @@ const ALLOWED_SOURCE_DOMAINS = [
   'icicibank.com',
   'axisbank.com',
   'theunitybank.com',
+  'idfcfirst.bank.in',
 ];
 
 function isOfficialDomain(url) {
