@@ -57,6 +57,19 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Retail fixed deposits below Rs. 3 crore; disabled pending live-fetch and official HTML parity verification',
   },
+  {
+    id: 'union-bank-retail-callable',
+    bankCode: 'UNION_BANK',
+    bankName: 'Union Bank of India',
+    sourceUrl: 'https://www.unionbankofindia.bank.in/en/details/rate-of-interest',
+    sourceType: 'HTML',
+    parserId: 'union_bank_callable_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail regular FD rates below Rs. 3 crore; disabled pending live parity and human review',
+  },
+
 ];
 
 class SourceRegistry {
