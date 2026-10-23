@@ -69,7 +69,7 @@ jobs:
         if: success()
         shell: bash
         env:
-          TARGET_BRANCH: \${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
           # Restrict write access to the user's explicitly authorized isolated sync branch.
