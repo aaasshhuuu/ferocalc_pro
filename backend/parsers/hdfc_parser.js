@@ -22,7 +22,7 @@ class HdfcRateParser extends BaseRateParser {
       ? sourceDocument
       : (sourceDocument ? sourceDocument.toString('utf-8') : '');
 
-    const sourceUrl = context.sourceUrl || 'https://www.hdfcbank.com/personal/resources/rates';
+    const sourceUrl = context.sourceUrl || 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate';
     const sourceContentHash = context.sourceContentHash || '';
     const sourceId = context.sourceId || 'hdfc-retail-domestic';
 
