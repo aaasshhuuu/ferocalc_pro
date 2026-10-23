@@ -93,6 +93,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic/NRO/NRE FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
   },
+  {
+    id: 'uco-retail-domestic',
+    bankCode: 'UCO',
+    bankName: 'UCO Bank',
+    sourceUrl: 'https://uco.bank.in/web/guest/interest-rates-on-deposit-schemes',
+    sourceType: 'HTML',
+    parserId: 'uco_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic/NRO FD rates below Rs. 3 crore; disabled due to expired special schemes (333 and 444 days expired 30.06.2026) pending official resolution and review',
+  },
 
 ];
 

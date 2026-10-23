@@ -1,0 +1,200 @@
+{
+  "bankCode": "UCO",
+  "bankName": "UCO Bank",
+  "sourceUrl": "https://uco.bank.in/web/guest/interest-rates-on-deposit-schemes",
+  "productScope": "Domestic/NRO callable fixed deposits below INR 3 crore; Table 1 only",
+  "effectiveFrom": "2026-05-21",
+  "sourceReview": {
+    "reviewedOn": "2026-10-23",
+    "basis": "Official UCO Bank deposit rates page HTML captured by read-only discovery. Table 1 contains 28 rows (2 header rows, 26 data rows). Rows 333 days and 444 days represent special schemes whose official validity expired on 30.06.2026 according to bank scheme particulars. Slabs 1000, 2000, and 3000 days represent UCO Green Deposits. Slab 535 days represents UCO 535 (valid through 31.03.2027). Parser and live parity fail closed on expired schemes; source remains disabled.",
+    "rawSnapshotSha256": "c63a5c2196a65ca4c41aabe8b72a2812e4f99ad510ca7769d364f49446fe0b88",
+    "capturedAt": "2026-10-23T14:12:35.774Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false,
+    "specialSchemeBlockers": [
+      "UCO 333 scheme expired on 30.06.2026; published in Table 1 @ 6.30% without active renewal notice.",
+      "UCO 444 scheme expired on 30.06.2026; published in Table 1 @ 6.45% without active renewal notice."
+    ]
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates: +0.25% p.a. for tenor up to 1 year (<= 365 days); +0.50% p.a. for tenor above 1 year (> 365 days).",
+    "Senior-citizen additional interest is applicable only to Resident Senior Citizens; strictly not applicable to NRE/NRO deposits.",
+    "Staff (1.00%) and retired staff senior citizen (1.25%/1.50%) rates are out of scope for general retail consumer calculators.",
+    "UCO 535 special scheme is valid through 31.03.2027. NRE/NRO 535 has no senior benefits.",
+    "UCO Green Deposit tenures (1000, 2000, 3000 days) carry 20 bps green premium over normal card rate (published as 6.20% card rate in Table 1).",
+    "Bulk term deposits (Rs. 3 Cr and above) and non-callable bulk deposits are strictly excluded."
+  ],
+  "tenures": [
+    {
+      "label": "7-14 days",
+      "regular": 2.9,
+      "senior": 3.15,
+      "yield": 2.9
+    },
+    {
+      "label": "15-29 days",
+      "regular": 2.9,
+      "senior": 3.15,
+      "yield": 2.9
+    },
+    {
+      "label": "30-45 days",
+      "regular": 3.0,
+      "senior": 3.25,
+      "yield": 3.0
+    },
+    {
+      "label": "46-60 days",
+      "regular": 3.5,
+      "senior": 3.75,
+      "yield": 3.5
+    },
+    {
+      "label": "61-90 days",
+      "regular": 3.5,
+      "senior": 3.75,
+      "yield": 3.5
+    },
+    {
+      "label": "91-120 days",
+      "regular": 4.25,
+      "senior": 4.5,
+      "yield": 4.25
+    },
+    {
+      "label": "121-150 days",
+      "regular": 4.25,
+      "senior": 4.5,
+      "yield": 4.26
+    },
+    {
+      "label": "151-180 days",
+      "regular": 4.75,
+      "senior": 5.0,
+      "yield": 4.77
+    },
+    {
+      "label": "181-332 days",
+      "regular": 5.0,
+      "senior": 5.25,
+      "yield": 5.03
+    },
+    {
+      "label": "333 days",
+      "regular": 6.3,
+      "senior": 6.55,
+      "yield": 6.44,
+      "isExpiredScheme": true,
+      "schemeName": "UCO_333",
+      "expiryDate": "2026-06-30"
+    },
+    {
+      "label": "334 days-364 days",
+      "regular": 5.0,
+      "senior": 5.25,
+      "yield": 5.09
+    },
+    {
+      "label": "1 year",
+      "regular": 6.1,
+      "senior": 6.35,
+      "yield": 6.24
+    },
+    {
+      "label": "Above 1 year-443 days",
+      "regular": 6.1,
+      "senior": 6.6,
+      "yield": 6.24
+    },
+    {
+      "label": "444 days",
+      "regular": 6.45,
+      "senior": 6.95,
+      "yield": 6.83,
+      "isExpiredScheme": true,
+      "schemeName": "UCO_444",
+      "expiryDate": "2026-06-30"
+    },
+    {
+      "label": "445 days to 534 days",
+      "regular": 6.1,
+      "senior": 6.6,
+      "yield": 6.64
+    },
+    {
+      "label": "535 days",
+      "regular": 6.6,
+      "senior": 7.1,
+      "yield": 6.88,
+      "isSpecialScheme": true,
+      "schemeName": "UCO_535",
+      "validThrough": "2027-03-31"
+    },
+    {
+      "label": "536 days to 2 years",
+      "regular": 6.1,
+      "senior": 6.6,
+      "yield": 6.34
+    },
+    {
+      "label": "Above 2 years - 999 days",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 6.33
+    },
+    {
+      "label": "1000 days (Green Deposit)",
+      "regular": 6.2,
+      "senior": 6.7,
+      "yield": 6.71,
+      "isSpecialScheme": true,
+      "schemeName": "UCO_GREEN_DEPOSIT"
+    },
+    {
+      "label": "1001 days to 3 years",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 6.48
+    },
+    {
+      "label": "Above 3 years - 5 years",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 6.53
+    },
+    {
+      "label": "Above 5 years - 1999 days",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 6.95
+    },
+    {
+      "label": "2000 days (Green Deposit)",
+      "regular": 6.2,
+      "senior": 6.7,
+      "yield": 7.33,
+      "isSpecialScheme": true,
+      "schemeName": "UCO_GREEN_DEPOSIT"
+    },
+    {
+      "label": "2001 days to 2999 days",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 7.06
+    },
+    {
+      "label": "3000 days (Green Deposit)",
+      "regular": 6.2,
+      "senior": 6.7,
+      "yield": 8.04,
+      "isSpecialScheme": true,
+      "schemeName": "UCO_GREEN_DEPOSIT"
+    },
+    {
+      "label": "Above 3000 days",
+      "regular": 6.0,
+      "senior": 6.5,
+      "yield": 7.71
+    }
+  ]
+}

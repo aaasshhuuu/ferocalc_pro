@@ -20,6 +20,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'unionbankofindia.bank.in',
   'pnb.bank.in',
   'indusind.bank.in',
+  'uco.bank.in',
+  'ucobank.com',
 ];
 
 function isOfficialDomain(url) {
