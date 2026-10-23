@@ -5,9 +5,12 @@
   "effectiveFrom": "2026-09-01",
   "sourceReview": {
     "reviewedOn": "2026-10-23",
-    "basis": "Official bank page text returned by indexed web retrieval; raw HTTP capture pending",
-    "rawSnapshotSha256": null,
-    "activationApproved": false
+    "basis": "Official IDFC FIRST page raw HTTP body fetched by CI; HTML ordinal-date markup observed directly. Rate/date parity still needs a passing run.",
+    "rawSnapshotSha256": "6b41113633b1c2eb3a3d6f0fd4172224b4425fc493f361ec45b3c3b9b8d9acec",
+    "activationApproved": false,
+    "capturedAt": "2026-10-23T09:13:25.863Z",
+    "rawHttpStatus": 200,
+    "rawSnapshotEvidence": "GitHub Actions artifact 12491455833 from run 39930273185; captured HTML retained for 14 days"
   },
   "eligibilityNotes": [
     "Senior Citizen rates are not applicable to NRI customers.",
