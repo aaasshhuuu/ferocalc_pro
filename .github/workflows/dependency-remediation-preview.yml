@@ -83,7 +83,7 @@ jobs:
             echo "Dependency manifest and lockfile already match the tested remediation candidate; no commit needed."
             exit 0
           fi
-          expected="$(printf 'package-lock.json\npackage.json')"
+          expected="$(printf 'backend/package-lock.json\nbackend/package.json')"
           actual="$(printf '%s\n' "$changed" | sort)"
           if [ "$actual" != "$expected" ]; then
             echo "Refusing unexpected staged paths:"
