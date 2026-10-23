@@ -25,7 +25,7 @@ const PILOT_SOURCES = [
     id: 'hdfc-retail-domestic',
     bankCode: 'HDFC',
     bankName: 'HDFC Bank',
-    sourceUrl: 'https://www.hdfcbank.com/personal/resources/rates',
+    sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
     sourceType: 'HTML',
     parserId: 'hdfc_retail_html',
     parserVersion: '1.0.0',
