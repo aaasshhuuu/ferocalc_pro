@@ -25,7 +25,7 @@ const FIXTURE = `
 <tr><td>181 days – less than 1 Year</td><td>6.50%</td><td>6.75%</td></tr>
 <tr><td>1 year – 370 days</td><td>6.50%</td><td>6.75%</td></tr>
 <tr><td>371 days – 499 days</td><td>7.00%</td><td>7.25%</td></tr>
-<tr><td>500 days – 3 years</td><td>7.25%</td><td>7.50%</td></tr>
+<tr><td>500 days – 3 years</td><td>7.10%</td><td>7.35%</td></tr>
 <tr><td>3 years 1 day – 5 years</td><td>6.75%</td><td>7.00%</td></tr>
 <tr><td>5 years 1 day – 10 years</td><td>6.00%</td><td>6.25%</td></tr>
 </table>
@@ -64,9 +64,9 @@ outcomes.push(run('preserves General and Senior Citizen values as separate custo
   const senior = result.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.tenureLabel.includes('500 days'));
   assert.ok(regular);
   assert.ok(senior);
-  assert.strictEqual(regular.interestRate, 7.25);
-  assert.strictEqual(regular.seniorCitizenRate, 7.50);
-  assert.strictEqual(senior.interestRate, 7.50);
+  assert.strictEqual(regular.interestRate, 7.10);
+  assert.strictEqual(regular.seniorCitizenRate, 7.35);
+  assert.strictEqual(senior.interestRate, 7.35);
   assert.strictEqual(senior.stagingStatus, 'DRAFT');
   assert.ok(senior.notes.includes('not applicable to NRI'));
 }));
