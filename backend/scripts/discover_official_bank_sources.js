@@ -100,7 +100,7 @@ async function fetchOfficialSource(source) {
     }
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const contentType = response.headers.get('content-type') || '';
-    if (!/text\\/html|application\\/xhtml\\+xml/i.test(contentType)) {
+    if (!/text\/html|application\/xhtml\+xml/i.test(contentType)) {
       throw new Error('Unexpected content type: ' + contentType);
     }
     const length = Number(response.headers.get('content-length') || 0);
@@ -125,11 +125,11 @@ function summarizeTables(html) {
 }
 
 function findDateMarkers(html) {
-  const text = cleanCellText(html).replace(/(\\d{1,2})\\s+(st|nd|rd|th)\\b/gi, '$1$2');
-  const pattern = /(?:w\\.?e\\.?f\\.?|effective\\s+from|revised\\s+(?:w\\.?e\\.?f\\.?\\s*)?from|applicable\\s+(?:interest\\s+)?rates?\\s+(?:on\\s+)?fixed\\s+deposits?\\s+w\\.?e\\.?f\\.?)[^.!?]{0,100}/ig;
+  const text = cleanCellText(html).replace(/(\d{1,2})\s+(st|nd|rd|th)\b/gi, '$1$2');
+  const pattern = /(?:w\.?e\.?f\.?|effective\s+from|revised\s+(?:w\.?e\.?f\.?\s*)?from|applicable\s+(?:interest\s+)?rates?\s+(?:on\s+)?fixed\s+deposits?\s+w\.?e\.?f\.?)[^.!?]{0,100}/ig;
   const hits = [];
   for (const match of text.matchAll(pattern)) {
-    hits.push(match[0].replace(/\\s+/g, ' ').trim());
+    hits.push(match[0].replace(/\s+/g, ' ').trim());
     if (hits.length >= 30) break;
   }
   return [...new Set(hits)];
@@ -155,7 +155,7 @@ async function processSource(source) {
       contentType: result.contentType,
       bodyBytes: result.body.length,
       sourceContentSha256: sha256,
-      title: ((html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i) || [])[1] || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 240),
+      title: ((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240),
       dateMarkers: findDateMarkers(html),
       tables: summarizeTables(html)
     });
@@ -194,7 +194,7 @@ async function main() {
     failedFetches: results.filter(x => x.fetchStatus !== 'SUCCESS').length,
     results
   };
-  fs.writeFileSync(path.join(OUT_DIR, 'source-discovery-inventory.json'), JSON.stringify(report, null, 2) + '\\n');
+  fs.writeFileSync(path.join(OUT_DIR, 'source-discovery-inventory.json'), JSON.stringify(report, null, 2) + '\n');
   console.log('SOURCE_DISCOVERY_SUMMARY ' + JSON.stringify({
     successfulFetches: report.successfulFetches,
     failedFetches: report.failedFetches,
