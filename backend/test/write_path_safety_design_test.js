@@ -12,7 +12,6 @@
 
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const { CandidateStagingService } = require('../staging/candidate_staging_service');
@@ -162,6 +161,50 @@ function createMockSupabase(initialTables = {}) {
   };
 
   return client;
+}
+
+
+/**
+ * Deterministic synthetic rows for persistence serialization tests.
+ * These are NOT real bank-rate evidence and must never be used for staging.
+ * They replace an old dependency on a developer-local Antigravity scratch file.
+ */
+function buildTestPayload() {
+  return Array.from({ length: 15 }, (_, index) => ({
+    source_id: 'sbi-retail-domestic',
+    bank_code: 'SBI',
+    product_type: 'RETAIL_DOMESTIC_TERM_DEPOSIT',
+    customer_type: 'REGULAR',
+    tenure_label: `Synthetic test tenure ${index + 1}`,
+    tenure_domain: 'DAYS',
+    min_tenure_days: 30 + index * 365,
+    max_tenure_days: 364 + index * 365,
+    tenure_unit: 'DAYS',
+    interest_rate: 6.80,
+    senior_citizen_rate: 7.30,
+    super_senior_rate: null,
+    min_deposit: '1000.00',
+    max_deposit: '29999999.00',
+    is_callable: true,
+    compounding_frequency: 'QUARTERLY',
+    effective_from: '2026-10-08',
+    effective_until: null,
+    source_url: 'https://sbi.co.in/web/interest-rates/deposit-rates/retail-domestic-term-deposits',
+    source_document_url: null,
+    source_content_hash: '74fcfecfb3aedfd7d4307ac563c7d2c7118c88100d2889a1d254e8da8fba0f3e',
+    extracted_at: '2026-10-08T14:21:08.820Z',
+    parser_id: 'sbi_retail_html',
+    parser_version: '1.0.0',
+    validation_status: 'VALID',
+    validation_errors: [],
+    anomaly_flags: [],
+    staging_status: 'DRAFT',
+    notes: null,
+    rate_category: 'STANDARD',
+    scheme_name: null,
+    _evidence_snapshot_captured_at: '2026-10-19T12:53:34.004Z',
+    _historical_source_content_hash: '60f22ac7e904ff7dea15814e540681947f97b6edc8fc76cb57845592b5fe88d2',
+  }));
 }
 
 async function runTests() {
@@ -506,9 +549,7 @@ async function runTests() {
   console.log('\nGroup 5: Final Persistence-Payload Mapping & Metadata Isolation Tests (Phase 3C.5.33)...');
 
   await test('9. _evidence_snapshot_captured_at is retained in local evidence metadata but excluded from the database insert body', async () => {
-    const payloadPath = 'C:/Users/kuldi/.gemini/antigravity/brain/ccf336b8-8a4e-4b6b-b1b0-03d42a495089/scratch/sbi_batch_1a_staging_payload.json';
-    assert(fs.existsSync(payloadPath), `Payload file must exist at ${payloadPath}`);
-    const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+    const payload = buildTestPayload();
 
     assert.strictEqual(payload.length, 15);
     assert.strictEqual(payload[0]._evidence_snapshot_captured_at, '2026-10-19T12:53:34.004Z');
@@ -550,8 +591,7 @@ async function runTests() {
   });
 
   await test('10. _historical_source_content_hash is retained for provenance but excluded from the insert body', async () => {
-    const payloadPath = 'C:/Users/kuldi/.gemini/antigravity/brain/ccf336b8-8a4e-4b6b-b1b0-03d42a495089/scratch/sbi_batch_1a_staging_payload.json';
-    const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+    const payload = buildTestPayload();
     assert.strictEqual(payload[0]._historical_source_content_hash, '60f22ac7e904ff7dea15814e540681947f97b6edc8fc76cb57845592b5fe88d2');
 
     let insertedRecords = null;
@@ -589,8 +629,7 @@ async function runTests() {
   });
 
   await test('11. Unknown metadata keys cannot silently reach the database insert request (strict column allowlist)', async () => {
-    const payloadPath = 'C:/Users/kuldi/.gemini/antigravity/brain/ccf336b8-8a4e-4b6b-b1b0-03d42a495089/scratch/sbi_batch_1a_staging_payload.json';
-    const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+    const payload = buildTestPayload();
 
     const candidateWithUnknownKeys = {
       ...payload[0],
@@ -651,8 +690,7 @@ async function runTests() {
   });
 
   await test('12. Final payload contains exactly 15 rows with 15 unique identities, exact decimals and zero quarantined records', async () => {
-    const payloadPath = 'C:/Users/kuldi/.gemini/antigravity/brain/ccf336b8-8a4e-4b6b-b1b0-03d42a495089/scratch/sbi_batch_1a_staging_payload.json';
-    const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+    const payload = buildTestPayload();
     assert.strictEqual(payload.length, 15);
 
     let insertedRecords = null;
