@@ -465,7 +465,7 @@ async function runPromotionTestSuite() {
       minTenureDays: 7,
       maxTenureDays: 14,
       interestRate: 3.00,
-      sourceUrl: 'https://hdfcbank.com/rates',
+      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
       sourceContentHash: '1'.repeat(64),
       effectiveFrom: '2026-03-06',
       parserId: 'hdfc_retail_html',
