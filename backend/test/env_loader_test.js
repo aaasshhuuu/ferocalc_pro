@@ -25,6 +25,33 @@ function runTest(description, fn) {
   }
 }
 
+
+function withStagingFixture(fn) {
+  const tempEnvPath = path.join(BACKEND_DIR, \`.env.temp_test_staging_\${process.pid}\`);
+  const fixture = [
+    'SUPABASE_URL=https://staging-fixture.invalid',
+    'SUPABASE_ANON_KEY=fixture-anon-key',
+    'SUPABASE_SERVICE_ROLE_KEY=fixture-service-role-key',
+  ].join('\\n') + '\\n';
+
+  fs.writeFileSync(tempEnvPath, fixture);
+  try {
+    fn(tempEnvPath);
+  } finally {
+    if (fs.existsSync(tempEnvPath)) fs.unlinkSync(tempEnvPath);
+  }
+}
+
+function isolatedChildEnv(tempEnvPath, overrides = {}) {
+  const childEnv = {
+    ...process.env,
+    FEROCALC_TEST_ENV_PATH: tempEnvPath,
+  };
+  for (const key of CRITICAL_KEYS) delete childEnv[key];
+  Object.assign(childEnv, overrides);
+  return childEnv;
+}
+
 async function main() {
   console.log('======================================================');
   console.log('FeroCalc Environment Configuration & Safety Tests     ');
@@ -33,52 +60,46 @@ async function main() {
   console.log('Group 1: Deterministic Path Resolution & Working Directory Independence...');
 
   // Test 1: Launching from backend directory
-  runTest('Launching from backend directory resolves .env.staging correctly', () => {
-    const probeScript = `
-      const { loadEnv } = require('./env_loader');
-      const meta = loadEnv({ silent: true });
-      process.stdout.write(JSON.stringify({
-        env: process.env.APP_ENV,
-        loaded: process.env.FEROCALC_ENV_LOADED,
-        hasUrl: !!process.env.SUPABASE_URL,
-        hasAnon: !!process.env.SUPABASE_ANON_KEY,
-        hasService: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-      }));
-    `;
-    const output = cp.execSync(`node -e "${probeScript.replace(/\n/g, ' ')}" -- --staging`, {
-      cwd: BACKEND_DIR,
-      env: { ...process.env, SUPABASE_URL: undefined, SUPABASE_ANON_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: undefined },
-    }).toString().trim();
+  runTest('Launching from backend loads an isolated staging config with required keys', () => {
+    withStagingFixture((tempEnvPath) => {
+      const probeScript = [
+        "const { loadEnv } = require('./env_loader');",
+        "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
+        "process.stdout.write(JSON.stringify({ env: process.env.APP_ENV, loaded: process.env.FEROCALC_ENV_LOADED, hasUrl: !!process.env.SUPABASE_URL, hasAnon: !!process.env.SUPABASE_ANON_KEY, hasService: !!process.env.SUPABASE_SERVICE_ROLE_KEY }));",
+      ].join('\\n');
+      const output = cp.execFileSync(process.execPath, ['-e', probeScript, '--', '--staging'], {
+        cwd: BACKEND_DIR,
+        env: isolatedChildEnv(tempEnvPath),
+      }).toString().trim();
 
-    const data = JSON.parse(output);
-    assert.strictEqual(data.env, 'staging');
-    assert.strictEqual(data.loaded, 'staging');
-    assert.strictEqual(data.hasUrl, true);
-    assert.strictEqual(data.hasAnon, true);
-    assert.strictEqual(data.hasService, true);
+      const data = JSON.parse(output);
+      assert.strictEqual(data.env, 'staging');
+      assert.strictEqual(data.loaded, 'staging');
+      assert.strictEqual(data.hasUrl, true);
+      assert.strictEqual(data.hasAnon, true);
+      assert.strictEqual(data.hasService, true);
+    });
   });
 
   // Test 2: Launching from repository root
-  runTest('Launching from repository root resolves backend/.env.staging correctly', () => {
-    const repoRoot = path.resolve(BACKEND_DIR, '..');
-    const probeScript = `
-      const { loadEnv } = require('./backend/env_loader');
-      const meta = loadEnv({ silent: true });
-      process.stdout.write(JSON.stringify({
-        env: process.env.APP_ENV,
-        loaded: process.env.FEROCALC_ENV_LOADED,
-        hasUrl: !!process.env.SUPABASE_URL
-      }));
-    `;
-    const output = cp.execSync(`node -e "${probeScript.replace(/\n/g, ' ')}" -- --staging`, {
-      cwd: repoRoot,
-      env: { ...process.env, SUPABASE_URL: undefined, SUPABASE_ANON_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: undefined },
-    }).toString().trim();
+  runTest('Launching from repository root loads the same isolated staging config', () => {
+    withStagingFixture((tempEnvPath) => {
+      const repoRoot = path.resolve(BACKEND_DIR, '..');
+      const probeScript = [
+        "const { loadEnv } = require('./backend/env_loader');",
+        "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
+        "process.stdout.write(JSON.stringify({ env: process.env.APP_ENV, loaded: process.env.FEROCALC_ENV_LOADED, hasUrl: !!process.env.SUPABASE_URL }));",
+      ].join('\\n');
+      const output = cp.execFileSync(process.execPath, ['-e', probeScript, '--', '--staging'], {
+        cwd: repoRoot,
+        env: isolatedChildEnv(tempEnvPath),
+      }).toString().trim();
 
-    const data = JSON.parse(output);
-    assert.strictEqual(data.env, 'staging');
-    assert.strictEqual(data.loaded, 'staging');
-    assert.strictEqual(data.hasUrl, true);
+      const data = JSON.parse(output);
+      assert.strictEqual(data.env, 'staging');
+      assert.strictEqual(data.loaded, 'staging');
+      assert.strictEqual(data.hasUrl, true);
+    });
   });
 
   console.log('\nGroup 2: Target Environment Detection Logic...');
@@ -96,56 +117,51 @@ async function main() {
 
   // Test 4: Conflicting pre-existing shell variable triggers fail-closed error
   runTest('Conflicting pre-existing shell variable throws EnvConflictError and halts', () => {
-    const conflictScript = `
-      const { loadEnv } = require('./env_loader');
-      loadEnv({ silent: true });
-    `;
-    let threw = false;
-    let errorOutput = '';
-    try {
-      cp.execSync(`node -e "${conflictScript.replace(/\n/g, ' ')}" -- --staging`, {
-        cwd: BACKEND_DIR,
-        env: {
-          ...process.env,
-          SUPABASE_URL: 'https://malicious-or-wrong-project.supabase.co',
-        },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-    } catch (err) {
-      threw = true;
-      errorOutput = err.stderr ? err.stderr.toString() : err.message;
-    }
+    withStagingFixture((tempEnvPath) => {
+      const conflictScript = [
+        "const { loadEnv } = require('./env_loader');",
+        "loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
+      ].join('\\n');
+      let threw = false;
+      let errorOutput = '';
+      try {
+        cp.execFileSync(process.execPath, ['-e', conflictScript, '--', '--staging'], {
+          cwd: BACKEND_DIR,
+          env: isolatedChildEnv(tempEnvPath, {
+            SUPABASE_URL: 'https://malicious-or-wrong-project.supabase.co',
+          }),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } catch (err) {
+        threw = true;
+        errorOutput = err.stderr ? err.stderr.toString() : err.message;
+      }
 
-    assert.strictEqual(threw, true, 'Execution should fail closed when shell variable conflicts');
-    assert.ok(errorOutput.includes('[EnvConflictError]'), 'Error should specify [EnvConflictError]');
-    assert.ok(errorOutput.includes('SUPABASE_URL'), 'Error should name conflicting key');
-    // Ensure secrets/full URLs are NOT leaked in conflict error message (Requirement 5)
-    assert.ok(!errorOutput.includes('malicious-or-wrong-project'), 'Conflict error must NOT leak conflicting value');
+      assert.strictEqual(threw, true, 'Execution should fail closed when shell variable conflicts');
+      assert.ok(errorOutput.includes('[EnvConflictError]'), 'Error should specify [EnvConflictError]');
+      assert.ok(errorOutput.includes('SUPABASE_URL'), 'Error should name conflicting key');
+      assert.ok(!errorOutput.includes('malicious-or-wrong-project'), 'Conflict error must NOT leak conflicting value');
+    });
   });
 
   // Test 5: Identical pre-existing shell variable is accepted (no false-positive conflict)
-  runTest('Pre-existing shell variable identical to env file does NOT trigger conflict', () => {
-    const dotenv = require('dotenv');
-    const stagingParsed = dotenv.parse(fs.readFileSync(path.join(BACKEND_DIR, '.env.staging'), 'utf8'));
-    const stagingUrl = stagingParsed.SUPABASE_URL;
+  runTest('Pre-existing shell variable identical to fixture does NOT trigger conflict', () => {
+    withStagingFixture((tempEnvPath) => {
+      const identicalScript = [
+        "const { loadEnv } = require('./env_loader');",
+        "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
+        "process.stdout.write(JSON.stringify({ loaded: meta.loaded }));",
+      ].join('\\n');
+      const output = cp.execFileSync(process.execPath, ['-e', identicalScript, '--', '--staging'], {
+        cwd: BACKEND_DIR,
+        env: isolatedChildEnv(tempEnvPath, {
+          SUPABASE_URL: 'https://staging-fixture.invalid',
+        }),
+      }).toString().trim();
 
-    const identicalScript = `
-      const { loadEnv } = require('./env_loader');
-      const meta = loadEnv({ silent: true });
-      process.stdout.write(JSON.stringify({ loaded: meta.loaded }));
-    `;
-    const output = cp.execSync(`node -e "${identicalScript.replace(/\n/g, ' ')}" -- --staging`, {
-      cwd: BACKEND_DIR,
-      env: {
-        ...process.env,
-        SUPABASE_URL: stagingUrl,
-        SUPABASE_ANON_KEY: undefined,
-        SUPABASE_SERVICE_ROLE_KEY: undefined,
-      },
-    }).toString().trim();
-
-    const data = JSON.parse(output);
-    assert.strictEqual(data.loaded, true);
+      const data = JSON.parse(output);
+      assert.strictEqual(data.loaded, true);
+    });
   });
 
   // Test 6: Missing staging credentials triggers EnvMissingError
