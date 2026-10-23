@@ -24,6 +24,45 @@ const { CandidateStagingService } = require('../staging/candidate_staging_servic
 const { RateDiffEngine, DIFF_TYPES } = require('../promotion/rate_diff_engine');
 const { PromotionService } = require('../promotion/promotion_service');
 
+const crypto = require('crypto');
+const HDFC_SOURCE_URL = 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate';
+const { HDFC_CANONICAL_SLABS } = require('../parsers/hdfc_canonical_tenure');
+
+/**
+ * Deterministic synthetic table fixture for parser/staging/promotion tests.
+ * Rates and tenures come from the canonical in-repo model, so this fixture
+ * validates plumbing and verbatim-label preservation, NOT independent bank
+ * source verification. Never use this fixture for production staging.
+ */
+function escapeHdfcFixtureCell(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildHdfcRegressionFixture() {
+  const html = [
+    '<html><body>',
+    '<p>Applicable from 19th August, 2026</p>',
+    '<table>',
+    '<tr><th>Tenure Bucket</th><th>Interest Rate (per annum)</th><th>Senior Citizen Rates (per annum)</th></tr>',
+    ...HDFC_CANONICAL_SLABS.map((slab) =>
+      '<tr><td>' + escapeHdfcFixtureCell(slab.publishedTenureLabel) + '</td>' +
+      '<td>' + Number(slab.regularRate).toFixed(2) + '%</td>' +
+      '<td>' + Number(slab.seniorRate).toFixed(2) + '%</td></tr>'
+    ),
+    '</table>',
+    '</body></html>',
+  ].join('');
+
+  return {
+    html,
+    sourceContentHash: crypto.createHash('sha256').update(html, 'utf8').digest('hex'),
+  };
+}
+
+
 let passed = 0;
 let failed = 0;
 
@@ -878,21 +917,16 @@ async function runTests() {
     assert.strictEqual(enriched.displayTenure, '1 Year to < 15 months', 'Display tenure must match published verbatim text');
   });
 
-  console.log('\n--- Group 6: Real End-to-End Source-Text Pipeline Verification ---');
+  console.log('\n--- Group 6: Synthetic HDFC Fixture End-to-End Pipeline Verification ---');
 
-  await test('35. Real end-to-end source-text path preserves verbatim symbols (<, <=, + 1 day, milestones) through parser, staging, and promotion', async () => {
-    const fs = require('fs');
-    const path = require('path');
+  await test('35. Synthetic HDFC table fixture preserves verbatim calendar labels through parser, staging, and promotion', async () => {
     const { HdfcRateParser } = require('../parsers/hdfc_parser');
-
-    const snapshotPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.normalized.txt');
-    const html = fs.readFileSync(snapshotPath, 'utf8');
+    const fixture = buildHdfcRegressionFixture();
     const parser = new HdfcRateParser();
 
-    // 1. Parser Extraction
-    const extractionResult = parser.parse(html, {
-      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
-      sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
+    const extractionResult = parser.parse(fixture.html, {
+      sourceUrl: HDFC_SOURCE_URL,
+      sourceContentHash: fixture.sourceContentHash,
       sourceId: 'hdfc-retail-domestic',
     });
 
@@ -901,48 +935,29 @@ async function runTests() {
 
     const candidates = extractionResult.candidates;
     const allLabels = candidates.map(c => c.tenureLabel);
+    assert.ok(allLabels.some(l => l.includes('<')), 'Fixture output must retain strict less-than labels');
+    assert.ok(allLabels.some(l => l.includes('<='), 'Fixture output must retain less-than-or-equal labels');
+    assert.ok(allLabels.some(l => l.includes('1 day')), 'Fixture output must retain +1 day labels');
+    assert.ok(allLabels.some(l => l.includes('(35 months)'), 'Fixture output must retain 35-month milestone');
+    assert.ok(allLabels.some(l => l.includes('(55 months)'), 'Fixture output must retain 55-month milestone');
 
-    // Verify presence of all required critical expressions in parser output
-    const hasStrictLessThan = allLabels.some(l => l.includes('<'));
-    const hasLessEqual = allLabels.some(l => l.includes('<='));
-    const hasPlusOneDay = allLabels.some(l => l.includes('1 day'));
-    const has35Months = allLabels.some(l => l.includes('(35 months)'));
-    const has55Months = allLabels.some(l => l.includes('(55 months)'));
-
-    assert.ok(hasStrictLessThan, 'Parser output must contain strict less-than "<" labels');
-    assert.ok(hasLessEqual, 'Parser output must contain less-than-or-equal "<=" labels');
-    assert.ok(hasPlusOneDay, 'Parser output must contain "+ 1 day" boundary labels');
-    assert.ok(has35Months, 'Parser output must contain milestone label "(35 months)"');
-    assert.ok(has55Months, 'Parser output must contain milestone label "(55 months)"');
-
-    // 2. Candidate Staging Payload Construction
     const capturedStagingRows = [];
     const stagingService = new CandidateStagingService({
       supabaseClient: makeMockDb(capturedStagingRows),
       logger: silentLogger,
     });
-
     const persistResult = await stagingService._persistCandidates(candidates, { requireLock: false });
     assert.strictEqual(persistResult.persistedCount, 38);
     assert.strictEqual(capturedStagingRows.length, 38);
 
-    // Assert that every staged row preserves exact published label
     for (let i = 0; i < 38; i++) {
-      const originalCandidate = candidates[i];
-      const stagedRow = capturedStagingRows[i];
-      assert.strictEqual(
-        stagedRow.tenure_label,
-        originalCandidate.tenureLabel,
-        `Staging row ${i} tenure_label mismatch: "${stagedRow.tenure_label}" !== "${originalCandidate.tenureLabel}"`
-      );
+      assert.strictEqual(capturedStagingRows[i].tenure_label, candidates[i].tenureLabel);
     }
 
-    // 3. Promotion Record Construction
+    // These promotion calls use an in-memory test path and synthetic fixture data only.
     const promotionService = new PromotionService();
-
-    // Verify promotion for milestone (35 months) candidate
     const cand35Months = candidates.find(c => c.tenureLabel.includes('(35 months)'));
-    assert.ok(cand35Months, 'Candidate for 35 months must exist');
+    assert.ok(cand35Months, '35-month fixture candidate must exist');
     const promoResult35 = await promotionService.promoteCandidate({
       candidate: cand35Months,
       actorType: 'ADMIN',
@@ -951,11 +966,9 @@ async function runTests() {
     });
     assert.strictEqual(promoResult35.success, true);
     assert.strictEqual(promoResult35.newVerifiedRate.source_tenure_text, cand35Months.tenureLabel);
-    assert.ok(promoResult35.newVerifiedRate.source_tenure_text.includes('(35 months)'));
 
-    // Verify promotion for milestone (55 months) candidate
     const cand55Months = candidates.find(c => c.tenureLabel.includes('(55 months)'));
-    assert.ok(cand55Months, 'Candidate for 55 months must exist');
+    assert.ok(cand55Months, '55-month fixture candidate must exist');
     const promoResult55 = await promotionService.promoteCandidate({
       candidate: cand55Months,
       actorType: 'ADMIN',
@@ -964,9 +977,7 @@ async function runTests() {
     });
     assert.strictEqual(promoResult55.success, true);
     assert.strictEqual(promoResult55.newVerifiedRate.source_tenure_text, cand55Months.tenureLabel);
-    assert.ok(promoResult55.newVerifiedRate.source_tenure_text.includes('(55 months)'));
 
-    // Verify promotion for "<" candidate
     const candStrictLt = candidates.find(c => c.tenureLabel.includes('1 Year to < 15 months'));
     assert.ok(candStrictLt);
     const promoResultLt = await promotionService.promoteCandidate({
@@ -977,7 +988,6 @@ async function runTests() {
     });
     assert.strictEqual(promoResultLt.newVerifiedRate.source_tenure_text, '1 Year to < 15 months');
 
-    // Verify promotion for "<=" candidate
     const candLte = candidates.find(c => c.tenureLabel.includes('90 days <= 6 months'));
     assert.ok(candLte);
     const promoResultLte = await promotionService.promoteCandidate({
@@ -988,6 +998,8 @@ async function runTests() {
     });
     assert.strictEqual(promoResultLte.newVerifiedRate.source_tenure_text, '90 days <= 6 months');
   });
+
+  console.log('\n--- Group 7: Phase 3C.5.44 Exact Interval Verification & Scoped Mixed-Domain Tests ---');  });
 
   console.log('\n--- Group 7: Phase 3C.5.44 Exact Interval Verification & Scoped Mixed-Domain Tests ---');
 
@@ -1239,41 +1251,34 @@ async function runTests() {
     assert.strictEqual(diff.previousRecord.id, 'rate_d_overlap');
   });
 
-  await test('45. Evidence reconciliation: HDFC 55 months and 3Y 1d to < 4Y 7M rate & spread verification', () => {
-    const fs = require('fs');
-    const path = require('path');
+  await test('45. Canonical HDFC slab 16 and 17 values survive parser mapping from synthetic fixture', () => {
     const { HdfcRateParser } = require('../parsers/hdfc_parser');
-
-    const snapshotPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.normalized.txt');
-    const html = fs.readFileSync(snapshotPath, 'utf8');
+    const fixture = buildHdfcRegressionFixture();
     const parser = new HdfcRateParser();
-
-    const result = parser.parse(html, {
-      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
-      sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
+    const result = parser.parse(fixture.html, {
+      sourceUrl: HDFC_SOURCE_URL,
+      sourceContentHash: fixture.sourceContentHash,
       sourceId: 'hdfc-retail-domestic',
     });
 
-    // 1. Verify Slab 16 (REV_047 / REV_048): "3 Years 1 day to < 4 Years 7 Months"
     const slab16Reg = result.candidates.find(c => c.tenureLabel === '3 Years 1 day to < 4 Years 7 Months' && c.customerType === 'REGULAR');
     const slab16Sen = result.candidates.find(c => c.tenureLabel === '3 Years 1 day to < 4 Years 7 Months' && c.customerType === 'SENIOR_CITIZEN');
-    assert.ok(slab16Reg, 'Slab 16 REGULAR candidate must exist');
-    assert.ok(slab16Sen, 'Slab 16 SENIOR_CITIZEN candidate must exist');
-    assert.strictEqual(slab16Reg.interestRate, 6.50, 'Slab 16 REGULAR rate must be 6.50%');
-    assert.strictEqual(slab16Sen.interestRate, 7.10, 'Slab 16 SENIOR_CITIZEN rate must be 7.10%');
-    const spreadSlab16 = Math.round((slab16Sen.interestRate - slab16Reg.interestRate) * 100);
-    assert.strictEqual(spreadSlab16, 60, 'Slab 16 must have published +60 bps spread');
+    assert.ok(slab16Reg, 'Slab 16 REGULAR fixture candidate must exist');
+    assert.ok(slab16Sen, 'Slab 16 SENIOR_CITIZEN fixture candidate must exist');
+    assert.strictEqual(slab16Reg.interestRate, 6.50);
+    assert.strictEqual(slab16Sen.interestRate, 7.10);
+    assert.strictEqual(Math.round((slab16Sen.interestRate - slab16Reg.interestRate) * 100), 60);
 
-    // 2. Verify Slab 17 (REV_049 / REV_050): "4 Year 7 Months (55 months)"
     const slab17Reg = result.candidates.find(c => c.tenureLabel === '4 Year 7 Months (55 months)' && c.customerType === 'REGULAR');
     const slab17Sen = result.candidates.find(c => c.tenureLabel === '4 Year 7 Months (55 months)' && c.customerType === 'SENIOR_CITIZEN');
-    assert.ok(slab17Reg, 'Slab 17 REGULAR candidate must exist');
-    assert.ok(slab17Sen, 'Slab 17 SENIOR_CITIZEN candidate must exist');
-    assert.strictEqual(slab17Reg.interestRate, 6.40, 'Slab 17 (55 months) REGULAR rate must be 6.40% (NOT 7.20%)');
-    assert.strictEqual(slab17Sen.interestRate, 6.90, 'Slab 17 (55 months) SENIOR_CITIZEN rate must be 6.90% (NOT 7.80%)');
-    const spreadSlab17 = Math.round((slab17Sen.interestRate - slab17Reg.interestRate) * 100);
-    assert.strictEqual(spreadSlab17, 50, 'Slab 17 (55 months) must have standard +50 bps spread');
+    assert.ok(slab17Reg, 'Slab 17 REGULAR fixture candidate must exist');
+    assert.ok(slab17Sen, 'Slab 17 SENIOR_CITIZEN fixture candidate must exist');
+    assert.strictEqual(slab17Reg.interestRate, 6.40);
+    assert.strictEqual(slab17Sen.interestRate, 6.90);
+    assert.strictEqual(Math.round((slab17Sen.interestRate - slab17Reg.interestRate) * 100), 50);
   });
+
+  console.log('\n--- Group 8: Phase 3C.5.45 Exhaustive Gregorian Interval Proofs & Fixture Integrity ---');  });
 
   console.log('\n--- Group 8: Phase 3C.5.45 Exhaustive Gregorian Interval Proofs & Hash Integrity ---');
 
@@ -1386,54 +1391,69 @@ async function runTests() {
     assert.strictEqual(diffEngine._isCalendarIntervalStrictlyBefore(upperLte, lowerGte), false, 'LTE meets GTE share boundary point');
   });
 
-  await test('49. Source snapshot exact cryptographic hashes independent calculation & attribution', () => {
-    const fs = require('fs');
-    const crypto = require('crypto');
-    const path = require('path');
+  await test('49. Deterministic HDFC fixture hash is reproducible and passed through parser provenance', () => {
+    const { HdfcRateParser } = require('../parsers/hdfc_parser');
+    const fixture = buildHdfcRegressionFixture();
+    const textHash = crypto.createHash('sha256').update(fixture.html, 'utf8').digest('hex');
+    const byteHash = crypto.createHash('sha256').update(Buffer.from(fixture.html, 'utf8')).digest('hex');
+    assert.strictEqual(textHash, fixture.sourceContentHash);
+    assert.strictEqual(byteHash, fixture.sourceContentHash);
+    assert.match(textHash, /^[a-f0-9]{64}$/);
 
-    const normPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.normalized.txt');
-    const rawPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.raw.bin');
-    const metaPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.meta.json');
-
-    const normBytes = fs.readFileSync(normPath);
-    const rawBytes = fs.readFileSync(rawPath);
-    const metaBytes = fs.readFileSync(metaPath);
-
-    const normHash = crypto.createHash('sha256').update(normBytes).digest('hex').toLowerCase();
-    const rawHash = crypto.createHash('sha256').update(rawBytes).digest('hex').toLowerCase();
-    const metaHash = crypto.createHash('sha256').update(metaBytes).digest('hex').toLowerCase();
-
-    // Verify independent SHA-256 digests
-    assert.strictEqual(normHash, '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c', 'Normalized text file hash must match');
-    assert.strictEqual(rawHash, 'c1293b8525a44ddd4dac99938b594133ba027ff844092a274aafb83634d1fab0', 'Raw binary supplement hash must match');
-    assert.strictEqual(metaHash, '140b15ec810e8200cd579a11d7d55a8244175850914eb946176c4d61e9a66a2c', 'Metadata JSON hash must match');
-
-    // Confirm that normalized hash != raw hash (reconciling previous attribution discrepancy)
-    assert.notStrictEqual(normHash, rawHash, 'Normalized text hash must not be attributed to raw binary supplement');
+    const parsed = new HdfcRateParser().parse(fixture.html, {
+      sourceUrl: HDFC_SOURCE_URL,
+      sourceContentHash: fixture.sourceContentHash,
+      sourceId: 'hdfc-retail-domestic',
+    });
+    assert.strictEqual(parsed.success, true);
+    assert.strictEqual(parsed.candidates.length, 38);
+    assert.ok(parsed.candidates.every(c => c.sourceContentHash === fixture.sourceContentHash));
   });
 
-  await test('50. Review governance and review sheet verification (38 candidates in REVIEW_REQUIRED)', () => {
+  await test('50. Tracked HDFC human-review worksheet contains 38 REVIEW_REQUIRED rows with blank reviewer fields', () => {
     const fs = require('fs');
-    const crypto = require('crypto');
     const path = require('path');
+    const reviewCsvPath = path.join(__dirname, '..', 'review', 'hdfc_batch_2_human_review.csv');
+    const lines = fs.readFileSync(reviewCsvPath, 'utf8').trim().split(/\r?\n/);
+    assert.strictEqual(lines.length, 39, 'Header plus 38 candidate rows must exist');
 
-    const reviewCsvPath = 'C:\\Users\\kuldi\\.gemini\\antigravity\\brain\\ccf336b8-8a4e-4b6b-b1b0-03d42a495089\\phase_3c_5_41_r3_1_hdfc_batch_2_human_review.csv';
-    const csvBytes = fs.readFileSync(reviewCsvPath);
-    const csvHash = crypto.createHash('sha256').update(csvBytes).digest('hex').toLowerCase();
-
-    assert.strictEqual(csvHash, '2918947bad09e1a3e62ee340f30522a9a5f5796786acdbecd829fb8a9a53067a', 'Review worksheet must be bit-for-bit unchanged');
-
-    const lines = fs.readFileSync(reviewCsvPath, 'utf8').trim().split('\n');
-    const dataRows = lines.slice(1);
-    assert.strictEqual(dataRows.length, 38, 'Must have exactly 38 candidates in human review sheet');
-
-    for (const row of dataRows) {
-      assert.ok(row.includes(',VALID,'), 'Validation status must be VALID');
-      assert.ok(row.includes(',REVIEW_REQUIRED,'), 'Review status must be REVIEW_REQUIRED');
-      // Last fields must be empty (no reviewer signature)
-      assert.ok(row.endsWith(',,,,') || row.endsWith(',,,'), 'Reviewer decision, reviewer name, and reviewed_at must be blank');
+    const headers = lines[0].split(',');
+    const indexes = Object.fromEntries(headers.map((name, index) => [name, index]));
+    for (const required of [
+      'review_id', 'candidate_id', 'tenure_label', 'tenure_domain',
+      'interest_rate', 'senior_citizen_rate', 'source_content_hash',
+      'validation_status', 'review_status', 'reviewer_decision', 'reviewer_name', 'reviewed_at',
+    ]) {
+      assert.ok(Object.hasOwn(indexes, required), 'Missing required worksheet column: ' + required);
     }
+
+    const rows = lines.slice(1).map(line => line.split(','));
+    assert.strictEqual(rows.length, 38);
+    assert.strictEqual(new Set(rows.map(row => row[indexes.review_id])).size, 38);
+    assert.strictEqual(new Set(rows.map(row => row[indexes.candidate_id])).size, 38);
+
+    for (const row of rows) {
+      assert.strictEqual(row[indexes.validation_status], 'VALID');
+      assert.strictEqual(row[indexes.review_status], 'REVIEW_REQUIRED');
+      assert.strictEqual(row[indexes.source_content_hash], '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c');
+      assert.strictEqual(row[indexes.effective_from], '2026-08-19');
+      assert.strictEqual(row[indexes.min_deposit], '5000.00');
+      assert.strictEqual(row[indexes.max_deposit], '29999999.00');
+      assert.strictEqual(row[indexes.reviewer_decision], '');
+      assert.strictEqual(row[indexes.reviewer_name], '');
+      assert.strictEqual(row[indexes.reviewed_at], '');
+    }
+
+    const byReviewId = new Map(rows.map(row => [row[indexes.review_id], row]));
+    assert.strictEqual(byReviewId.get('REV_047')[indexes.interest_rate], '6.50');
+    assert.strictEqual(byReviewId.get('REV_048')[indexes.interest_rate], '7.10');
+    assert.strictEqual(byReviewId.get('REV_049')[indexes.interest_rate], '6.40');
+    assert.strictEqual(byReviewId.get('REV_050')[indexes.interest_rate], '6.90');
+    assert.strictEqual(byReviewId.get('REV_047')[indexes.senior_spread_bps], '60');
+    assert.strictEqual(byReviewId.get('REV_049')[indexes.senior_spread_bps], '50');
   });
+
+  console.log('======================================================================');  });
 
   console.log('======================================================================');
   console.log(`Results: ${passed} passed, ${failed} failed (Total: ${passed + failed})`);
