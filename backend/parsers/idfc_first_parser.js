@@ -71,7 +71,7 @@ class IdfcFirstRateParser extends BaseRateParser {
 
     // Scope the effective date to the primary retail table heading. Never reuse
     // the page's blog/footer dates as an effective date.
-    const pageText = cleanCellText(html);
+    // HTML ordinal suffixes often sit in separate <sup> tags (e.g. 01<sup>st</sup>).\n    // Collapse their normalized whitespace before parsing, without using page/blog dates.\n    const pageText = cleanCellText(html).replace(/(\\d{1,2})\\s+(st|nd|rd|th)\\b/gi, '$1$2');
     const dateScope = pageText.match(
       /Interest Rates for Domestic\s*\/\s*NRO\s*\/\s*NRE Fixed Deposits of less than\s*₹\s*3\s*Crore\s*w\.e\.f\.?\s*([^*]{1,50})/i
     );
