@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class PpfCalculatorScreen extends StatefulWidget {
   const PpfCalculatorScreen({Key? key}) : super(key: key);
@@ -36,7 +38,7 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
     super.initState();
     _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
-    _calculatePpf();
+    _calculatePpf(animate: true);
   }
 
   @override
@@ -45,7 +47,7 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
     super.dispose();
   }
 
-  void _calculatePpf() {
+  void _calculatePpf({bool animate = false}) {
     final result = FinancialMath.calculatePPF(
       yearlyDeposit: _yearlyInvestment,
       annualRate: _interestRate,
@@ -54,18 +56,54 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
     _maturityValue = result['maturityValue']!;
     _totalInvestment = result['totalDeposit']!;
     _totalInterest = result['totalInterest']!;
-    _animationController.forward(from: 0.0);
+    if (animate) {
+      _animationController.forward(from: 0.0);
+    }
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculatePpf(animate: true);
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'ppf',
+      calculatorName: 'PPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maturity Value',
+      primaryResultValue: _currencyFormat.format(_maturityValue),
+      category: 'Deposits',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Yearly Deposit': _currencyFormat.format(_yearlyInvestment),
+    'Interest Rate': '${_interestRate.toStringAsFixed(1)}% p.a.',
+    'Tenure': '${_periodYears.toInt()} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Investment': _currencyFormat.format(_totalInvestment),
+    'Total Interest': _currencyFormat.format(_totalInterest),
+    'Maturity Value': _currencyFormat.format(_maturityValue),
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc PPF Calculator\n\nYearly Investment: \u20B9${_yearlyInvestment.toStringAsFixed(0)}\nRate: ${_interestRate}% p.a.\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nMaturity Value: \u20B9${_maturityValue.toStringAsFixed(0)}\nTotal Investment: \u20B9${_totalInvestment.toStringAsFixed(0)}\nTotal Interest: \u20B9${_totalInterest.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'PPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   void _exportPdf(BuildContext context) {
-    final text = 'FeroCalc PPF Report\n\nYearly Investment: \u20B9${_yearlyInvestment.toStringAsFixed(0)}\nRate: ${_interestRate}% p.a.\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nMaturity Value: \u20B9${_maturityValue.toStringAsFixed(0)}\nTotal Investment: \u20B9${_totalInvestment.toStringAsFixed(0)}\nTotal Interest: \u20B9${_totalInterest.toStringAsFixed(0)}';
-    Share.share(text, subject: 'FeroCalc - PPF Report');
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'PPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -109,9 +147,10 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
                         value: _periodYears,
                         min: 15,
                         max: 50,
+                        divisions: 35,
                         suffix: ' Yrs',
                         onChanged: (val) {
-                          setState(() => _periodYears = val);
+                          setState(() => _periodYears = val.clamp(15.0, 50.0).roundToDouble());
                           _calculatePpf();
                         },
                       ),
@@ -125,6 +164,12 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                GradientButton(
+                  key: const ValueKey('calculate_button'),
+                  text: 'Calculate',
+                  onPressed: _calculateAndSave,
                 ),
                 const SizedBox(height: 24),
                 FadeTransition(
@@ -145,6 +190,8 @@ class _PpfCalculatorScreenState extends State<PpfCalculatorScreen> with SingleTi
                   text: 'Export Schedule',
                   onPressed: () => _exportPdf(context),
                 ),
+                const SizedBox(height: 24),
+                const CalculatorPurposeCard(calculatorId: 'ppf'),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                   child: Text(

@@ -74,7 +74,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   'FeroCalc is designed with privacy in mind. The App performs '
                   'all financial calculations locally on your device and does '
                   'not require you to create an account or provide personal '
-                  'information to use its core features.',
+                  'information to use the app.',
                   style: bodyStyle,
                 ),
                 const SizedBox(height: 28),
@@ -119,9 +119,6 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   'Your selected customer type (Regular or Senior Citizen), '
                       'used to show relevant interest rates.',
                   'Theme preference (dark or light mode).',
-                  'If you use the login feature, your email address is stored '
-                      'locally on your device for session purposes. This email '
-                      'is not transmitted to any server.',
                   'A cached copy of publicly available bank interest rate data, '
                       'to allow offline access.',
                 ]),

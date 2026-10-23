@@ -4,13 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../core/widgets/custom_app_bar.dart';
-import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
-import '../../../../features/auth/presentation/bloc/auth_state.dart';
-import '../../../../features/auth/presentation/bloc/auth_event.dart';
 import '../../../../features/theme/bloc/theme_bloc.dart';
 import '../../../../features/theme/bloc/theme_event.dart';
 import '../../../../features/theme/bloc/theme_state.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../config/constants/app_constants.dart';
 import 'package:fincalc_pro/features/profile/presentation/screens/terms_screen.dart';
 
 /// Key used to persist customer type in SharedPreferences.
@@ -62,28 +61,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
-            child: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, state) {
-                if (state is AuthAuthenticated) {
-                  return _buildAuthenticatedProfile(context, state);
-                } else {
-                  return _buildGuestProfile(context);
-                }
-              },
-            ),
+            child: _buildProfile(context),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGuestProfile(BuildContext context) {
+  Widget _buildProfile(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Center(
           child: CircleAvatar(
-            radius: 50,
+            radius: 44,
             backgroundColor: Colors.transparent,
             child:
                 Icon(Icons.person_outline, size: 50, color: Color(0xFFC9A96E)),
@@ -91,48 +82,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 16),
         Center(
-          child: Text('Welcome, Guest',
+          child: Text('FeroCalc Profile',
               style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).textTheme.bodyLarge?.color)),
         ),
-        const SizedBox(height: 24),
-        Center(
-          child: Container(
-            width: Responsive.isDesktop(context) ? 300 : double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(colors: [
-                Theme.of(context).colorScheme.secondary,
-                Theme.of(context).colorScheme.primary
-              ]),
-            ),
-            child: ElevatedButton(
-              onPressed: () {
-                context.push('/login');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text('Sign In / Create Account',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ??
-                          Colors.white))),
-            ),
-          ),
-        ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
 
         // --- Customer Type ---
         _buildSectionHeader('Customer Type'),
         _buildCustomerTypeSelector(context),
+        const SizedBox(height: 16),
+
+        // --- My Calculations ---
+        _buildSectionHeader('My Calculations'),
+        _buildListTile(
+          context,
+          Icons.history,
+          'Calculation History',
+          () {
+            context.push('/history');
+          },
+          key: const ValueKey('profile_calculation_history_tile'),
+        ),
         const SizedBox(height: 16),
 
         // --- App Settings ---
@@ -169,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // --- About FeroCalc ---
         _buildSectionHeader('About FeroCalc'),
         _buildListTile(context, Icons.info_outline, 'Privacy Policy', () {
-          context.go('/privacy');
+          context.push('/privacy');
         }),
         _buildListTile(context, Icons.description_outlined, 'Terms of Service',
             () {
@@ -195,113 +168,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
         }),
-        _buildListTile(context, Icons.share_outlined, 'Share App', () {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Share link copied!')));
-        }),
+        _buildListTile(
+          context,
+          Icons.share_outlined,
+          'Share App',
+          () {
+            CalculatorShareHelper.shareApp(context);
+          },
+          key: const ValueKey('profile_share_app_tile'),
+        ),
         const SizedBox(height: 48),
         _buildBranding(context),
       ],
     );
   }
 
-  Widget _buildAuthenticatedProfile(
-      BuildContext context, AuthAuthenticated state) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Center(
-          child: CircleAvatar(
-            radius: 50,
-            backgroundColor:
-                Theme.of(context).colorScheme.secondary.withOpacity(0.2),
-            child: Text(
-              state.user.displayName.isNotEmpty
-                  ? state.user.displayName[0].toUpperCase()
-                  : 'U',
-              style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.secondary),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(state.user.displayName,
-              style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color)),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: Text(state.user.email,
-              style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).textTheme.bodyMedium?.color)),
-        ),
-        const SizedBox(height: 32),
-
-        // --- Customer Type ---
-        _buildSectionHeader('Customer Type'),
-        _buildCustomerTypeSelector(context),
-        const SizedBox(height: 16),
-
-        // --- My Data ---
-        _buildSectionHeader('My Data'),
-        _buildListTile(context, Icons.history, 'Calculation History', () {}),
-        _buildListTile(
-            context, Icons.bookmark_border, 'Saved Calculations', () {}),
-        _buildListTile(
-            context, Icons.cloud_done_outlined, 'Cloud Sync Status', () {},
-            trailing: Icon(Icons.check_circle,
-                color: Theme.of(context).colorScheme.secondary, size: 20)),
-        _buildListTile(context, Icons.import_export, 'Export Settings', () {}),
-        const SizedBox(height: 16),
-
-        // --- Account Settings ---
-        _buildSectionHeader('Account Settings'),
-        _buildListTile(context, Icons.lock_outline, 'Change Password', () {}),
-        _buildListTile(context, Icons.delete_outline, 'Delete Account', () {},
-            isDestructive: true),
-        const SizedBox(height: 16),
-
-        // --- Data & Trust ---
-        _buildSectionHeader('Data & Trust'),
-        _buildDataTrustSection(context),
-        const SizedBox(height: 16),
-
-        // --- About FeroCalc ---
-        _buildSectionHeader('About FeroCalc'),
-        _buildListTile(context, Icons.info_outline, 'Privacy Policy', () {
-          context.go('/privacy');
-        }),
-        _buildListTile(context, Icons.description_outlined, 'Terms of Service',
-            () {
-          Navigator.push(context,
-              MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
-        }),
-        _buildVersionTile(context),
-        const SizedBox(height: 16),
-
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.redAccent),
-          title: const Text('Sign Out',
-              style: TextStyle(
-                  color: Colors.redAccent, fontWeight: FontWeight.w600)),
-          onTap: () {
-            context.read<AuthBloc>().add(LogoutRequested());
-          },
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          tileColor: Theme.of(context).cardColor,
-        ),
-        const SizedBox(height: 32),
-        _buildBranding(context),
-      ],
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Customer Type Selector
@@ -316,7 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
         children: [
           RadioListTile<String>(
             title: Row(
@@ -361,7 +244,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   // ---------------------------------------------------------------------------
@@ -439,14 +323,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Icon(Icons.open_in_new, size: 14, color: Color(0xFFC9A96E)),
                 SizedBox(width: 6),
-                Text(
-                  'View Full Disclaimer',
-                  style: TextStyle(
-                    color: Color(0xFFC9A96E),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Color(0xFFC9A96E),
+                Flexible(
+                  child: Text(
+                    'View Full Disclaimer',
+                    style: TextStyle(
+                      color: Color(0xFFC9A96E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFFC9A96E),
+                    ),
                   ),
                 ),
               ],
@@ -478,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildListTile(
       BuildContext context, IconData icon, String title, VoidCallback onTap,
-      {Widget? trailing, bool isDestructive = false}) {
+      {Widget? trailing, bool isDestructive = false, Key? key}) {
     final textColor = isDestructive
         ? Colors.redAccent
         : Theme.of(context).textTheme.bodyLarge?.color;
@@ -488,17 +374,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: ListTile(
-        leading: Icon(icon,
-            color: isDestructive
-                ? Colors.redAccent
-                : Theme.of(context).colorScheme.secondary),
-        title: Text(title, style: TextStyle(color: textColor)),
-        trailing: trailing ??
-            Icon(Icons.arrow_forward_ios,
-                size: 14, color: Theme.of(context).textTheme.bodySmall?.color),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          key: key,
+          leading: Icon(icon,
+              color: isDestructive
+                  ? Colors.redAccent
+                  : Theme.of(context).colorScheme.secondary),
+          title: Text(title, style: TextStyle(color: textColor)),
+          trailing: trailing ??
+              Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Theme.of(context).textTheme.bodySmall?.color),
+          onTap: onTap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }
@@ -510,17 +400,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: ListTile(
-        leading: Icon(Icons.smartphone,
-            color: Theme.of(context).colorScheme.secondary),
-        title: Text('Version',
-            style:
-                TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
-        trailing: Text('1.0.0',
-            style: TextStyle(
-                color: Theme.of(context).textTheme.bodySmall?.color,
-                fontSize: 14)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(Icons.smartphone,
+              color: Theme.of(context).colorScheme.secondary),
+          title: Text('Version',
+              style:
+                  TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+          trailing: Text(AppConstants.appVersion,
+              style: TextStyle(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                  fontSize: 14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }

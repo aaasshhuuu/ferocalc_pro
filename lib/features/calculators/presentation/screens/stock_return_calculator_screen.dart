@@ -1,15 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
+import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class StockReturnCalculatorScreen extends StatefulWidget {
   const StockReturnCalculatorScreen({Key? key}) : super(key: key);
@@ -43,11 +44,11 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
   }
 
   void _calculateReturn() {
-    double buy = double.tryParse(_buyPriceCtrl.text) ?? 0;
-    double sell = double.tryParse(_sellPriceCtrl.text) ?? 0;
-    double qty = double.tryParse(_qtyCtrl.text) ?? 0;
-    double brokerageRate = double.tryParse(_brokerageCtrl.text) ?? 0;
-    double divPerShare = double.tryParse(_dividendCtrl.text) ?? 0;
+    final double buy = double.tryParse(_buyPriceCtrl.text) ?? 0;
+    final double sell = double.tryParse(_sellPriceCtrl.text) ?? 0;
+    final double qty = double.tryParse(_qtyCtrl.text) ?? 0;
+    final double brokerageRate = double.tryParse(_brokerageCtrl.text) ?? 0;
+    final double divPerShare = double.tryParse(_dividendCtrl.text) ?? 0;
     double years = double.tryParse(_yearsCtrl.text) ?? 1;
     if (years <= 0) years = 1;
 
@@ -71,18 +72,56 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateReturn();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'stock_return',
+      calculatorName: 'Stock Return Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Net Profit / Loss',
+      primaryResultValue: _currencyFormat.format(_netProfit),
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Buy Price': '₹${_buyPriceCtrl.text}',
+    'Sell Price': '₹${_sellPriceCtrl.text}',
+    'Quantity': _qtyCtrl.text,
+    'Holding Period': '${_yearsCtrl.text} Years',
+    'Brokerage Rate': '${_brokerageCtrl.text}%',
+    'Dividend / Share': '₹${_dividendCtrl.text}',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Investment': _currencyFormat.format(_totalInvestment),
+    'Total Sale Value': _currencyFormat.format(_totalSale),
+    'Capital Gain': _currencyFormat.format(_capitalGain),
+    'Dividend Income': _currencyFormat.format(_dividendIncome),
+    'Brokerage Cost': _currencyFormat.format(_brokerageCost),
+    'Net Profit': _currencyFormat.format(_netProfit),
+    'Annualized Return (CAGR)': '${_cagr.toStringAsFixed(2)}%',
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Stock Return Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Stock Return Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -90,7 +129,18 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Stock Return Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -129,6 +179,12 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Net Profit / Loss',
@@ -156,6 +212,9 @@ class _StockReturnCalculatorScreenState extends State<StockReturnCalculatorScree
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'stock_return'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

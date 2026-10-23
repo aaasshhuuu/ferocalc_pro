@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class NpsCalculatorScreen extends StatefulWidget {
   const NpsCalculatorScreen({Key? key}) : super(key: key);
@@ -50,24 +53,72 @@ class _NpsCalculatorScreenState extends State<NpsCalculatorScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateNps();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'nps',
+      calculatorName: 'NPS Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Expected Monthly Pension',
+      primaryResultValue: _currencyFormat.format(_monthlyPension),
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Monthly Contribution': _currencyFormat.format(_monthlyInvestment),
+    'Expected Return Rate': '${_expectedReturn.toStringAsFixed(1)}% p.a.',
+    'Current Age': '${_age.toInt()} Years',
+    'Retirement Age': '${_retirementAge.toInt()} Years',
+    'Expected Annuity Rate': '${_annuityRate.toStringAsFixed(1)}%',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Maturity Corpus': _currencyFormat.format(_maturityAmount),
+    'Total Investment': _currencyFormat.format(_totalInvestment),
+    'Lump Sum Amount (60%)': _currencyFormat.format(_lumpsum),
+    'Expected Monthly Pension': _currencyFormat.format(_monthlyPension),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'NPS Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'NPS Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'NPS Calculator', actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)]),
+      appBar: CustomAppBar(
+        title: 'NPS Calculator',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(context)),
@@ -100,6 +151,12 @@ class _NpsCalculatorScreenState extends State<NpsCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Expected Monthly Pension',
@@ -110,6 +167,9 @@ class _NpsCalculatorScreenState extends State<NpsCalculatorScreen> {
                 SubResult(label: 'Total Investment', value: _currencyFormat.format(_totalInvestment)),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'nps'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

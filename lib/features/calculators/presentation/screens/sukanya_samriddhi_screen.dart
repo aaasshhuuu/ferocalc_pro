@@ -1,16 +1,18 @@
-import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
+import 'package:fincalc_pro/config/themes/app_text_styles.dart';
+import 'package:fincalc_pro/core/utils/calculator_share_helper.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
+import 'package:fincalc_pro/core/utils/responsive.dart';
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'ssy_schedule_screen.dart';
 
 class SukanyaSamriddhiScreen extends StatefulWidget {
   const SukanyaSamriddhiScreen({Key? key}) : super(key: key);
@@ -53,18 +55,76 @@ class _SukanyaSamriddhiScreenState extends State<SukanyaSamriddhiScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateSsy();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'sukanya_samriddhi',
+      calculatorName: 'Sukanya Samriddhi (SSY)',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maturity Value (at Age ${(_girlAge + 21).toInt()})',
+      primaryResultValue: _currencyFormat.format(_maturityValue),
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Girl Child Age': '${_girlAge.toInt()} Years',
+    'Deposit Mode': _isVariable ? 'Variable' : 'Fixed',
+    if (!_isVariable) 'Yearly Deposit': _currencyFormat.format(_fixedYearlyDeposit),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Deposits': _currencyFormat.format(_totalInvestment),
+    'Total Interest': _currencyFormat.format(_totalInterest),
+    'Maturity Value (at Age ${(_girlAge + 21).toInt()})': _currencyFormat.format(_maturityValue),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Sukanya Samriddhi (SSY)',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Sukanya Samriddhi (SSY)',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
+  }
+
+  void _openYearlySchedule(BuildContext context) {
+    final List<double> deposits =
+        _isVariable ? List.from(_variableDeposits) : List.filled(15, _fixedYearlyDeposit);
+    final args = {
+      'girlAge': _girlAge.toInt(),
+      'interestRate': _interestRate,
+      'yearlyDeposits': deposits,
+      'isVariable': _isVariable,
+    };
+
+    try {
+      context.push('/calculator/sukanya/schedule', extra: args);
+    } catch (_) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SsyScheduleScreen(
+            girlAge: _girlAge.toInt(),
+            interestRate: _interestRate,
+            yearlyDeposits: deposits,
+            isVariable: _isVariable,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -72,7 +132,18 @@ class _SukanyaSamriddhiScreenState extends State<SukanyaSamriddhiScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Sukanya Samriddhi (SSY)',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -193,6 +264,12 @@ class _SukanyaSamriddhiScreenState extends State<SukanyaSamriddhiScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Maturity Value (at Age ${(_girlAge + 21).toInt()})',
@@ -203,12 +280,13 @@ class _SukanyaSamriddhiScreenState extends State<SukanyaSamriddhiScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            GradientButton(text: 'View Year-wise Schedule',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Year-wise schedule coming soon!'), backgroundColor: Color(0xFF10B981)),
-                );
-              }),
+            GradientButton(
+              key: const ValueKey('view_ssy_schedule_button'),
+              text: 'View Year-wise Schedule',
+              onPressed: () => _openYearlySchedule(context),
+            ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'sukanya'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               child: Text(

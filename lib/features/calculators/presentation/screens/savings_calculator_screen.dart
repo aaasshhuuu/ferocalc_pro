@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class SavingsCalculatorScreen extends StatefulWidget {
   const SavingsCalculatorScreen({Key? key}) : super(key: key);
@@ -49,24 +52,70 @@ class _SavingsCalculatorScreenState extends State<SavingsCalculatorScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateSavings();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'savings',
+      calculatorName: 'Savings Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Final Amount',
+      primaryResultValue: _currencyFormat.format(_finalAmount),
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Initial Deposit': _currencyFormat.format(_initialAmount),
+    'Monthly Savings': _currencyFormat.format(_monthlySavings),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_periodYears.toInt()} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Deposits': _currencyFormat.format(_totalSavings),
+    'Interest Earned': _currencyFormat.format(_interestEarned),
+    'Final Balance': _currencyFormat.format(_finalAmount),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Savings Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Savings Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Savings Calculator', actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)]),
+      appBar: CustomAppBar(
+        title: 'Savings Calculator',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(context)),
@@ -99,6 +148,12 @@ class _SavingsCalculatorScreenState extends State<SavingsCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Final Amount',
@@ -108,6 +163,9 @@ class _SavingsCalculatorScreenState extends State<SavingsCalculatorScreen> {
                 SubResult(label: 'Interest Earned', value: _currencyFormat.format(_interestEarned)),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'savings'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

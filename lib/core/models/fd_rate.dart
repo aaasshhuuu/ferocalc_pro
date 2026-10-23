@@ -25,6 +25,9 @@ class FdRate {
   final String? sourceDocument;
   final bool prematureWithdrawalAllowed;
   final double? prematureWithdrawalPenalty; // percentage points
+  final String? rateCategory;
+  final String? schemeName;
+  final String? qualificationNotes;
 
   const FdRate({
     required this.rateId,
@@ -45,7 +48,15 @@ class FdRate {
     this.sourceDocument,
     this.prematureWithdrawalAllowed = true,
     this.prematureWithdrawalPenalty,
+    this.rateCategory,
+    this.schemeName,
+    this.qualificationNotes,
   });
+
+  /// Whether this rate is part of a named special promotional scheme (e.g. SBI We-Care)
+  bool get isSpecialScheme =>
+      (rateCategory?.toUpperCase() == 'SPECIAL_SCHEME') ||
+      (schemeName != null && schemeName!.trim().isNotEmpty);
 
   /// Human-readable tenure description
   String get tenureDescription {
@@ -110,6 +121,9 @@ class FdRate {
     'sourceDocument': sourceDocument,
     'prematureWithdrawalAllowed': prematureWithdrawalAllowed,
     'prematureWithdrawalPenalty': prematureWithdrawalPenalty,
+    'rateCategory': rateCategory,
+    'schemeName': schemeName,
+    'qualificationNotes': qualificationNotes,
   };
 
   factory FdRate.fromJson(Map<String, dynamic> json) => FdRate(
@@ -142,5 +156,8 @@ class FdRate {
     sourceDocument: json['sourceDocument']?.toString(),
     prematureWithdrawalAllowed: (json['prematureWithdrawalAllowed'] as bool?) ?? true,
     prematureWithdrawalPenalty: (json['prematureWithdrawalPenalty'] as num?)?.toDouble(),
+    rateCategory: json['rateCategory']?.toString() ?? json['rate_category']?.toString(),
+    schemeName: json['schemeName']?.toString() ?? json['scheme_name']?.toString(),
+    qualificationNotes: json['qualificationNotes']?.toString() ?? json['qualification_notes']?.toString() ?? json['review_notes']?.toString(),
   );
 }

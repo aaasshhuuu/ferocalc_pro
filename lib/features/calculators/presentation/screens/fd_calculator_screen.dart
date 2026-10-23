@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -12,6 +13,7 @@ import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import 'package:fincalc_pro/config/themes/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class FdCalculatorScreen extends StatefulWidget {
   const FdCalculatorScreen({Key? key}) : super(key: key);
@@ -33,6 +35,7 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
 
   double _maturityValue = 0;
   double _totalInterest = 0;
+  bool _isSimpleInterest = false;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -70,29 +73,85 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
       months: _months.toInt(),
       days: _days.toInt(),
     );
-    int n = _getCompoundingFrequency();
     double effectiveRate = _isSeniorCitizen ? _interestRate + 0.5 : _interestRate;
-    _maturityValue = FinancialMath.calculateFDMaturity(
-      principal: _principal,
-      annualRate: effectiveRate,
-      years: years,
-      compoundingFrequency: n,
-    );
-    _totalInterest = _maturityValue - _principal;
+    if (_isSimpleInterest) {
+      _totalInterest = FinancialMath.calculateSimpleInterest(
+        principal: _principal,
+        annualRate: effectiveRate,
+        time: years,
+        timeUnit: TimeUnit.years,
+      );
+      _maturityValue = _principal + _totalInterest;
+    } else {
+      int n = _getCompoundingFrequency();
+      _maturityValue = FinancialMath.calculateFDMaturity(
+        principal: _principal,
+        annualRate: effectiveRate,
+        years: years,
+        compoundingFrequency: n,
+      );
+      _totalInterest = _maturityValue - _principal;
+    }
     _animationController.forward(from: 0.0);
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateFd();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'fd',
+      calculatorName: 'FD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maturity Value',
+      primaryResultValue: _currencyFormat.format(_maturityValue),
+      category: 'Deposits',
+      rawInputs: {
+        'principal': _principal,
+        'interestRate': _interestRate,
+        'years': _years,
+        'months': _months,
+        'days': _days,
+        'isSeniorCitizen': _isSeniorCitizen,
+        'compoundingFrequency': _compoundingFrequency,
+        'isSimpleInterest': _isSimpleInterest,
+      },
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Deposit Amount': _currencyFormat.format(_principal),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_years}Y ${_months}M ${_days}D',
+    'Deposit Type': _isSimpleInterest ? 'Non-Cumulative (Simple Interest)' : 'Cumulative (Compound Interest)',
+    'Compounding Frequency': _isSimpleInterest ? 'Simple Interest (N/A)' : _compoundingFrequency,
+    'Senior Citizen': _isSeniorCitizen ? 'Yes (+0.5%)' : 'No',
+  };
+
+  Map<String, String> _getResults() => {
+    'Maturity Value': _currencyFormat.format(_maturityValue),
+    'Total Interest': _currencyFormat.format(_totalInterest),
+    'Total Investment': _currencyFormat.format(_principal),
+    'Deposit Scheme': _isSimpleInterest ? 'Non-Cumulative (Simple Interest)' : 'Cumulative (Compounding)',
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc FD Calculator\n\nPrincipal: ₹${_principal.toStringAsFixed(0)}\nRate: ${_interestRate.toStringAsFixed(2)}%\nTenure: ${_years}Y ${_months}M ${_days}D\nMaturity Value: ₹${_maturityValue.toStringAsFixed(0)}\nTotal Interest: ₹${_totalInterest.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Result shared!'), backgroundColor: Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'FD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'FD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -100,7 +159,18 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
     return Scaffold(
       appBar: CustomAppBar(
         title: 'FD Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -142,7 +212,9 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Senior Citizen (+0.5%)', style: AppTextStyles.bodyText),
+                      Expanded(
+                        child: Text('Senior Citizen (+0.5%)', style: AppTextStyles.bodyText),
+                      ),
                       Switch(
                         value: _isSeniorCitizen,
                         activeColor: const Color(0xFF00E676),
@@ -181,29 +253,97 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('Compounding', style: AppTextStyles.bodyText),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _compoundingFrequency,
-                        isExpanded: true,
-                        dropdownColor: Theme.of(context).cardColor,
-                        items: _compoundingOptions.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                        onChanged: (val) {
-                          setState(() => _compoundingFrequency = val!);
-                          _calculateFd();
-                        },
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text('Deposit Type', style: AppTextStyles.bodyText),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            key: const ValueKey('fd_type_cumulative'),
+                            label: const Text('Cumulative'),
+                            selected: !_isSimpleInterest,
+                            onSelected: (val) {
+                              setState(() => _isSimpleInterest = false);
+                              _calculateFd();
+                            },
+                          ),
+                          ChoiceChip(
+                            key: const ValueKey('fd_type_simple'),
+                            label: const Text('Non-Cumulative (SI)'),
+                            selected: _isSimpleInterest,
+                            onSelected: (val) {
+                              setState(() => _isSimpleInterest = true);
+                              _calculateFd();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _isSimpleInterest
+                          ? 'Non-cumulative deposit calculates Simple Interest (standard for tenures < 180 days).'
+                          : 'Cumulative deposit reinvests interest with periodic compounding.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  Text('Compounding', style: AppTextStyles.bodyText),
+                  const SizedBox(height: 8),
+                  if (!_isSimpleInterest)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          key: const ValueKey('fd_compounding_dropdown'),
+                          value: _compoundingFrequency,
+                          isExpanded: true,
+                          dropdownColor: Theme.of(context).cardColor,
+                          items: _compoundingOptions.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                          onChanged: (val) {
+                            setState(() => _compoundingFrequency = val!);
+                            _calculateFd();
+                          },
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        'Simple Interest (No compounding / Payout)',
+                        style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color),
+                      ),
+                    ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
             ),
             const SizedBox(height: 24),
             FadeTransition(
@@ -214,6 +354,7 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
                 subResults: [
                   SubResult(label: 'Total Investment', value: _currencyFormat.format(_principal)),
                   SubResult(label: 'Interest Earned', value: _currencyFormat.format(_totalInterest)),
+                  SubResult(label: 'Deposit Scheme', value: _isSimpleInterest ? 'Non-Cumulative (Simple Interest)' : 'Cumulative (Compound Interest)'),
                 ],
               ),
             ),
@@ -240,12 +381,16 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
                 ),
               ),
             const SizedBox(height: 24),
-            GradientButton(text: 'Save & Export',
+            GradientButton(
+              key: const ValueKey('fd_save_export_button'),
+              text: 'Save & Export',
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Saved to history!'), backgroundColor: Color(0xFF10B981)),
-                );
-              }),
+                _calculateAndSave();
+                _exportPdf(context);
+              },
+            ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'fd'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               child: Text(
@@ -336,8 +481,10 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
               _legendItem('Principal', const Color(0xFF1A5276)),
               _legendItem('Interest Earned', const Color(0xFF00E676)),
@@ -350,6 +497,7 @@ class _FdCalculatorScreenState extends State<FdCalculatorScreen> with SingleTick
 
   Widget _legendItem(String label, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
         const SizedBox(width: 6),

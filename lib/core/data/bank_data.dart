@@ -567,26 +567,6 @@ class BankDataService {
       features: ['Online FD Booking', 'Auto-Renewal', 'Loan against FD'],
     ),
     BankInfo(
-      name: 'Fincare SFB',
-      type: 'small_finance',
-      country: 'India',
-      fdRates: {'1y': 8.11, '2y': 8.0, '3y': 7.5, '5y': 7.5},
-      rdRates: {'1y': 8.11, '2y': 8.0, '3y': 7.5, '5y': 7.5},
-      savingsRate: 6.0,
-      lastUpdated: 'August 2026',
-      shortName: 'Fincare',
-      established: '2017',
-      headquarters: 'Bengaluru',
-      totalBranches: '900+',
-      website: 'https://fincarebank.com',
-      customerCare: '1800-313-313',
-      seniorCitizenExtra: 0.5,
-      offers: ['1000 Days Special FD'],
-      minFdAmount: 1000,
-      maxFdTenure: '10 years',
-      features: ['Online FD Booking', 'Auto-Renewal', 'Loan against FD'],
-    ),
-    BankInfo(
       name: 'Unity SFB',
       type: 'small_finance',
       country: 'India',
@@ -736,8 +716,15 @@ class BankDataService {
   }
 
   static BankInfo? getBankByName(String name) {
+    final normalized = name.trim().toLowerCase();
+    // Historical note: Fincare Small Finance Bank amalgamated with and into AU Small Finance Bank on 1 April 2024.
+    if (normalized == 'fincare' ||
+        normalized == 'fincare sfb' ||
+        normalized == 'fincare small finance bank') {
+      return getBankByName('AU SFB');
+    }
     try {
-      return _banks.firstWhere((bank) => bank.name.toLowerCase() == name.toLowerCase());
+      return _banks.firstWhere((bank) => bank.name.toLowerCase() == normalized);
     } catch (e) {
       return null;
     }

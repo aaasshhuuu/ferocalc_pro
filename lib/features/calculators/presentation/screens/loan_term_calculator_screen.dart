@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -11,6 +12,7 @@ import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class LoanTermCalculatorScreen extends StatefulWidget {
   const LoanTermCalculatorScreen({Key? key}) : super(key: key);
@@ -66,18 +68,66 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateTerm();
+    if (!_isPossible) return;
+    int years = _totalMonths ~/ 12;
+    int months = (_totalMonths % 12).ceil();
+    if (months == 12) {
+      years += 1;
+      months = 0;
+    }
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'loan_term',
+      calculatorName: 'Loan Term Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Loan Tenure',
+      primaryResultValue: years > 0 ? '$years Yrs $months Mos' : '$months Mos',
+      category: 'Loans',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Loan Amount': '₹${_loanAmount.toStringAsFixed(0)}',
+    'Monthly EMI': '₹${_emi.toStringAsFixed(0)}',
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+  };
+
+  Map<String, String> _getResults() {
+    int years = _totalMonths ~/ 12;
+    int months = (_totalMonths % 12).ceil();
+    if (months == 12) {
+      years += 1;
+      months = 0;
+    }
+    double totalPayment = _emi * _totalMonths;
+    double totalInterest = totalPayment - _loanAmount;
+    return {
+      'Calculated Tenure': _isPossible ? '$years Years $months Months (${_totalMonths.toInt()} months)' : 'Not possible with current EMI',
+      'Total Payment': _isPossible ? '₹${totalPayment.toStringAsFixed(0)}' : 'N/A',
+      'Total Interest': _isPossible ? '₹${totalInterest.toStringAsFixed(0)}' : 'N/A',
+    };
+  }
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Loan Term Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Loan Term Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -92,7 +142,18 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Loan Term Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -144,6 +205,12 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             FadeTransition(
               opacity: _fadeAnimation,
@@ -169,6 +236,9 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
                       ),
                     ),
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'loan_term'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

@@ -62,15 +62,36 @@ class ResultDisplayCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(detail.keys.first, style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                  )),
-                  Text(detail.values.first, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Expanded(
+                    flex: 5,
+                    child: Text(detail.keys.first, style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    )),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 6,
+                    child: Text(
+                      detail.values.first,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
             )),
           ],
+          const SizedBox(height: 10),
+          Text(
+            'Indicative estimate for illustrative purposes. Actual returns or terms may vary by financial institution.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+              color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+            ),
+          ),
         ],
       ),
     );

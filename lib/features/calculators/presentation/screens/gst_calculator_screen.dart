@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class GstCalculatorScreen extends StatefulWidget {
   const GstCalculatorScreen({Key? key}) : super(key: key);
@@ -53,18 +55,50 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateGst();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'gst',
+      calculatorName: 'GST Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Total Amount',
+      primaryResultValue: _currencyFormat.format(_totalAmount),
+      category: 'Tax & GST',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Initial Amount': '₹${_amountController.text}',
+    'GST Rate': '${_gstRate.toStringAsFixed(1)}%',
+    'Tax Type': _isExclusive ? 'GST Exclusive (Added)' : 'GST Inclusive (Extracted)',
+  };
+
+  Map<String, String> _getResults() => {
+    'Net Amount': _currencyFormat.format(_originalAmount),
+    'Total GST': _currencyFormat.format(_gstAmount),
+    'CGST': _currencyFormat.format(_cgst),
+    'SGST': _currencyFormat.format(_sgst),
+    'Total Amount': _currencyFormat.format(_totalAmount),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'GST Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'GST Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -72,7 +106,18 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'GST Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -164,6 +209,12 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Total Amount',
@@ -197,6 +248,9 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'gst'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

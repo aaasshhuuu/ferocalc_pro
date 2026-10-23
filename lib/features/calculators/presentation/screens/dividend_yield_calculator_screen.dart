@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class DividendYieldCalculatorScreen extends StatefulWidget {
   const DividendYieldCalculatorScreen({Key? key}) : super(key: key);
@@ -56,18 +59,52 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateYield();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'dividend_yield',
+      calculatorName: 'Dividend Yield',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Current Dividend Yield',
+      primaryResultValue: '${_currentYield.toStringAsFixed(2)}%',
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Stock Price': '₹${_priceCtrl.text}',
+    'Annual Dividend / Share': '₹${_divCtrl.text}',
+    'Total Shares': _sharesCtrl.text,
+    'Dividend Growth Rate': '${_growthCtrl.text}%',
+    'Investment Horizon': '${_yearsCtrl.text} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'Current Dividend Yield': '${_currentYield.toStringAsFixed(2)}%',
+    'Annual Dividend Income': _currencyFormat.format(_annualIncome),
+    'Total Dividend Over Period': _currencyFormat.format(_totalDividend),
+    'Yield on Cost': '${_yieldOnCost.toStringAsFixed(2)}%',
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Dividend Yield',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Dividend Yield',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -75,7 +112,18 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Dividend Yield',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -108,6 +156,12 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Current Dividend Yield',
@@ -118,6 +172,9 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
                 SubResult(label: 'Yield on Cost (Future)', value: '${_yieldOnCost.toStringAsFixed(2)}%'),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'dividend_yield'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

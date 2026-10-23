@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/widgets/custom_app_bar.dart';
 import '../../../../core/data/bank_data.dart';
+import '../../../../core/services/rate_display_config.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/custom_app_bar.dart';
+import '../../../../core/widgets/official_rates_notice_card.dart';
 
 class ComparisonDashboardScreen extends StatelessWidget {
   const ComparisonDashboardScreen({Key? key}) : super(key: key);
@@ -47,6 +49,19 @@ class ComparisonDashboardScreen extends StatelessWidget {
   }
 
   Widget _buildList(BuildContext context, String duration) {
+    if (!RateDisplayConfig.isLiveRateDisplayEnabled) {
+      return Padding(
+        padding: Responsive.screenPadding(context),
+        child: const Center(
+          child: OfficialRatesNoticeCard(
+            title: 'Bank Rates Dashboard',
+            message: 'Official bank rates are being verified and will be available in a future update.',
+            subtext: 'The multi-tenure comparison dashboard will be activated once official rate slabs are verified and published.',
+          ),
+        ),
+      );
+    }
+
     final topBanks = BankDataService.getTopBanksByRate(duration, limit: 20);
     return GridView.builder(
       padding: Responsive.screenPadding(context),
@@ -63,7 +78,7 @@ class ComparisonDashboardScreen extends StatelessWidget {
         return Card(
           margin: EdgeInsets.zero,
           child: ListTile(
-            onTap: () => context.go('/bank/${Uri.encodeComponent(bank.name)}'),
+            onTap: () => context.push('/bank/${Uri.encodeComponent(bank.name)}'),
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
               child: Text('${index + 1}', style: TextStyle(color: Theme.of(context).primaryColor)),
