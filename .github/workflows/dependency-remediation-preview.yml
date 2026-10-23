@@ -9,11 +9,15 @@ on:
       - ".github/workflows/dependency-remediation-preview.yml"
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: dependency-remediation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   preview-upgrades:
-    name: Preview and test safe npm audit remediation
+    name: Preview, test, and publish safe npm audit remediation
     runs-on: ubuntu-latest
     timeout-minutes: 25
     defaults:
@@ -64,6 +68,35 @@ jobs:
         run: |
           set -o pipefail
           npm test 2>&1 | tee candidate-backend-test.log
+
+      - name: Publish tested dependency remediation to the isolated sync branch
+        if: success()
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          # Refuse to write anywhere except the explicit isolated review branch.
+          test "$TARGET_BRANCH" = "sync/latest-local-changes-2026-10-23"
+          node -e "const r=require('./npm-audit-candidate.json'); const v=r.metadata?.vulnerabilities || {}; if ((v.total || 0) !== 0) { console.error('Refusing dependency candidate with audit findings:', v); process.exit(1); }"
+          git add -- package.json package-lock.json
+          git diff --cached --check
+          changed="$(git diff --cached --name-only)"
+          if [ -z "$changed" ]; then
+            echo "No dependency changes remain to publish."
+            exit 0
+          fi
+          expected="$(printf 'backend/package-lock.json\nbackend/package.json')"
+          actual="$(printf '%s\n' "$changed" | sort)"
+          if [ "$actual" != "$expected" ]; then
+            echo "Refusing unexpected staged paths:"
+            printf '%s\n' "$changed"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(deps): remediate backend npm audit findings"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
 
       - name: Export tested candidate dependency files
         if: always()
