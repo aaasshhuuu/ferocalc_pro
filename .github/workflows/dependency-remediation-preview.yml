@@ -24,8 +24,10 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - name: Check out PR source
+      - name: Check out PR head branch (not GitHub's synthetic merge ref)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -70,7 +72,7 @@ jobs:
           npm test 2>&1 | tee candidate-backend-test.log
 
       - name: Publish tested dependency remediation to the isolated sync branch
-        if: success()
+        if: success() && github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           TARGET_BRANCH: ${{ github.head_ref }}
