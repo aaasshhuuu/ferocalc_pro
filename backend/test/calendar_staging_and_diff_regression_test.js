@@ -936,10 +936,10 @@ async function runTests() {
     const candidates = extractionResult.candidates;
     const allLabels = candidates.map(c => c.tenureLabel);
     assert.ok(allLabels.some(l => l.includes('<')), 'Fixture output must retain strict less-than labels');
-    assert.ok(allLabels.some(l => l.includes('<='), 'Fixture output must retain less-than-or-equal labels');
+    assert.ok(allLabels.some(l => l.includes('<=')), 'Fixture output must retain less-than-or-equal labels');
     assert.ok(allLabels.some(l => l.includes('1 day')), 'Fixture output must retain +1 day labels');
-    assert.ok(allLabels.some(l => l.includes('(35 months)'), 'Fixture output must retain 35-month milestone');
-    assert.ok(allLabels.some(l => l.includes('(55 months)'), 'Fixture output must retain 55-month milestone');
+    assert.ok(allLabels.some(l => l.includes('(35 months)')), 'Fixture output must retain 35-month milestone');
+    assert.ok(allLabels.some(l => l.includes('(55 months)')), 'Fixture output must retain 55-month milestone');
 
     const capturedStagingRows = [];
     const stagingService = new CandidateStagingService({
@@ -999,7 +999,6 @@ async function runTests() {
     assert.strictEqual(promoResultLte.newVerifiedRate.source_tenure_text, '90 days <= 6 months');
   });
 
-  console.log('\n--- Group 7: Phase 3C.5.44 Exact Interval Verification & Scoped Mixed-Domain Tests ---');  });
 
   console.log('\n--- Group 7: Phase 3C.5.44 Exact Interval Verification & Scoped Mixed-Domain Tests ---');
 
@@ -1278,7 +1277,6 @@ async function runTests() {
     assert.strictEqual(Math.round((slab17Sen.interestRate - slab17Reg.interestRate) * 100), 50);
   });
 
-  console.log('\n--- Group 8: Phase 3C.5.45 Exhaustive Gregorian Interval Proofs & Fixture Integrity ---');  });
 
   console.log('\n--- Group 8: Phase 3C.5.45 Exhaustive Gregorian Interval Proofs & Hash Integrity ---');
 
@@ -1453,7 +1451,6 @@ async function runTests() {
     assert.strictEqual(byReviewId.get('REV_049')[indexes.senior_spread_bps], '50');
   });
 
-  console.log('======================================================================');  });
 
   console.log('======================================================================');
   console.log(`Results: ${passed} passed, ${failed} failed (Total: ${passed + failed})`);
