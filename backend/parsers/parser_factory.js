@@ -9,6 +9,7 @@ const { IciciRateParser } = require('./icici_parser');
 const { IdfcFirstRateParser } = require('./idfc_first_parser');
 const { UnionBankRateParser } = require('./union_bank_parser');
 const { PnbRateParser } = require('./pnb_parser');
+const { IndusIndRateParser } = require('./indusind_parser');
 
 const PARSER_MAP = {
   SBI: new SbiRateParser(),
@@ -17,6 +18,7 @@ const PARSER_MAP = {
   IDFC_FIRST: new IdfcFirstRateParser(),
   UNION_BANK: new UnionBankRateParser(),
   PNB: new PnbRateParser(),
+  INDUSIND: new IndusIndRateParser(),
 };
 
 /**

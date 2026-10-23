@@ -81,6 +81,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic/NRO FD rates below Rs. 3 crore; disabled due to contradictory published "304 Days to >1 Year" boundary and pending official review',
   },
+  {
+    id: 'indusind-retail-domestic',
+    bankCode: 'INDUSIND',
+    bankName: 'IndusInd Bank',
+    sourceUrl: 'https://www.indusind.bank.in/in/en/personal/fixed-deposit-interest-rate.html',
+    sourceType: 'HTML',
+    parserId: 'indusind_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic/NRO/NRE FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
+  },
 
 ];
 

@@ -19,6 +19,7 @@ const ALLOWED_SOURCE_DOMAINS = [
   'idfcfirst.bank.in',
   'unionbankofindia.bank.in',
   'pnb.bank.in',
+  'indusind.bank.in',
 ];
 
 function isOfficialDomain(url) {
