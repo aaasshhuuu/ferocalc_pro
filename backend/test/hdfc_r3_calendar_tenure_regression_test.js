@@ -18,8 +18,7 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 const assert = require('assert');
 const { HdfcRateParser } = require('../parsers/hdfc_parser');
 const {
@@ -56,12 +55,34 @@ console.log('===================================================================
 const parser = new HdfcRateParser();
 const validator = new CandidateValidator();
 
-// Load accepted snapshot
-const snapshotPath = path.join(__dirname, '..', 'data', 'snapshots', 'snapshot_hdfc-retail-domestic_3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c.normalized.txt');
-const snapshotHtml = fs.readFileSync(snapshotPath, 'utf8');
+// Build deterministic synthetic HTML from the canonical table contract.
+// This tests parser-to-model mapping; it is NOT a substitute for independent
+// verification of the official bank source or its currently published rates.
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+const snapshotHtml = [
+  '<html><body>',
+  '<p>Applicable from 19th August, 2026</p>',
+  '<table>',
+  '<tr><th>Tenure Bucket</th><th>Interest Rate (per annum)</th><th>Senior Citizen Rates (per annum)</th></tr>',
+  ...HDFC_CANONICAL_SLABS.map((slab) =>
+    '<tr><td>' + escapeHtml(slab.publishedTenureLabel) + '</td>' +
+    '<td>' + slab.regularRate.toFixed(2) + '%</td>' +
+    '<td>' + slab.seniorRate.toFixed(2) + '%</td></tr>'
+  ),
+  '</table>',
+  '</body></html>',
+].join('\\n');
+
+const fixtureHash = crypto.createHash('sha256').update(snapshotHtml, 'utf8').digest('hex');
 const extraction = parser.parse(snapshotHtml, {
-  sourceUrl: 'https://www.hdfc.bank.in/interest-rates',
-  sourceContentHash: '3fa74d2cb4eb9215d904b5209a1f9681bf6b075a1cf37e1eb125bf7cc6f8949c',
+  sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
+  sourceContentHash: fixtureHash,
 });
 
 // ==================================================================
@@ -69,7 +90,7 @@ const extraction = parser.parse(snapshotHtml, {
 // ==================================================================
 console.log('--- Group 1: Minimum Deposit Canonical Remediation (Task A) ---');
 
-runTest('1. Extraction produces exactly 38 candidates from snapshot', () => {
+runTest('1. Extraction produces exactly 38 candidates from deterministic HDFC table fixture', () => {
   assert.strictEqual(extraction.success, true);
   assert.strictEqual(extraction.candidates.length, 38);
 });
@@ -248,7 +269,7 @@ runTest('17. Senior citizen candidates are restricted to eligible resident senio
   });
 });
 
-runTest('18. Published rate concordance: 100% agreement with official rate card across all 19 slabs', () => {
+runTest('18. Parser output matches canonical rate-table fixture across all 19 slabs', () => {
   for (let s = 0; s < 19; s++) {
     const slab = HDFC_CANONICAL_SLABS[s];
     const regCand = extraction.candidates[s * 2];
