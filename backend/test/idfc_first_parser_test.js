@@ -13,7 +13,7 @@ const { defaultRegistry } = require('../collectors/source_registry');
 const SOURCE_URL = 'https://www.idfcfirst.bank.in/personal-banking/deposits/fixed-deposit/fd-interest-rates';
 const FIXTURE = `
 <html><body>
-<p>Interest Rates for Domestic / NRO / NRE Fixed Deposits of less than ₹3 Crore w.e.f. 25th July 2026*</p>
+<p>Interest Rates for Domestic / NRO / NRE Fixed Deposits of less than ₹3 Crore w.e.f. 01<sup>st</sup> September 2026*</p>
 <p>Note: Senior Citizen rates are not applicable for NRI customers. Minimum tenure for NRE FD is 1 year.</p>
 <table>
 <tr><th>Tenure</th><th colspan="2">Rate of Interest (per annum)</th></tr>
@@ -54,7 +54,7 @@ const result = parser.parse(FIXTURE, {
 const outcomes = [];
 outcomes.push(run('selects the retail FD table and extracts all 10 fixture rows', () => {
   assert.strictEqual(result.success, true, result.errors.join('; '));
-  assert.strictEqual(result.effectiveFrom, '2026-07-25');
+  assert.strictEqual(result.effectiveFrom, '2026-09-01');
   assert.strictEqual(result.metadata.extractedRows, 10);
   assert.strictEqual(result.candidates.length, 20);
 }));
@@ -90,7 +90,7 @@ outcomes.push(run('keeps adjacent 1-year boundary buckets separate', () => {
 }));
 
 outcomes.push(run('fails closed when the effective-date heading is absent', () => {
-  const noDate = FIXTURE.replace('w.e.f. 25th July 2026', 'revised rates');
+  const noDate = FIXTURE.replace('w.e.f. 01<sup>st</sup> September 2026*', 'revised rates');
   const res = parser.parse(noDate, { sourceUrl: SOURCE_URL, sourceContentHash: htmlHash });
   assert.strictEqual(res.success, false);
   assert.ok(res.errors.some(e => e.includes('effective date')));
