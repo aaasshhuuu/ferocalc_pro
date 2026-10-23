@@ -5,12 +5,17 @@
   "effectiveFrom": "2026-09-01",
   "sourceReview": {
     "reviewedOn": "2026-10-23",
-    "basis": "Official IDFC FIRST page raw HTTP body fetched by CI; HTML ordinal-date markup observed directly. Rate/date parity still needs a passing run.",
-    "rawSnapshotSha256": "6b41113633b1c2eb3a3d6f0fd4172224b4425fc493f361ec45b3c3b9b8d9acec",
+    "basis": "Official IDFC FIRST page raw HTML fetched by CI and compared successfully against all 10 published tenure slabs and 20 general/senior rates. Senior eligibility remains restricted; source intentionally disabled pending governance review.",
+    "rawSnapshotSha256": "426adcbbdfe4b616629c3a76bb2ef1a0104ba2b16193bd129822490601832a0e",
     "activationApproved": false,
-    "capturedAt": "2026-10-23T09:13:25.863Z",
+    "capturedAt": "2026-10-23T09:18:49.738Z",
     "rawHttpStatus": 200,
-    "rawSnapshotEvidence": "GitHub Actions artifact 12491455833 from run 39930273185; captured HTML retained for 14 days"
+    "rawSnapshotEvidence": "GitHub Actions artifact 12491455833 from run 39930273185; captured HTML retained for 14 days",
+    "liveParityRunId": 39930934216,
+    "liveParityArtifactId": 12491238321,
+    "parityResult": "PASS",
+    "comparedTenureRows": 10,
+    "comparedRateValues": 20
   },
   "eligibilityNotes": [
     "Senior Citizen rates are not applicable to NRI customers.",
