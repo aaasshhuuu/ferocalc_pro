@@ -1,0 +1,172 @@
+{
+  "bankCode": "PNB",
+  "bankName": "Punjab National Bank",
+  "sourceUrl": "https://www.pnb.bank.in/Interest-Rates-Deposit.html",
+  "productScope": "Domestic/NRO callable fixed deposits below INR 3 crore; standard table only",
+  "effectiveFrom": "2026-06-01",
+  "sourceReview": {
+    "reviewedOn": "2026-10-23",
+    "basis": "Official PNB deposit rates page HTML captured by read-only discovery. Table 17 Domestic/NRO Callable FD contains 23 rows. Row 10 is published as '304 Days to >1 Year', which conflicts with Row 11 '1 Year' and lacks unambiguous boundary interpretation without guessing. Parser fails closed; live parity fails closed; activation disabled.",
+    "rawSnapshotSha256": "cbac262f749ea5602e69a55fdc37ca7aa86d3d3be28ac8ff2cf0f3e5613e71d8",
+    "capturedAt": "2026-10-23T14:12:35.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false,
+    "ambiguityBlocker": "Row 10 published tenure '304 Days to >1 Year' is contradictory and conflicts with row 11 ('1 Year'). Cannot be parsed without guessing."
+  },
+  "eligibilityNotes": [
+    "Senior Citizen age: 60 years and upto < 80 years; Super Senior Citizen age: 80 years and above.",
+    "Additional rates for Senior and Super Senior Citizens are not applicable for NRO deposits.",
+    "Two buckets of 1204 days & 1895 days have been specifically identified under PNB Palaash scheme commemorating Foundation Day (12 April 1895).",
+    "PNB Uttam (Non-Callable) deposits, Tax Saver deposits, and deposits >= Rs. 3 Crore are excluded from this callable retail adapter."
+  ],
+  "tenures": [
+    {
+      "label": "7 to 14 Days",
+      "regular": 3.0,
+      "senior": 3.5,
+      "superSenior": 3.8
+    },
+    {
+      "label": "15 to 45 Days",
+      "regular": 3.0,
+      "senior": 3.5,
+      "superSenior": 3.8
+    },
+    {
+      "label": "46 to 90 Days",
+      "regular": 4.5,
+      "senior": 5.0,
+      "superSenior": 5.3
+    },
+    {
+      "label": "91 to 154 Days",
+      "regular": 4.9,
+      "senior": 5.4,
+      "superSenior": 5.7
+    },
+    {
+      "label": "155 Days",
+      "regular": 5.55,
+      "senior": 6.05,
+      "superSenior": 6.35,
+      "isBespoke": true
+    },
+    {
+      "label": "156 Days to 179 Days",
+      "regular": 4.9,
+      "senior": 5.4,
+      "superSenior": 5.7
+    },
+    {
+      "label": "180 to 270 Days",
+      "regular": 5.6,
+      "senior": 6.1,
+      "superSenior": 6.4
+    },
+    {
+      "label": "271 Days to 302 Days",
+      "regular": 5.6,
+      "senior": 6.1,
+      "superSenior": 6.4
+    },
+    {
+      "label": "303 Days",
+      "regular": 5.55,
+      "senior": 6.05,
+      "superSenior": 6.35,
+      "isBespoke": true
+    },
+    {
+      "label": "304 Days to >1 Year",
+      "regular": 5.6,
+      "senior": 6.1,
+      "superSenior": 6.4,
+      "isAmbiguous": true,
+      "ambiguityReason": "Published with contradictory boundary ('to >1 Year') directly adjacent to '1 Year' row"
+    },
+    {
+      "label": "1 Year",
+      "regular": 6.25,
+      "senior": 6.75,
+      "superSenior": 7.05
+    },
+    {
+      "label": ">1 Year to 389 Days",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1,
+      "isBespoke": true
+    },
+    {
+      "label": "390 Days",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1,
+      "isBespoke": true
+    },
+    {
+      "label": "391 Days to 443 Days",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1
+    },
+    {
+      "label": "444 Days",
+      "regular": 6.6,
+      "senior": 7.1,
+      "superSenior": 7.4,
+      "isBespoke": true
+    },
+    {
+      "label": "445 Days to 665 Days",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1
+    },
+    {
+      "label": "666 Days",
+      "regular": 6.5,
+      "senior": 7.0,
+      "superSenior": 7.3,
+      "isBespoke": true
+    },
+    {
+      "label": "667 Days to 2 Years",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1
+    },
+    {
+      "label": ">2 to 3 Years",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1
+    },
+    {
+      "label": ">3 Years to 1203 Days",
+      "regular": 6.35,
+      "senior": 6.85,
+      "superSenior": 7.15
+    },
+    {
+      "label": "1204 Days",
+      "regular": 6.3,
+      "senior": 6.8,
+      "superSenior": 7.1,
+      "isBespoke": true,
+      "schemeName": "PNB_PALAASH"
+    },
+    {
+      "label": "1205 Days to 5 Years",
+      "regular": 6.35,
+      "senior": 6.85,
+      "superSenior": 7.15
+    },
+    {
+      "label": ">5 Years to 10 Years",
+      "regular": 6.0,
+      "senior": 6.8,
+      "superSenior": 6.8
+    }
+  ]
+}

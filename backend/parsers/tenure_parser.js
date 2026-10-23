@@ -54,7 +54,7 @@ function detectTenureUnit(str) {
 function isBespokeTenure(label) {
   const s = String(label).toLowerCase();
   if (s.includes('(') && s.includes(')')) return true; // e.g. (35 months), (55 months), (444 days)
-  if (s.includes('389') || s.includes('390') || s.includes('400') || s.includes('444') || s.includes('555') || s.includes('777')) return true;
+  if (s.includes('155') || s.includes('303') || s.includes('389') || s.includes('390') || s.includes('400') || s.includes('444') || s.includes('555') || s.includes('666') || s.includes('777') || s.includes('1204')) return true;
   if (s.includes('11 month') || s.includes('7 month')) return true;
   return false;
 }

@@ -69,6 +69,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail regular FD rates below Rs. 3 crore; disabled pending live parity and human review',
   },
+  {
+    id: 'pnb-retail-domestic',
+    bankCode: 'PNB',
+    bankName: 'Punjab National Bank',
+    sourceUrl: 'https://www.pnb.bank.in/Interest-Rates-Deposit.html',
+    sourceType: 'HTML',
+    parserId: 'pnb_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic/NRO FD rates below Rs. 3 crore; disabled due to contradictory published "304 Days to >1 Year" boundary and pending official review',
+  },
 
 ];
 
