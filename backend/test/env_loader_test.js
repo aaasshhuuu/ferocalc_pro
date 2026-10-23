@@ -27,12 +27,12 @@ function runTest(description, fn) {
 
 
 function withStagingFixture(fn) {
-  const tempEnvPath = path.join(BACKEND_DIR, \`.env.temp_test_staging_\${process.pid}\`);
+  const tempEnvPath = path.join(BACKEND_DIR, '.env.temp_test_staging_' + process.pid);
   const fixture = [
     'SUPABASE_URL=https://staging-fixture.invalid',
     'SUPABASE_ANON_KEY=fixture-anon-key',
     'SUPABASE_SERVICE_ROLE_KEY=fixture-service-role-key',
-  ].join('\\n') + '\\n';
+  ].join('\n') + '\n';
 
   fs.writeFileSync(tempEnvPath, fixture);
   try {
@@ -66,7 +66,7 @@ async function main() {
         "const { loadEnv } = require('./env_loader');",
         "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
         "process.stdout.write(JSON.stringify({ env: process.env.APP_ENV, loaded: process.env.FEROCALC_ENV_LOADED, hasUrl: !!process.env.SUPABASE_URL, hasAnon: !!process.env.SUPABASE_ANON_KEY, hasService: !!process.env.SUPABASE_SERVICE_ROLE_KEY }));",
-      ].join('\\n');
+      ].join('\n');
       const output = cp.execFileSync(process.execPath, ['-e', probeScript, '--', '--staging'], {
         cwd: BACKEND_DIR,
         env: isolatedChildEnv(tempEnvPath),
@@ -89,7 +89,7 @@ async function main() {
         "const { loadEnv } = require('./backend/env_loader');",
         "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
         "process.stdout.write(JSON.stringify({ env: process.env.APP_ENV, loaded: process.env.FEROCALC_ENV_LOADED, hasUrl: !!process.env.SUPABASE_URL }));",
-      ].join('\\n');
+      ].join('\n');
       const output = cp.execFileSync(process.execPath, ['-e', probeScript, '--', '--staging'], {
         cwd: repoRoot,
         env: isolatedChildEnv(tempEnvPath),
@@ -121,7 +121,7 @@ async function main() {
       const conflictScript = [
         "const { loadEnv } = require('./env_loader');",
         "loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
-      ].join('\\n');
+      ].join('\n');
       let threw = false;
       let errorOutput = '';
       try {
@@ -151,7 +151,7 @@ async function main() {
         "const { loadEnv } = require('./env_loader');",
         "const meta = loadEnv({ envPath: process.env.FEROCALC_TEST_ENV_PATH, silent: true });",
         "process.stdout.write(JSON.stringify({ loaded: meta.loaded }));",
-      ].join('\\n');
+      ].join('\n');
       const output = cp.execFileSync(process.execPath, ['-e', identicalScript, '--', '--staging'], {
         cwd: BACKEND_DIR,
         env: isolatedChildEnv(tempEnvPath, {
@@ -166,7 +166,7 @@ async function main() {
 
   // Test 6: Missing staging credentials triggers EnvMissingError
   runTest('Missing required staging credentials fails closed with EnvMissingError', () => {
-    const tempEnvPath = path.join(BACKEND_DIR, '.env.temp_test_missing');
+  const tempEnvPath = path.join(BACKEND_DIR, '.env.temp_test_staging_' + process.pid);
     try {
       // Write temp file with missing SUPABASE_SERVICE_ROLE_KEY
       fs.writeFileSync(tempEnvPath, 'SUPABASE_URL=https://test.supabase.co\nSUPABASE_ANON_KEY=some-key\n');
@@ -190,7 +190,7 @@ async function main() {
 
   // Test 7: Selection occurs without network calls
   runTest('Environment selection and validation operates purely in-memory without network calls', () => {
-    const tempEnvPath = path.join(BACKEND_DIR, '.env.temp_test_offline');
+  const tempEnvPath = path.join(BACKEND_DIR, '.env.temp_test_staging_' + process.pid);
     try {
       fs.writeFileSync(
         tempEnvPath,
