@@ -32,7 +32,7 @@
     "test:cross-bank-leakage": "node test/cross_bank_qualified_rate_regression_test.js",
     "test:hdfc-r3-calendar": "node test/hdfc_r3_calendar_tenure_regression_test.js",
     "test:calendar-staging": "node test/calendar_staging_and_diff_regression_test.js",
-    "test": "node test/env_loader_test.js && node test/collector_test.js && node test/extraction_test.js && node test/promotion_test.js && node test/scheduler_test.js && node test/baseline_attestation_test.js && node test/verified_rates_api_test.js && node test/sbi_wecare_remediation_test.js && node test/lock_and_evidence_safety_test.js && node test/write_path_safety_design_test.js && node test/native_null_identity_test.js && node test/exact_numeric_identity_test.js && node test/sbi_qualified_senior_rate_regression_test.js && node test/cross_bank_qualified_rate_regression_test.js && node test/hdfc_r3_calendar_tenure_regression_test.js && node test/calendar_staging_and_diff_regression_test.js && node test/idfc_first_parser_test.js && node test/union_bank_parser_test.js && node test/pnb_parser_test.js && node test/indusind_parser_test.js && node test/uco_parser_test.js && node test/au_small_finance_parser_test.js && node test/canara_parser_test.js && node test/central_bank_parser_test.js && node test/axis_parser_test.js && node test/indian_bank_parser_test.js",
+    "test": "node test/env_loader_test.js && node test/collector_test.js && node test/extraction_test.js && node test/promotion_test.js && node test/scheduler_test.js && node test/baseline_attestation_test.js && node test/verified_rates_api_test.js && node test/sbi_wecare_remediation_test.js && node test/lock_and_evidence_safety_test.js && node test/write_path_safety_design_test.js && node test/native_null_identity_test.js && node test/exact_numeric_identity_test.js && node test/sbi_qualified_senior_rate_regression_test.js && node test/cross_bank_qualified_rate_regression_test.js && node test/hdfc_r3_calendar_tenure_regression_test.js && node test/calendar_staging_and_diff_regression_test.js && node test/idfc_first_parser_test.js && node test/union_bank_parser_test.js && node test/pnb_parser_test.js && node test/indusind_parser_test.js && node test/uco_parser_test.js && node test/au_small_finance_parser_test.js && node test/canara_parser_test.js && node test/central_bank_parser_test.js && node test/axis_parser_test.js && node test/indian_bank_parser_test.js && node test/hdfc_live_verifier_test.js",
     "test:idfc-first": "node test/idfc_first_parser_test.js",
     "test:union-bank": "node test/union_bank_parser_test.js",
     "test:pnb": "node test/pnb_parser_test.js",
@@ -42,7 +42,8 @@
     "test:canara": "node test/canara_parser_test.js",
     "test:central-bank": "node test/central_bank_parser_test.js",
     "test:axis": "node test/axis_parser_test.js",
-    "test:indian-bank": "node test/indian_bank_parser_test.js"
+    "test:indian-bank": "node test/indian_bank_parser_test.js",
+    "test:hdfc-verifier": "node test/hdfc_live_verifier_test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.113.0",

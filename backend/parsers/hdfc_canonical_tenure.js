@@ -719,4 +719,5 @@ module.exports = {
   getCanonicalSlabByLabel,
   matchHdfcTenureSlab,
   verifyBoundaryContinuity,
+  normalizeLabelKey,
 };
