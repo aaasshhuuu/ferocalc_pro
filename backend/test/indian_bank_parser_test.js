@@ -443,7 +443,7 @@ async function main() {
 
   // 18. Fallback rejection: archived snapshot cannot produce live-source PASS
   await run('fallback rejection: archived snapshot cannot produce live-source PASS', async () => {
-    const res = await runVerification({ offline: true });
+    const res = await runVerification({ offline: true, body: Buffer.from(FIXTURE) });
     assert.strictEqual(res.report.isLiveRun, false);
     assert.strictEqual(res.report.sourceFetchStatus, 'OFFLINE_LOADED');
     assert.strictEqual(res.report.fetchMethod, 'OFFLINE_FIXTURE');

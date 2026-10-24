@@ -66,7 +66,8 @@ async function fetchOfficial(start) {
 
 function fetchWithCurl(url) {
   if (!allowed(url)) throw new Error('Refusing non-HTTPS or non-Indian Bank URL for curl: ' + url);
-  const curlCmd = `curl.exe -s -L --max-redirs 3 --max-filesize 5242880 ` +
+  const curlBin = process.platform === 'win32' ? 'curl.exe' : 'curl';
+  const curlCmd = `${curlBin} -s -L --max-redirs 3 --max-filesize 5242880 ` +
     `-H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" ` +
     `-H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" ` +
     `-H "Accept-Language: en-IN,en;q=0.9" ` +
@@ -273,14 +274,18 @@ async function runVerification(options = {}) {
 
   if (isOffline) {
     // OFFLINE MODE: Clearly separate offline baseline test
-    const targetPath = fixturePath || path.join(__dirname, '../review/source-discovery/indian_bank.html');
-    if (!fs.existsSync(targetPath)) {
-      report.sourceFetchStatus = 'FAILED';
-      report.mismatches.push(`Offline fixture file not found: ${targetPath}`);
-      fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
-      return { success: false, report, exitCode: 1 };
+    if (options.body) {
+      body = Buffer.isBuffer(options.body) ? options.body : Buffer.from(options.body);
+    } else {
+      const targetPath = fixturePath || path.join(__dirname, '../review/source-discovery/indian_bank.html');
+      if (!fs.existsSync(targetPath)) {
+        report.sourceFetchStatus = 'FAILED';
+        report.mismatches.push(`Offline fixture file not found: ${targetPath}`);
+        fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
+        return { success: false, report, exitCode: 1 };
+      }
+      body = fs.readFileSync(targetPath);
     }
-    body = fs.readFileSync(targetPath);
     fetchMethod = 'OFFLINE_FIXTURE';
     report.sourceFetchStatus = 'OFFLINE_LOADED';
     report.fetchMethod = fetchMethod;
