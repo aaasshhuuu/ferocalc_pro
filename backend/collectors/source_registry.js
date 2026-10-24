@@ -154,6 +154,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic FD rates below Rs. 3 crore from official PDF schedule; disabled pending full live-source parity and human review',
   },
+  {
+    id: 'indian-bank-retail-domestic',
+    bankCode: 'INDIAN_BANK',
+    bankName: 'Indian Bank',
+    sourceUrl: 'https://indianbank.bank.in/en/deposit-rates',
+    sourceType: 'HTML',
+    parserId: 'indian_bank_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic FD rates below Rs. 3 crore and special schemes (IND Supreme 2.0, Ind Green, Ind Grow, Ind Prosper); disabled pending full live-source parity and human review',
+  },
 ];
 
 class SourceRegistry {

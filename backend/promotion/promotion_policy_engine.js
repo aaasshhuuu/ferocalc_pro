@@ -29,6 +29,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'canarabank.com',
   'centralbank.bank.in',
   'centralbankofindia.co.in',
+  'indianbank.bank.in',
+  'indianbank.in',
 ];
 
 function isOfficialDomain(url) {
