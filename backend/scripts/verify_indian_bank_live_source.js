@@ -105,47 +105,66 @@ function verifyContent(parsed, baselineConfig, context = {}) {
     );
   }
 
-  // 2. Special scheme effective dates
+  // 2. Special scheme effective dates — strictly require independent source verification
   const expectedSchemeDates = baselineConfig.effectiveDatesByTable || {};
   const extractedSchemeDates = parsed.metadata?.effectiveDatesByTable || {};
   const schemeSources = parsed.metadata?.schemeEffectiveDatesSource || {};
 
-  const schemeKeys = ['indSupreme300', 'indGreen500', 'indGrow555', 'indProsper777'];
-  for (const scheme of schemeKeys) {
+  const requiredSchemes = ['indSupreme300', 'indGreen500', 'indGrow555', 'indProsper777'];
+  for (const scheme of requiredSchemes) {
     const expectedDate = expectedSchemeDates[scheme];
     const extractedDate = extractedSchemeDates[scheme];
     const sourceKind = schemeSources[scheme];
 
-    if (!expectedDate) continue;
-
-    if (sourceKind === 'EXTRACTED_FROM_SOURCE' && extractedDate) {
-      if (extractedDate === expectedDate) {
-        schemeDatesValidation[scheme] = {
-          verifiedInContent: true,
-          date: extractedDate,
-          source: 'EXTRACTED_FROM_SOURCE',
-        };
-      } else {
-        mismatches.push(
-          `Scheme ${scheme} effective date mismatch: expected ${expectedDate}, got ${extractedDate}`
-        );
-        schemeDatesValidation[scheme] = {
-          verifiedInContent: false,
-          expected: expectedDate,
-          extracted: extractedDate,
-          source: 'EXTRACTED_FROM_SOURCE',
-        };
-      }
-    } else {
-      // Content does not independently expose this scheme's date
+    if (!expectedDate) {
+      mismatches.push(`Required scheme ${scheme} missing from baseline configuration`);
       schemeDatesValidation[scheme] = {
         verifiedInContent: false,
-        date: expectedDate,
-        source: 'BASELINE_METADATA_UNVERIFIED_IN_CONTENT',
-        note: 'Baseline metadata only; date was not independently exposed in fetched HTML content',
+        error: 'Missing from baseline configuration',
       };
+      continue;
     }
+
+    const isExtractedFromSource = sourceKind === 'EXTRACTED_FROM_SOURCE';
+    const hasExtractedDate = Boolean(extractedDate);
+    const dateMatches = extractedDate === expectedDate;
+
+    // Rule 1: If date is missing from fetched source, add mismatch
+    if (!hasExtractedDate) {
+      mismatches.push(
+        `Scheme ${scheme} effective date is missing from fetched source (expected ${expectedDate})`
+      );
+    }
+
+    // Rule 1: If provenance is anything other than EXTRACTED_FROM_SOURCE, add mismatch
+    if (!isExtractedFromSource) {
+      mismatches.push(
+        `Scheme ${scheme} date provenance is not EXTRACTED_FROM_SOURCE (got: ${sourceKind || 'NONE'}). Source-verified scheme date is required.`
+      );
+    }
+
+    // Rule 2: If extracted scheme date differs from baseline, add mismatch
+    if (hasExtractedDate && !dateMatches) {
+      mismatches.push(
+        `Scheme ${scheme} effective date mismatch: expected ${expectedDate}, got ${extractedDate}`
+      );
+    }
+
+    const verified = isExtractedFromSource && hasExtractedDate && dateMatches;
+
+    schemeDatesValidation[scheme] = {
+      verifiedInContent: verified,
+      expected: expectedDate,
+      extracted: extractedDate || null,
+      source: sourceKind || 'MISSING',
+      ...(verified ? { date: extractedDate } : {}),
+      ...(!verified ? { verificationError: 'Special scheme date is not source-verified against baseline' } : {}),
+    };
   }
+
+  const specialSchemesDatesVerified = requiredSchemes.every(
+    s => schemeDatesValidation[s] && schemeDatesValidation[s].verifiedInContent === true
+  );
 
   // 3. Special schemes identified
   const indSupreme = parsed.candidates.find(c => c.schemeName === 'IND_SUPREME_300');
@@ -216,6 +235,7 @@ function verifyContent(parsed, baselineConfig, context = {}) {
   return {
     mismatches,
     specialSchemesReconciled,
+    specialSchemesDatesVerified,
     bulkTablesExcluded,
     nonCallableExcluded,
     yieldExcluded,
@@ -257,6 +277,7 @@ async function runVerification(options = {}) {
     parityStatus: 'FAIL_CLOSED',
     mismatches: [],
     specialSchemesReconciled: false,
+    specialSchemesDatesVerified: false,
     bulkTablesExcluded: false,
     nonCallableExcluded: false,
     activationApproved: false,
@@ -381,6 +402,7 @@ async function runVerification(options = {}) {
 
   report.mismatches.push(...verification.mismatches);
   report.specialSchemesReconciled = verification.specialSchemesReconciled;
+  report.specialSchemesDatesVerified = verification.specialSchemesDatesVerified;
   report.bulkTablesExcluded = verification.bulkTablesExcluded;
   report.nonCallableExcluded = verification.nonCallableExcluded;
   report.yieldExcluded = verification.yieldExcluded;

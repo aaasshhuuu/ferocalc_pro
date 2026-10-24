@@ -218,19 +218,20 @@ class IndianBankRateParser extends BaseRateParser {
     const indGrowDate = extractSchemeDate(html, /IND\s*GROW/i);
     const indProsperDate = extractSchemeDate(html, /IND\s*Proposer|IND\s*Prosper/i);
 
+    // Strictly preserve source extraction. Never silently substitute baseline or hardcoded dates.
     const effectiveDatesByTable = {
       standardCallableRetail: effectiveFrom,
-      indSupreme300: indSupremeDate || '2026-08-04',
-      indGreen500: indGreenDate || '2026-06-05',
-      indGrow555: indGrowDate || effectiveFrom,
-      indProsper777: indProsperDate || effectiveFrom,
+      indSupreme300: indSupremeDate || null,
+      indGreen500: indGreenDate || null,
+      indGrow555: indGrowDate || null,
+      indProsper777: indProsperDate || null,
     };
 
     const schemeEffectiveDatesSource = {
-      indSupreme300: indSupremeDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
-      indGreen500: indGreenDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
-      indGrow555: indGrowDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
-      indProsper777: indProsperDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
+      indSupreme300: indSupremeDate ? 'EXTRACTED_FROM_SOURCE' : 'NOT_FOUND_IN_SOURCE',
+      indGreen500: indGreenDate ? 'EXTRACTED_FROM_SOURCE' : 'NOT_FOUND_IN_SOURCE',
+      indGrow555: indGrowDate ? 'EXTRACTED_FROM_SOURCE' : 'NOT_FOUND_IN_SOURCE',
+      indProsper777: indProsperDate ? 'EXTRACTED_FROM_SOURCE' : 'NOT_FOUND_IN_SOURCE',
     };
 
     // 3. Locate column indices for Period and Revised Rate

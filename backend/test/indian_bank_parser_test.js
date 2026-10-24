@@ -489,9 +489,116 @@ async function main() {
     };
     const res = verifyContent(tamperedParsed, baseline);
     assert.ok(res.mismatches.some(m => m.includes('Scheme indSupreme300 effective date mismatch: expected 2026-08-04, got 2026-01-01')));
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.verifiedInContent, false);
+    assert.strictEqual(res.specialSchemesDatesVerified, false);
   });
 
-  // 22. Missing rates: missing rate cell fails closed in parser and verifier
+  // 22. Missing special scheme date fails closed in parser and verifier
+  await run('missing scheme date fails closed and never permits pass', async () => {
+    // Remove IND Supreme 2.0 scheme table (Table 1) from fixture
+    const missingSchemeFixture = FIXTURE.replace(/<!-- Table 1: IND Supreme 2\.0 Details[\s\S]*?<\/table>/, '');
+    const missingParsed = parser.parse(missingSchemeFixture, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
+    assert.strictEqual(missingParsed.metadata.effectiveDatesByTable.indSupreme300, null, 'Unpublished scheme date must be null');
+    assert.strictEqual(missingParsed.metadata.schemeEffectiveDatesSource.indSupreme300, 'NOT_FOUND_IN_SOURCE');
+
+    const supremeCandidate = missingParsed.candidates.find(c => c.schemeName === 'IND_SUPREME_300');
+    assert.ok(supremeCandidate, 'Candidate should exist from Table 0');
+    assert.strictEqual(supremeCandidate.effectiveFrom, null, 'Must not invent or substitute baseline date');
+
+    const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+    const res = verifyContent(missingParsed, baseline);
+    assert.ok(res.mismatches.some(m => m.includes('Scheme indSupreme300 effective date is missing from fetched source')));
+    assert.ok(res.mismatches.some(m => m.includes('Scheme indSupreme300 date provenance is not EXTRACTED_FROM_SOURCE')));
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.verifiedInContent, false);
+    assert.strictEqual(res.specialSchemesDatesVerified, false);
+
+    // Verify runVerification fails closed
+    const verRes = await runVerification({ offline: true, body: Buffer.from(missingSchemeFixture) });
+    assert.strictEqual(verRes.success, false);
+    assert.strictEqual(verRes.exitCode, 1);
+    assert.strictEqual(verRes.report.parityStatus, 'FAIL_CLOSED');
+    assert.strictEqual(verRes.report.specialSchemesDatesVerified, false);
+  });
+
+  // 23. Baseline fallback provenance rejection
+  await run('baseline fallback provenance rejection: non-source provenance fails closed even if date matches', () => {
+    const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+    const parsed = parser.parse(FIXTURE, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
+
+    // Simulate date matching baseline 2026-08-04 but provenance is fallback
+    const tamperedParsed = {
+      ...parsed,
+      metadata: {
+        ...parsed.metadata,
+        schemeEffectiveDatesSource: {
+          ...parsed.metadata.schemeEffectiveDatesSource,
+          indSupreme300: 'BASELINE_METADATA_FALLBACK',
+        },
+      },
+    };
+    const res = verifyContent(tamperedParsed, baseline);
+    assert.ok(res.mismatches.some(m => m.includes('Scheme indSupreme300 date provenance is not EXTRACTED_FROM_SOURCE (got: BASELINE_METADATA_FALLBACK)')));
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.verifiedInContent, false);
+    assert.strictEqual(res.specialSchemesDatesVerified, false);
+  });
+
+  // 24. All four scheme dates independently verified with EXTRACTED_FROM_SOURCE
+  await run('all four special scheme dates independently verified with EXTRACTED_FROM_SOURCE', () => {
+    const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+    const parsed = parser.parse(FIXTURE, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
+    const res = verifyContent(parsed, baseline);
+
+    assert.strictEqual(res.specialSchemesDatesVerified, true);
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.verifiedInContent, true);
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.source, 'EXTRACTED_FROM_SOURCE');
+    assert.strictEqual(res.schemeDatesValidation.indSupreme300.date, '2026-08-04');
+
+    assert.strictEqual(res.schemeDatesValidation.indGreen500.verifiedInContent, true);
+    assert.strictEqual(res.schemeDatesValidation.indGreen500.source, 'EXTRACTED_FROM_SOURCE');
+    assert.strictEqual(res.schemeDatesValidation.indGreen500.date, '2026-06-05');
+
+    assert.strictEqual(res.schemeDatesValidation.indGrow555.verifiedInContent, true);
+    assert.strictEqual(res.schemeDatesValidation.indGrow555.source, 'EXTRACTED_FROM_SOURCE');
+    assert.strictEqual(res.schemeDatesValidation.indGrow555.date, '2026-10-23');
+
+    assert.strictEqual(res.schemeDatesValidation.indProsper777.verifiedInContent, true);
+    assert.strictEqual(res.schemeDatesValidation.indProsper777.source, 'EXTRACTED_FROM_SOURCE');
+    assert.strictEqual(res.schemeDatesValidation.indProsper777.date, '2026-10-23');
+
+    const schemeDateMismatches = res.mismatches.filter(m => m.toLowerCase().includes('scheme'));
+    assert.strictEqual(schemeDateMismatches.length, 0);
+  });
+
+  // 25. An unverified date must never permit live PASS
+  await run('an unverified scheme date must never permit live PASS', () => {
+    const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
+    const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
+    const parsed = parser.parse(FIXTURE, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
+
+    // Alter one scheme date
+    const unverifiedParsed = {
+      ...parsed,
+      metadata: {
+        ...parsed.metadata,
+        effectiveDatesByTable: {
+          ...parsed.metadata.effectiveDatesByTable,
+          indGreen500: '2026-01-01',
+        },
+      },
+    };
+    const res = verifyContent(unverifiedParsed, baseline);
+    assert.strictEqual(res.specialSchemesDatesVerified, false);
+    assert.ok(res.mismatches.length > 0);
+
+    // If report parityStatus logic runs on unverified content, it MUST be FAIL_CLOSED, never PASS
+    const parityStatus = res.mismatches.length === 0 ? 'PASS' : 'FAIL_CLOSED';
+    assert.strictEqual(parityStatus, 'FAIL_CLOSED');
+  });
+
+  // 26. Missing rates: missing rate cell fails closed in parser and verifier
   await run('missing rates: missing rate cell fails closed in parser and verifier', () => {
     const missingRateFixture = FIXTURE.replace('<td>2.80</td><td>2.80</td>', '<td></td><td></td>');
     const parsed = parser.parse(missingRateFixture, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
@@ -502,7 +609,7 @@ async function main() {
     assert.ok(res.mismatches.some(m => m.includes('Parser failed closed')));
   });
 
-  // 23. Duplicate candidate row fails closed with duplicate candidate mismatch
+  // 27. Duplicate candidate row fails closed with duplicate candidate mismatch
   await run('duplicate candidate row fails closed with duplicate candidate mismatch', () => {
     const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
     const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
@@ -516,7 +623,7 @@ async function main() {
     assert.ok(res.mismatches.some(m => m.includes('Candidate count mismatch')));
   });
 
-  // 24. Incorrect rate value fails closed with rate mismatch
+  // 28. Incorrect rate value fails closed with rate mismatch
   await run('incorrect rate value fails closed with rate mismatch', () => {
     const baselinePath = path.join(__dirname, '../review/indian_bank_official_baseline_2026-10-23.json');
     const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
