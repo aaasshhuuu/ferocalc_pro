@@ -6,7 +6,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/data/bank_data.dart';
 import '../../../../core/data/bank_rate_repository.dart';
 import '../../../../core/services/bank_rate_api_service.dart';
+import '../../../../core/services/verified_rate_service.dart';
+import '../../../../core/models/verified_fd_rate.dart';
+import '../../../../core/services/rate_display_config.dart';
 import '../../../../core/widgets/fd_rate_card.dart';
+import '../../../../core/widgets/official_rates_notice_card.dart';
 import 'dart:ui';
 
 import 'dart:async';
@@ -23,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
+  List<VerifiedFdRate> _verifiedRates = [];
 
   @override
   void initState() {
@@ -69,6 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchData() async {
     if (mounted) setState(() => _isLoading = true);
+    try {
+      final vRates = await VerifiedRateService.fetchTopVerified(tenureDays: 365, limit: 5);
+      if (mounted) {
+        _verifiedRates = vRates;
+      }
+    } catch (_) {
+      // Graceful fallback to unverified rates if network fails or backend unavailable
+    }
     await BankDataService.fetchAllBanks();
     if (mounted) {
       setState(() {
@@ -156,10 +169,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             ).animate().fade(delay: 200.ms, duration: 300.ms, ),
                           ],
                         ),
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: const Color(0xFFC9A96E).withOpacity(0.1),
-                          child: const Icon(Icons.notifications_outlined, color: Color(0xFFC9A96E)),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            key: const ValueKey('home_notification_button'),
+                            onTap: () => context.push('/notifications'),
+                            borderRadius: BorderRadius.circular(24),
+                            child: CircleAvatar(
+                              radius: 24,
+                              backgroundColor:
+                                  const Color(0xFFC9A96E).withOpacity(0.1),
+                              child: const Icon(
+                                Icons.notifications_outlined,
+                                color: Color(0xFFC9A96E),
+                              ),
+                            ),
+                          ),
                         ).animate(),
                       ],
                     ),
@@ -210,59 +235,70 @@ const SizedBox(height: 16),
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _CalculatorChip(icon: Icons.account_balance, label: 'EMI', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/emi')),
-                          _CalculatorChip(icon: Icons.savings, label: 'FD', color: Theme.of(context).colorScheme.secondary, onTap: () => context.go('/calculator/fd')),
-                          _CalculatorChip(icon: Icons.trending_up, label: 'SIP', color: Theme.of(context).colorScheme.primary, onTap: () => context.go('/calculator/sip')),
-                          _CalculatorChip(icon: Icons.account_balance_wallet, label: 'PPF', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/ppf')),
-                          _CalculatorChip(icon: Icons.receipt_long, label: 'Tax', color: Theme.of(context).colorScheme.secondary, onTap: () => context.go('/calculator/income_tax')),
-                          _CalculatorChip(icon: Icons.currency_rupee, label: 'GST', color: Theme.of(context).colorScheme.primary, onTap: () => context.go('/calculator/gst')),
-                          _CalculatorChip(icon: Icons.show_chart, label: 'Stock', color: const Color(0xFFC9A96E), onTap: () => context.go('/calculator/stock_return')),
+                          _CalculatorChip(icon: Icons.account_balance, label: 'EMI', color: const Color(0xFFC9A96E), onTap: () => context.push('/calculator/emi')),
+                          _CalculatorChip(icon: Icons.savings, label: 'FD', color: Theme.of(context).colorScheme.secondary, onTap: () => context.push('/calculator/fd')),
+                          _CalculatorChip(icon: Icons.trending_up, label: 'SIP', color: Theme.of(context).colorScheme.primary, onTap: () => context.push('/calculator/sip')),
+                          _CalculatorChip(icon: Icons.account_balance_wallet, label: 'PPF', color: const Color(0xFFC9A96E), onTap: () => context.push('/calculator/ppf')),
+                          _CalculatorChip(icon: Icons.receipt_long, label: 'Tax', color: Theme.of(context).colorScheme.secondary, onTap: () => context.push('/calculator/income_tax')),
+                          _CalculatorChip(icon: Icons.currency_rupee, label: 'GST', color: Theme.of(context).colorScheme.primary, onTap: () => context.push('/calculator/gst')),
+                          _CalculatorChip(icon: Icons.show_chart, label: 'Stock', color: const Color(0xFFC9A96E), onTap: () => context.push('/calculator/stock_return')),
                         ].animate(interval: 100.ms).fade(),
                       ),
                     ),
                     const SizedBox(height: 32),
 
-                    if (isDesktop) 
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                              _SectionHeader(title: 'Top FD Rates (Unverified)', onSeeAll: () => context.go('/compare')),
-                                const SizedBox(height: 16),
-                                _buildTopRates(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 32),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')),
-                                const SizedBox(height: 16),
-                                _buildTrendingTools(context, isDesktop: true),
-                              ],
-                            ),
-                          )
-                        ],
-                      )
-                    else ...[
-                      // Top FD Rates (Unverified)
-                      _SectionHeader(title: 'Top FD Rates (Unverified)', onSeeAll: () {}).animate().fade(),
-                      const SizedBox(height: 16),
-                      _buildTopRates().animate().fade(),
-                      const SizedBox(height: 32),
+                    Builder(
+                      builder: (context) {
+                        final ratesTitle = 'Official Bank FD Rates';
+                        final ratesOnSeeAll = () => context.go('/compare');
 
-                      // Trending Tools
-                      _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')).animate().fade(),
-                      const SizedBox(height: 16),
-                      _buildTrendingTools(context, isDesktop: false).animate().fade(),
-                    ],
+                        if (isDesktop) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _SectionHeader(title: ratesTitle, onSeeAll: ratesOnSeeAll),
+                                    const SizedBox(height: 16),
+                                    _buildTopRates(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 32),
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')),
+                                    const SizedBox(height: 16),
+                                    _buildTrendingTools(context, isDesktop: true),
+                                  ],
+                                ),
+                              )
+                            ],
+                          );
+                        } else {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _SectionHeader(title: ratesTitle, onSeeAll: ratesOnSeeAll).animate().fade(),
+                              const SizedBox(height: 16),
+                              _buildTopRates().animate().fade(),
+                              const SizedBox(height: 32),
+
+                              // Trending Tools
+                              _SectionHeader(title: 'Trending Investment Tools', onSeeAll: () => context.go('/calculators')).animate().fade(),
+                              const SizedBox(height: 16),
+                              _buildTrendingTools(context, isDesktop: false).animate().fade(),
+                            ],
+                          );
+                        }
+                      },
+                    ),
 
                     const SizedBox(height: 32),
 
@@ -277,18 +313,18 @@ const SizedBox(height: 16),
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                       children: [
-                        _MiniCalcButton(icon: Icons.account_balance, label: 'EMI', onTap: () => context.go('/calculator/emi')),
-                        _MiniCalcButton(icon: Icons.savings, label: 'FD', onTap: () => context.go('/calculator/fd')),
-                        _MiniCalcButton(icon: Icons.calendar_month, label: 'RD', onTap: () => context.go('/calculator/rd')),
-                        _MiniCalcButton(icon: Icons.trending_up, label: 'SIP', onTap: () => context.go('/calculator/sip')),
-                        _MiniCalcButton(icon: Icons.money_off, label: 'SWP', onTap: () => context.go('/calculator/swp')),
-                        _MiniCalcButton(icon: Icons.attach_money, label: 'Lumpsum', onTap: () => context.go('/calculator/lumpsum')),
-                        _MiniCalcButton(icon: Icons.account_balance_wallet, label: 'PPF', onTap: () => context.go('/calculator/ppf')),
-                        _MiniCalcButton(icon: Icons.work, label: 'EPF', onTap: () => context.go('/calculator/epf')),
-                        _MiniCalcButton(icon: Icons.elderly, label: 'NPS', onTap: () => context.go('/calculator/nps')),
-                        _MiniCalcButton(icon: Icons.receipt, label: 'GST', onTap: () => context.go('/calculator/gst')),
-                        _MiniCalcButton(icon: Icons.receipt_long, label: 'Tax', onTap: () => context.go('/calculator/income_tax')),
-                        _MiniCalcButton(icon: Icons.show_chart, label: 'CAGR', onTap: () => context.go('/calculator/cagr')),
+                        _MiniCalcButton(icon: Icons.account_balance, label: 'EMI', onTap: () => context.push('/calculator/emi')),
+                        _MiniCalcButton(icon: Icons.savings, label: 'FD', onTap: () => context.push('/calculator/fd')),
+                        _MiniCalcButton(icon: Icons.calendar_month, label: 'RD', onTap: () => context.push('/calculator/rd')),
+                        _MiniCalcButton(icon: Icons.trending_up, label: 'SIP', onTap: () => context.push('/calculator/sip')),
+                        _MiniCalcButton(icon: Icons.money_off, label: 'SWP', onTap: () => context.push('/calculator/swp')),
+                        _MiniCalcButton(icon: Icons.attach_money, label: 'Lumpsum', onTap: () => context.push('/calculator/lumpsum')),
+                        _MiniCalcButton(icon: Icons.account_balance_wallet, label: 'PPF', onTap: () => context.push('/calculator/ppf')),
+                        _MiniCalcButton(icon: Icons.work, label: 'EPF', onTap: () => context.push('/calculator/epf')),
+                        _MiniCalcButton(icon: Icons.elderly, label: 'NPS', onTap: () => context.push('/calculator/nps')),
+                        _MiniCalcButton(icon: Icons.receipt, label: 'GST', onTap: () => context.push('/calculator/gst')),
+                        _MiniCalcButton(icon: Icons.receipt_long, label: 'Tax', onTap: () => context.push('/calculator/income_tax')),
+                        _MiniCalcButton(icon: Icons.show_chart, label: 'CAGR', onTap: () => context.push('/calculator/cagr')),
                       ].animate(interval: 50.ms).fade(),
                     ),
                     const SizedBox(height: 48),
@@ -304,8 +340,54 @@ const SizedBox(height: 16),
   }
 
   Widget _buildTopRates() {
+    if (!RateDisplayConfig.isLiveRateDisplayEnabled) {
+      return const OfficialRatesNoticeCard(
+        compact: true,
+        title: 'Verification in Progress',
+      );
+    }
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFFC9A96E)));
+    }
+
+    if (_verifiedRates.isNotEmpty) {
+      return Column(
+        children: [
+          ..._verifiedRates.map((vRate) {
+            final bank = BankRateRepository.getBankById(vRate.bankId) ?? vRate.toBank();
+            final rate = vRate.toFdRate();
+            return FdRateCard(
+              bank: bank,
+              rate: rate,
+              onTap: () => context.go('/compare?source=verified'),
+            );
+          }),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Official Bank Rates \u2022 Manually Verified',
+                style: TextStyle(
+                  color: Color(0xFF10B981),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
     }
     
     final topRates = BankRateRepository.getTopRates(tenureDays: 365, limit: 5);
@@ -367,9 +449,9 @@ const SizedBox(height: 16),
 
   Widget _buildTrendingTools(BuildContext context, {required bool isDesktop}) {
     final items = [
-      _TrendingCard(title: 'Retirement\nPlanner', subtitle: 'Plan your future', gradient: const LinearGradient(colors: [Color(0xFFC9A96E), Color(0xFFA67C00)]), icon: Icons.elderly, onTap: () => context.go('/calculator/retirement')),
-      _TrendingCard(title: 'Goal\nPlanner', subtitle: 'Achieve your dreams', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.primary]), icon: Icons.flag_rounded, onTap: () => context.go('/calculator/goal')),
-      _TrendingCard(title: 'CAGR\nCalculator', subtitle: 'Measure growth', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary]), icon: Icons.show_chart, onTap: () => context.go('/calculator/cagr')),
+      _TrendingCard(title: 'Retirement\nPlanner', subtitle: 'Plan your future', gradient: const LinearGradient(colors: [Color(0xFFC9A96E), Color(0xFFA67C00)]), icon: Icons.elderly, onTap: () => context.push('/calculator/retirement')),
+      _TrendingCard(title: 'Goal\nPlanner', subtitle: 'Achieve your dreams', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.primary]), icon: Icons.flag_rounded, onTap: () => context.push('/calculator/goal')),
+      _TrendingCard(title: 'CAGR\nCalculator', subtitle: 'Measure growth', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary]), icon: Icons.show_chart, onTap: () => context.push('/calculator/cagr')),
       _TrendingCard(title: 'Compare\nBanks', subtitle: 'Compare bank rates', gradient: LinearGradient(colors: [Theme.of(context).colorScheme.surface, Theme.of(context).cardColor]), icon: Icons.compare_arrows, onTap: () => context.go('/compare')),
     ];
 
@@ -385,7 +467,7 @@ const SizedBox(height: 16),
       );
     } else {
       return SizedBox(
-        height: 140,
+        height: 160,
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: items,
@@ -490,7 +572,7 @@ class _TopBankCard extends StatelessWidget {
         border: Border.all(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05)),
       ),
       child: InkWell(
-        onTap: () => context.go('/bank/${Uri.encodeComponent(bank)}'),
+        onTap: () => context.push('/bank/${Uri.encodeComponent(bank)}'),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -539,7 +621,7 @@ class _TrendingCard extends StatelessWidget {
       child: Container(
         width: 170,
         margin: const EdgeInsets.only(right: 16),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: gradient,
           borderRadius: BorderRadius.circular(20),

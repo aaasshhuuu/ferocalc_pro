@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class EpfCalculatorScreen extends StatefulWidget {
   const EpfCalculatorScreen({Key? key}) : super(key: key);
@@ -55,24 +58,75 @@ class _EpfCalculatorScreenState extends State<EpfCalculatorScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateEpf();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'epf',
+      calculatorName: 'EPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maturity Amount (at Age ${_retirementAge.toInt()})',
+      primaryResultValue: _currencyFormat.format(_maturityAmount),
+      category: 'Investments',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Basic Monthly Salary': _currencyFormat.format(_basicSalary),
+    'Employee Contribution': '${_epfContribution.toStringAsFixed(1)}%',
+    'Employer Contribution': '3.67%',
+    'Current Age': '${_age.toInt()} Years',
+    'Retirement Age': '${_retirementAge.toInt()} Years',
+    'Existing EPF Balance': _currencyFormat.format(_currentBalance),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Annual Salary Increase': '${_annualIncrease.toStringAsFixed(1)}%',
+  };
+
+  Map<String, String> _getResults() => {
+    'Maturity Corpus': _currencyFormat.format(_maturityAmount),
+    'Total Employee Contribution': _currencyFormat.format(_totalEmployee),
+    'Total Employer Contribution': _currencyFormat.format(_totalEmployer),
+    'Total Interest Earned': _currencyFormat.format(_totalInterest),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'EPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'EPF Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'EPF Calculator', actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)]),
+      appBar: CustomAppBar(
+        title: 'EPF Calculator',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(context)),
@@ -105,6 +159,12 @@ class _EpfCalculatorScreenState extends State<EpfCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Maturity Amount (at Age ${_retirementAge.toInt()})',
@@ -115,6 +175,9 @@ class _EpfCalculatorScreenState extends State<EpfCalculatorScreen> {
                 SubResult(label: 'Total Interest Earned', value: _currencyFormat.format(_totalInterest)),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'epf'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

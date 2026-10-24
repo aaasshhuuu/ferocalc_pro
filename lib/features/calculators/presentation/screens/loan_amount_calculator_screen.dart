@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 
 import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -11,6 +12,7 @@ import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class LoanAmountCalculatorScreen extends StatefulWidget {
   const LoanAmountCalculatorScreen({Key? key}) : super(key: key);
@@ -24,6 +26,7 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
   double _interestRate = 8.5;
   double _tenure = 10;
   bool _isMonths = false;
+  bool _isFlatRate = false;
 
   double _maxLoanAmount = 0;
   double _totalPayment = 0;
@@ -50,11 +53,19 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
   void _calculateLoanAmount() {
     double n = _isMonths ? _tenure : _tenure * 12;
 
-    _maxLoanAmount = FinancialMath.calculateLoanAmount(
-      emi: _emi,
-      annualRate: _interestRate,
-      months: n.toInt(),
-    );
+    if (_isFlatRate) {
+      _maxLoanAmount = FinancialMath.calculateFlatRateLoanAmount(
+        emi: _emi,
+        annualRate: _interestRate,
+        months: n.toInt(),
+      );
+    } else {
+      _maxLoanAmount = FinancialMath.calculateLoanAmount(
+        emi: _emi,
+        annualRate: _interestRate,
+        months: n.toInt(),
+      );
+    }
     
     _totalPayment = _emi * n;
     _totalInterest = _totalPayment - _maxLoanAmount;
@@ -63,18 +74,51 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateLoanAmount();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'loan_amount',
+      calculatorName: 'Loan Amount Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maximum Loan Amount',
+      primaryResultValue: _currencyFormat.format(_maxLoanAmount),
+      category: 'Loans',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Monthly EMI': _currencyFormat.format(_emi),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_tenure.toInt()} ${_isMonths ? 'months' : 'years'}',
+    'Method': _isFlatRate ? 'Flat Rate' : 'Reducing Balance',
+  };
+
+  Map<String, String> _getResults() => {
+    'Maximum Loan Amount': _currencyFormat.format(_maxLoanAmount),
+    'Total Payment': _currencyFormat.format(_totalPayment),
+    'Total Interest': _currencyFormat.format(_totalInterest),
+    'Method': _isFlatRate ? 'Flat Rate' : 'Reducing Balance',
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Loan Amount Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Loan Amount Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -101,6 +145,52 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
             GlassmorphicCard(
               child: Column(
                 children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text('Interest Method', style: AppTextStyles.bodyText),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            key: const ValueKey('loan_amount_method_reducing'),
+                            label: const Text('Reducing Balance'),
+                            selected: !_isFlatRate,
+                            onSelected: (val) {
+                              setState(() => _isFlatRate = false);
+                              _calculateLoanAmount();
+                            },
+                          ),
+                          ChoiceChip(
+                            key: const ValueKey('loan_amount_method_flat'),
+                            label: const Text('Flat Rate'),
+                            selected: _isFlatRate,
+                            onSelected: (val) {
+                              setState(() => _isFlatRate = true);
+                              _calculateLoanAmount();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _isFlatRate
+                          ? 'Flat-rate interest calculated on the original principal.'
+                          : 'Reducing-balance loan interest calculated on the outstanding balance.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   InputSliderField(
                     label: 'Monthly EMI you can afford',
                     value: _emi,
@@ -125,11 +215,15 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
                     },
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       Text('Tenure in', style: AppTextStyles.bodyText),
-                      Row(
+                      Wrap(
+                        spacing: 8,
                         children: [
                           ChoiceChip(
                             label: const Text('Years'),
@@ -142,7 +236,6 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
                               _calculateLoanAmount();
                             },
                           ),
-                          const SizedBox(width: 8),
                           ChoiceChip(
                             label: const Text('Months'),
                             selected: _isMonths,
@@ -173,6 +266,12 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             FadeTransition(
               opacity: _fadeAnimation,
@@ -182,18 +281,13 @@ class _LoanAmountCalculatorScreenState extends State<LoanAmountCalculatorScreen>
                 subResults: [
                   SubResult(label: 'Total Interest payable', value: _currencyFormat.format(_totalInterest)),
                   SubResult(label: 'Total Payment', value: _currencyFormat.format(_totalPayment)),
+                  SubResult(label: 'Calculation Method', value: _isFlatRate ? 'Flat Rate' : 'Reducing Balance'),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            GradientButton(
-              text: 'Save Calculation',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Calculation saved!'), backgroundColor: Color(0xFF10B981)),
-                );
-              },
-            ),
+            const CalculatorPurposeCard(calculatorId: 'loan_amount'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

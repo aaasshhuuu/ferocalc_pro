@@ -23,17 +23,26 @@ class VerifiedRateService {
   // ============================================================
 
   /// Fetch top-ranked verified rates.
+  /// Supports either [tenureDays] (DAYS domain) or [years], [months], [daysCal] (CALENDAR domain).
   /// Returns empty list if Supabase is not configured on the backend.
   static Future<List<VerifiedFdRate>> fetchTopVerified({
     int? tenureDays,
+    int? years,
+    int? months,
+    int? daysCal,
     String customerType = 'REGULAR',
     int limit = 10,
+    bool? isCallable = true,
   }) async {
     try {
       final params = <String, dynamic>{
         'limit': limit,
         'customerType': customerType,
         if (tenureDays != null) 'tenureDays': tenureDays,
+        if (years != null) 'years': years,
+        if (months != null) 'months': months,
+        if (daysCal != null) 'daysCal': daysCal,
+        if (isCallable != null) 'isCallable': isCallable,
       };
 
       final response = await _dio.get('$_baseUrl/verified-rates/top', queryParameters: params);
@@ -59,18 +68,27 @@ class VerifiedRateService {
   }
 
   /// Fetch all verified rates with optional filters.
+  /// Supports either [tenureDays] (DAYS domain) or [years], [months], [daysCal] (CALENDAR domain).
   static Future<VerifiedRatesResponse> fetchAll({
     String? customerType,
     int? tenureDays,
+    int? years,
+    int? months,
+    int? daysCal,
     double? depositAmount,
     String? bankId,
+    bool? isCallable = true,
   }) async {
     try {
       final params = <String, dynamic>{
         if (customerType != null) 'customerType': customerType,
         if (tenureDays != null) 'tenureDays': tenureDays,
+        if (years != null) 'years': years,
+        if (months != null) 'months': months,
+        if (daysCal != null) 'daysCal': daysCal,
         if (depositAmount != null) 'depositAmount': depositAmount,
         if (bankId != null) 'bankId': bankId,
+        if (isCallable != null) 'isCallable': isCallable,
       };
 
       final response = await _dio.get('$_baseUrl/verified-rates', queryParameters: params);
@@ -103,10 +121,15 @@ class VerifiedRateService {
   }
 
   /// Fetch verified rates for a specific bank.
-  static Future<VerifiedRatesResponse> fetchByBank(String bankId, {String? customerType}) async {
+  static Future<VerifiedRatesResponse> fetchByBank(
+    String bankId, {
+    String? customerType,
+    bool? isCallable = true,
+  }) async {
     try {
       final params = <String, dynamic>{
         if (customerType != null) 'customerType': customerType,
+        if (isCallable != null) 'isCallable': isCallable,
       };
 
       final response = await _dio.get(

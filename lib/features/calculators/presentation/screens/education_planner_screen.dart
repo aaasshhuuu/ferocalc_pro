@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class EducationPlannerScreen extends StatefulWidget {
   const EducationPlannerScreen({Key? key}) : super(key: key);
@@ -56,24 +59,71 @@ class _EducationPlannerScreenState extends State<EducationPlannerScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateEducation();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'education_planner',
+      calculatorName: 'Education Planner',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Monthly SIP Required',
+      primaryResultValue: _currencyFormat.format(_monthlySip),
+      category: 'Planning',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Current Child Age': '${_childAge.toInt()} Years',
+    'College Start Age': '${_startAge.toInt()} Years',
+    'Current Cost of Course': _currencyFormat.format(_currentCost),
+    'Inflation Rate': '${_inflationRate.toStringAsFixed(1)}%',
+    'Expected Return': '${_expectedReturn.toStringAsFixed(1)}%',
+  };
+
+  Map<String, String> _getResults() => {
+    'Future Cost of Education': _currencyFormat.format(_futureCost),
+    'Monthly SIP Needed': _currencyFormat.format(_monthlySip),
+    'One-time Lumpsum Needed': _currencyFormat.format(_lumpsumNeeded),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Education Planner',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Education Planner',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Education Planner', actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)]),
+      appBar: CustomAppBar(
+        title: 'Education Planner',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(context)),
@@ -111,6 +161,12 @@ class _EducationPlannerScreenState extends State<EducationPlannerScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Monthly SIP Required',
@@ -120,6 +176,9 @@ class _EducationPlannerScreenState extends State<EducationPlannerScreen> {
                 SubResult(label: 'OR Lumpsum Needed', value: _currencyFormat.format(_lumpsumNeeded)),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'education'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

@@ -1,0 +1,169 @@
+{
+  "bankCode": "AXIS",
+  "bankName": "Axis Bank",
+  "sourceUrl": "https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-08-october-2026.pdf?sfvrsn=15a73678_1",
+  "landingPageUrl": "https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates",
+  "productScope": "Domestic callable retail fixed deposits below INR 3 crore",
+  "effectiveFrom": "2026-07-01",
+  "publicationDate": "2026-10-08",
+  "sourceReview": {
+    "reviewedOn": "2026-10-24",
+    "basis": "Official Axis Bank Domestic Fixed Deposit (< Rs. 3 crs) rate card PDF downloaded from landing page link. The PDF contains 18 callable retail tenure rows with published w.e.f. 01.07.2026 in document header and publication date 08.10.2026 on server. Bulk deposits (>= 3 Cr) and NRI deposits are published in separate dedicated PDFs and strictly excluded. Source remains disabled pending human review.",
+    "rawSnapshotSha256": "6d066d7dff8d25a3d976f2ed7e5b4afbbea821c1615dfb5a7208c59f9ae3f3d3",
+    "capturedAt": "2026-10-24T11:36:13.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates: +0.50% additional interest is offered across tenures from 7 days to < 5 years, and +0.75% for 5 years to 10 years.",
+    "Senior Citizen rates apply strictly to Resident Indian Senior Citizens.",
+    "NRE fixed deposits require a minimum tenure of 1 year. Sub-one-year slabs are not eligible for NRE deposits.",
+    "Bulk deposits (>= 3 Crore), Fixed Deposit Plus, and NRI deposits are published in separate rate cards and excluded from domestic retail."
+  ],
+  "tenures": [
+    {
+      "label": "7 to 14 days",
+      "rawLabel": "7 14 days",
+      "regular": 3,
+      "senior": 3.5,
+      "minDays": 7,
+      "maxDays": 14
+    },
+    {
+      "label": "15 to 29 days",
+      "rawLabel": "15 29 days",
+      "regular": 3,
+      "senior": 3.5,
+      "minDays": 15,
+      "maxDays": 29
+    },
+    {
+      "label": "30 to 45 days",
+      "rawLabel": "30 45 days",
+      "regular": 3.25,
+      "senior": 3.75,
+      "minDays": 30,
+      "maxDays": 45
+    },
+    {
+      "label": "46 to 60 days",
+      "rawLabel": "46 60 days",
+      "regular": 4,
+      "senior": 4.5,
+      "minDays": 46,
+      "maxDays": 60
+    },
+    {
+      "label": "61 to 87 days",
+      "rawLabel": "61 days - 87 days",
+      "regular": 4.75,
+      "senior": 5.25,
+      "minDays": 61,
+      "maxDays": 87
+    },
+    {
+      "label": "88 days to 3 months 24 days",
+      "rawLabel": "88 days 3 months 24 days",
+      "regular": 5,
+      "senior": 5.5,
+      "minDays": 88,
+      "maxDays": 115
+    },
+    {
+      "label": "3 months 25 days < 4 months",
+      "rawLabel": "3 months 25 days < 4 months",
+      "regular": 5,
+      "senior": 5.5,
+      "minDays": 116,
+      "maxDays": 121
+    },
+    {
+      "label": "4 months < 6 months",
+      "rawLabel": "4 months < 6 months",
+      "regular": 5,
+      "senior": 5.5,
+      "minDays": 122,
+      "maxDays": 182
+    },
+    {
+      "label": "6 months < 9 months",
+      "rawLabel": "6 months < 9 months",
+      "regular": 5.5,
+      "senior": 6,
+      "minDays": 183,
+      "maxDays": 273
+    },
+    {
+      "label": "9 months < 1 year",
+      "rawLabel": "9 months < 1 year",
+      "regular": 5.75,
+      "senior": 6.25,
+      "minDays": 274,
+      "maxDays": 364
+    },
+    {
+      "label": "1 year to 1 year 10 days",
+      "rawLabel": "1 year 1 year 10 days",
+      "regular": 6.25,
+      "senior": 6.75,
+      "minDays": 365,
+      "maxDays": 375
+    },
+    {
+      "label": "1 year 11 days < 13 months",
+      "rawLabel": "1 year 11 days < 13 months",
+      "regular": 6.25,
+      "senior": 6.75,
+      "minDays": 376,
+      "maxDays": 394
+    },
+    {
+      "label": "13 months < 15 months",
+      "rawLabel": "13 months < 15 months",
+      "regular": 6.25,
+      "senior": 6.75,
+      "minDays": 395,
+      "maxDays": 455
+    },
+    {
+      "label": "15 months < 18 months",
+      "rawLabel": "15 months < 18 months",
+      "regular": 6.45,
+      "senior": 6.95,
+      "minDays": 456,
+      "maxDays": 547
+    },
+    {
+      "label": "18 Months < 2 years",
+      "rawLabel": "18 Months < 2 years",
+      "regular": 6.5,
+      "senior": 7,
+      "minDays": 548,
+      "maxDays": 729
+    },
+    {
+      "label": "2 years < 3 years",
+      "rawLabel": "2 years < 3 years",
+      "regular": 6.5,
+      "senior": 7,
+      "minDays": 730,
+      "maxDays": 1094
+    },
+    {
+      "label": "3 years < 5 years",
+      "rawLabel": "3 years < 5 years",
+      "regular": 6.5,
+      "senior": 7,
+      "minDays": 1095,
+      "maxDays": 1824
+    },
+    {
+      "label": "5 years to 10 years",
+      "rawLabel": "5 years to 10 years",
+      "regular": 6.5,
+      "senior": 7.25,
+      "minDays": 1825,
+      "maxDays": 3650
+    }
+  ]
+}

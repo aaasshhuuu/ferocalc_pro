@@ -1,0 +1,42 @@
+name: Batch Official Bank Source Discovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["sync/latest-local-changes-2026-10-23"]
+    paths:
+      - "backend/scripts/discover_official_bank_sources.js"
+      - ".github/workflows/bank-source-discovery.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-official-pages:
+    name: Fetch and inventory official FD tables (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Fetch allowlisted official bank pages and inventory tables
+        run: node scripts/discover_official_bank_sources.js
+      - name: Upload source inventory and raw official HTML snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-bank-source-discovery
+          path: backend/review/source-discovery/
+          if-no-files-found: warn
+          retention-days: 14

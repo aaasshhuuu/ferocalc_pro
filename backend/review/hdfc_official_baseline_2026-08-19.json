@@ -1,0 +1,237 @@
+{
+  "bankCode": "HDFC",
+  "bankName": "HDFC Bank",
+  "sourceUrl": "https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate",
+  "productScope": "Domestic callable retail fixed deposits below INR 3 crore; Table 1 (< 3 Crore) with 19 callable retail tenures",
+  "effectiveFrom": "2026-08-19",
+  "effectiveDatesByTable": {
+    "standardCallableRetail": "2026-08-19"
+  },
+  "sourceReview": {
+    "reviewedOn": "2026-10-24",
+    "basis": "Official HDFC Bank fixed deposit rates page HTML. Table 1 contains 19 published callable retail domestic slabs (< Rs. 3 Crore) with revised rates applicable from 19 August 2026. General customer rates range from 2.75% to 6.50%; senior citizen rates range from 3.25% to 7.10%. Slabs 1-15 and 17-19 maintain a 50 bps spread; slab 16 maintains a 60 bps spread. Resident senior eligibility applies. Non-callable options and bulk deposits (>= 3 Crore) are strictly excluded.",
+    "rawSnapshotSha256": "996f1f875b38cc4cc5b3c5ec8e8731caa579aab9c2017b35ece1acc2f4792bc6",
+    "capturedAt": "2026-10-24T13:24:55.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates: Applicable to resident senior citizens only (does not apply to NRIs per HDFC policy).",
+    "Minimum deposit amount is Rs. 5,000 for domestic retail term deposits.",
+    "Maximum deposit amount is Rs. 29,999,999 (< Rs. 3 Crore).",
+    "Senior citizen preferential spread is +50 bps (0.50%) on slabs 1-15 and 17-19; slab 16 (3 Years 1 day to < 4 Years 7 Months) has +60 bps (0.60%) spread (6.50% regular, 7.10% senior).",
+    "Dual-domain calendar tenure model: Slabs 1-5 use DAYS domain; Slabs 6-19 use CALENDAR domain per Migration 009 architecture.",
+    "Bulk deposits (>= 3 Crore), non-callable deposits, and foreign currency deposits are strictly excluded from domestic callable retail term deposits."
+  ],
+  "tenures": [
+    {
+      "slabNumber": 1,
+      "label": "7 - 14 days",
+      "regular": 2.75,
+      "senior": 3.25,
+      "spreadBps": 50,
+      "tenureDomain": "DAYS",
+      "minDays": 7,
+      "maxDays": 14,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 2,
+      "label": "15-29 days",
+      "regular": 2.75,
+      "senior": 3.25,
+      "spreadBps": 50,
+      "tenureDomain": "DAYS",
+      "minDays": 15,
+      "maxDays": 29,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 3,
+      "label": "30-45 days",
+      "regular": 3.25,
+      "senior": 3.75,
+      "spreadBps": 50,
+      "tenureDomain": "DAYS",
+      "minDays": 30,
+      "maxDays": 45,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 4,
+      "label": "46-60 days",
+      "regular": 4.25,
+      "senior": 4.75,
+      "spreadBps": 50,
+      "tenureDomain": "DAYS",
+      "minDays": 46,
+      "maxDays": 60,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 5,
+      "label": "61-89 days",
+      "regular": 4.25,
+      "senior": 4.75,
+      "spreadBps": 50,
+      "tenureDomain": "DAYS",
+      "minDays": 61,
+      "maxDays": 89,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 6,
+      "label": "90 days <= 6 months",
+      "regular": 4.25,
+      "senior": 4.75,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 90,
+      "maxDays": 182,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 7,
+      "label": "6 months 1 day <=9 months",
+      "regular": 5.50,
+      "senior": 6.00,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 183,
+      "maxDays": 274,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 8,
+      "label": "9 months 1 day to < 1 Year",
+      "regular": 5.75,
+      "senior": 6.25,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 275,
+      "maxDays": 364,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 9,
+      "label": "1 Year to < 15 months",
+      "regular": 6.25,
+      "senior": 6.75,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 365,
+      "maxDays": 455,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 10,
+      "label": "15 months to < 18 months",
+      "regular": 6.35,
+      "senior": 6.85,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 456,
+      "maxDays": 547,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 11,
+      "label": "18 months to < 21 months",
+      "regular": 6.45,
+      "senior": 6.95,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 548,
+      "maxDays": 638,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 12,
+      "label": "21 months to 2 years",
+      "regular": 6.45,
+      "senior": 6.95,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 639,
+      "maxDays": 730,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 13,
+      "label": "2 Years 1 day to < 2 Year 11 Months",
+      "regular": 6.45,
+      "senior": 6.95,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 731,
+      "maxDays": 1064,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 14,
+      "label": "2 Years 11 Months (35 months)",
+      "regular": 6.45,
+      "senior": 6.95,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1065,
+      "maxDays": 1065,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 15,
+      "label": "2 Years 11 Months 1 day <= 3 Year",
+      "regular": 6.45,
+      "senior": 6.95,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1066,
+      "maxDays": 1095,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 16,
+      "label": "3 Years 1 day to < 4 Years 7 Months",
+      "regular": 6.50,
+      "senior": 7.10,
+      "spreadBps": 60,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1096,
+      "maxDays": 1672,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 17,
+      "label": "4 Year 7 Months (55 months)",
+      "regular": 6.40,
+      "senior": 6.90,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1673,
+      "maxDays": 1673,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 18,
+      "label": "4 Year 7 Months 1 day <=5 Years",
+      "regular": 6.40,
+      "senior": 6.90,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1674,
+      "maxDays": 1825,
+      "effectiveFrom": "2026-08-19"
+    },
+    {
+      "slabNumber": 19,
+      "label": "5 Years 1 day to 10 Years",
+      "regular": 6.15,
+      "senior": 6.65,
+      "spreadBps": 50,
+      "tenureDomain": "CALENDAR",
+      "minDays": 1826,
+      "maxDays": 3650,
+      "effectiveFrom": "2026-08-19"
+    }
+  ]
+}

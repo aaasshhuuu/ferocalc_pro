@@ -1,6 +1,10 @@
 class AppConstants {
   static const String appName = 'FINCALC PRO';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
+  
+  static const String appPackageName = 'com.ferocalc.app';
+  static const String playStoreUrl =
+      'https://play.google.com/store/apps/details?id=$appPackageName';
   
   static const int maxBanksToCompare = 10;
   

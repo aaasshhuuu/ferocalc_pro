@@ -1,0 +1,96 @@
+{
+  "bankCode": "UNION_BANK",
+  "bankName": "Union Bank of India",
+  "sourceUrl": "https://www.unionbankofindia.bank.in/en/details/rate-of-interest",
+  "productScope": "Callable retail/domestic term deposits below INR 3 crore; General/regular customer column only",
+  "effectiveFrom": "2026-08-04",
+  "sourceReview": {
+    "reviewedOn": "2026-10-23",
+    "basis": "Official bank page raw HTML captured by the read-only discovery workflow; independent live parity pending",
+    "rawSnapshotSha256": "29af809bd08f5928321dcab944eac1f30de75bab895b531ddc70d2d18e937636",
+    "capturedAt": "2026-10-23T09:23:45.049Z",
+    "rawHttpStatus": 200,
+    "discoveryArtifactId": 12491706776,
+    "activationApproved": false
+  },
+  "notes": [
+    "Only the published Callable Deposits column below INR 3 crore is parsed.",
+    "Non-Callable Deposits are excluded from this adapter.",
+    "Senior/Super-Senior rates are never inferred from generic add-on percentages.",
+    "Source stays disabled until live parity and human eligibility review pass."
+  ],
+  "tenures": [
+    {
+      "label": "7-14 Days",
+      "rate": 2.7
+    },
+    {
+      "label": "15 -30 Days",
+      "rate": 2.8
+    },
+    {
+      "label": "31-45 Days",
+      "rate": 3
+    },
+    {
+      "label": "46 -90 Days",
+      "rate": 4
+    },
+    {
+      "label": "91-120 Days",
+      "rate": 4.3
+    },
+    {
+      "label": "121-180 Days",
+      "rate": 4.75
+    },
+    {
+      "label": "181 -270 Days",
+      "rate": 5.4
+    },
+    {
+      "label": "271-364 Days",
+      "rate": 5.6
+    },
+    {
+      "label": "1 Yr to 399 days",
+      "rate": 6.2
+    },
+    {
+      "label": "400 Days",
+      "rate": 6.25
+    },
+    {
+      "label": "401 to 443 days",
+      "rate": 6.25
+    },
+    {
+      "label": "444 days",
+      "rate": 6.5
+    },
+    {
+      "label": "445 Days to 554 Days",
+      "rate": 6.15
+    },
+    {
+      "label": "555 Days",
+      "rate": 6.55
+    },
+    {
+      "label": "556 Days to 996 days",
+      "rate": 6.15
+    },
+    {
+      "label": "997 days",
+      "rate": 6.1
+    },
+    {
+      "label": "998 days to 3 Yrs",
+      "rate": 6.1
+    },
+    {
+      "label": "> 3 Yrs to 10 Yrs",
+      "rate": 6
+    }
+  ]
+}

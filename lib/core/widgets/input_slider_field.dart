@@ -1,19 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'custom_slider.dart';
 import 'custom_text_field.dart';
 
 class InputSliderField extends StatefulWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final String? prefixText;
-  final String? suffixText;
-  final String? prefix;
-  final String? suffix;
-  final ValueChanged<double> onChanged;
-
   const InputSliderField({
     Key? key,
     required this.label,
@@ -25,7 +14,19 @@ class InputSliderField extends StatefulWidget {
     this.suffixText,
     this.prefix,
     this.suffix,
+    this.divisions,
   }) : super(key: key);
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final String? prefixText;
+  final String? suffixText;
+  final String? prefix;
+  final String? suffix;
+  final ValueChanged<double> onChanged;
+  final int? divisions;
 
   @override
   State<InputSliderField> createState() => _InputSliderFieldState();
@@ -81,7 +82,13 @@ class _InputSliderFieldState extends State<InputSliderField> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.label, style: Theme.of(context).textTheme.titleSmall),
+            Expanded(
+              child: Text(
+                widget.label,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(width: 8),
             SizedBox(
               width: 120,
               child: CustomTextField(
@@ -101,6 +108,7 @@ class _InputSliderFieldState extends State<InputSliderField> {
           value: widget.value,
           min: widget.min,
           max: widget.max,
+          divisions: widget.divisions,
           onChanged: widget.onChanged,
         ),
       ],

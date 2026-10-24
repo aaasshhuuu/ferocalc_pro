@@ -918,41 +918,6 @@
       ]
     },
     {
-      "name": "Fincare SFB",
-      "short_name": "Fincare",
-      "type": "small_finance",
-      "country": "India",
-      "established": "2017",
-      "headquarters": "Bengaluru",
-      "total_branches": "900+",
-      "website": "https://fincarebank.com",
-      "customer_care": "1800-313-313",
-      "fd_rates": {
-        "1y": 8.11,
-        "2y": 8.0,
-        "3y": 7.5,
-        "5y": 7.5
-      },
-      "rd_rates": {
-        "1y": 8.11,
-        "2y": 8.0,
-        "3y": 7.5,
-        "5y": 7.5
-      },
-      "savings_rate": 6.0,
-      "senior_citizen_extra": 0.5,
-      "offers": [
-        "1000 Days Special FD"
-      ],
-      "min_fd_amount": 1000,
-      "max_fd_tenure": "10 years",
-      "features": [
-        "Online FD Booking",
-        "Auto-Renewal",
-        "Loan against FD"
-      ]
-    },
-    {
       "name": "Unity SFB",
       "short_name": "Unity",
       "type": "small_finance",

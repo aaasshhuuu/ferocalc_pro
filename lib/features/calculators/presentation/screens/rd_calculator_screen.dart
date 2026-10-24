@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
@@ -12,6 +13,7 @@ import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class RdCalculatorScreen extends StatefulWidget {
   const RdCalculatorScreen({Key? key}) : super(key: key);
@@ -60,14 +62,48 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateRd();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'rd',
+      calculatorName: 'RD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Maturity Value',
+      primaryResultValue: _currencyFormat.format(_maturityValue),
+      category: 'Deposits',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Monthly Deposit': _currencyFormat.format(_monthlyDeposit),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_tenureMonths.toInt()} Months',
+  };
+
+  Map<String, String> _getResults() => {
+    'Total Deposit': _currencyFormat.format(_totalDeposit),
+    'Interest Earned': _currencyFormat.format(_interestEarned),
+    'Maturity Value': _currencyFormat.format(_maturityValue),
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc RD Calculator\n\nMonthly Deposit: ₹${_monthlyDeposit.toStringAsFixed(0)}\nRate: ${_interestRate.toStringAsFixed(2)}%\nTenure: ${_tenureMonths.toStringAsFixed(0)} Mos\nMaturity Value: ₹${_maturityValue.toStringAsFixed(0)}\nTotal Deposit: ₹${_totalDeposit.toStringAsFixed(0)}\nInterest Earned: ₹${_interestEarned.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'RD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   void _exportPdf(BuildContext context) {
-    final text = 'FeroCalc RD Report\n\nMonthly Deposit: ₹${_monthlyDeposit.toStringAsFixed(0)}\nRate: ${_interestRate.toStringAsFixed(2)}%\nTenure: ${_tenureMonths.toStringAsFixed(0)} Mos\nMaturity Value: ₹${_maturityValue.toStringAsFixed(0)}\nTotal Deposit: ₹${_totalDeposit.toStringAsFixed(0)}\nInterest Earned: ₹${_interestEarned.toStringAsFixed(0)}';
-    Share.share(text, subject: 'FeroCalc - RD Report');
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'RD Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -132,6 +168,12 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                GradientButton(
+                  key: const ValueKey('calculate_button'),
+                  text: 'Calculate',
+                  onPressed: _calculateAndSave,
+                ),
                 const SizedBox(height: 24),
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -147,12 +189,13 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
                 const SizedBox(height: 24),
                 _buildChart(context),
                 const SizedBox(height: 24),
-                GradientButton(text: 'Save Calculation',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Calculation saved!'), backgroundColor: Color(0xFF10B981)),
-                    );
-                  }),
+                GradientButton(
+                  key: const ValueKey('rd_save_button'),
+                  text: 'Save Calculation',
+                  onPressed: _calculateAndSave,
+                ),
+                const SizedBox(height: 24),
+                const CalculatorPurposeCard(calculatorId: 'rd'),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                   child: Text(

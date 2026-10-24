@@ -20,6 +20,7 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
 
   /// Category icon mapping for section headers
   static const Map<String, IconData> _categoryIcons = {
+    'General Interest': Icons.percent,
     'Loans': Icons.account_balance,
     'Deposits': Icons.savings,
     'Investments': Icons.trending_up,
@@ -27,8 +28,12 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
     'Planning': Icons.flag,
   };
 
-  /// All 26 calculators organized into 5 categories
+  /// All 28 calculators organized into 6 categories
   final Map<String, List<Map<String, dynamic>>> _categories = {
+    'General Interest': [
+      {'name': 'Simple Interest', 'icon': Icons.percent, 'desc': 'Principal, rate & time'},
+      {'name': 'Compound Interest', 'icon': Icons.trending_up, 'desc': 'Interest with compounding'},
+    ],
     'Loans': [
       {'name': 'EMI', 'icon': Icons.calculate, 'desc': 'Equated Monthly Installment'},
       {'name': 'Loan Amount', 'icon': Icons.account_balance_wallet, 'desc': 'Max affordable loan'},
@@ -69,6 +74,8 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
 
   String _getRoute(String name) {
     switch (name) {
+      case 'Simple Interest': return '/calculator/simple_interest';
+      case 'Compound Interest': return '/calculator/compound_interest';
       case 'EMI': return '/calculator/emi';
       case 'Loan Amount': return '/calculator/loan_amount';
       case 'Interest Rate': return '/calculator/interest_rate';
@@ -134,9 +141,15 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
     // Responsive column count
     int crossAxisCount = Responsive.gridCrossAxisCount(context, mobile: 2, tablet: 3, desktop: 4);
 
-    return Scaffold(
-      backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey[50],
-      appBar: CustomAppBar(title: 'Calculators', showBackButton: false),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.go('/home');
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.grey[50],
+        appBar: const CustomAppBar(title: 'Calculators', showBackButton: false),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -296,7 +309,7 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
                                   icon: item['icon'] as IconData,
                                   desc: item['desc'] as String,
                                   isDark: isDark,
-                                  onTap: () => context.go(_getRoute(item['name'] as String)),
+                                  onTap: () => context.push(_getRoute(item['name'] as String)),
                                   animationDelay: Duration(milliseconds: 40 * index),
                                 );
                               },
@@ -318,6 +331,7 @@ class _CalculatorsHubScreenState extends State<CalculatorsHubScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,0 +1,85 @@
+name: FeroCalc CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "sync/latest-local-changes-2026-10-23"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend regression suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install locked backend dependencies
+        run: npm ci
+
+      - name: Report dependency audit findings (non-blocking baseline)
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          node <<'NODE'
+          const fs = require('fs');
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          } catch (error) {
+            console.log('npm audit JSON was unavailable; inspect npm output above.');
+            process.exit(0);
+          }
+          const vulnerabilities = Object.entries(report.vulnerabilities || {});
+          console.log('Dependency audit summary:', JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of vulnerabilities) {
+            const via = (item.via || []).map(entry => typeof entry === 'string' ? entry : entry.title || entry.name || entry.url).join('; ');
+            console.log(JSON.stringify({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable, via }));
+          }
+          NODE
+
+      - name: Run backend regression suite
+        run: npm test
+
+  flutter-tests:
+    name: Flutter analysis and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter toolchain
+        run: flutter --version
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart and Flutter source
+        # Keep analyzer errors fatal while reporting the existing warning/info baseline.
+        # Lint debt remains visible and must be reduced; this is not an analyzer clean bill of health.
+        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+
+      - name: Run Flutter test suite
+        run: flutter test --no-pub

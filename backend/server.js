@@ -1,13 +1,17 @@
-require('dotenv').config();
+const { loadEnv } = require('./env_loader');
+loadEnv();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const fs = require('fs');
 const path = require('path');
 
-// Verified FD Rate Engine routes (Phase I / F)
+// Verified FD Rate Engine routes (Phase I / F / 3A)
 const verifiedRatesRouter = require('./routes/verified_rates');
 const adminRatesRouter    = require('./routes/admin_rates');
+const adminStagedRouter   = require('./routes/admin_staged_candidates');
+const { adminAttestationRouter } = require('./routes/admin_baseline_attestations');
+const { cronRouter }      = require('./routes/cron_pipeline');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,8 +53,13 @@ const adminRateLimit = rateLimitMiddleware(
 // ============================================================
 // Public — anon key, VERIFIED-only via RLS + view, rate-limited
 app.use('/api/verified-rates', publicRateLimit, verifiedRatesRouter);
+app.use('/api/v1/verified-rates', publicRateLimit, verifiedRatesRouter);
 // Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER, rate-limited
 app.use('/api/admin', adminRateLimit, adminRatesRouter);
+app.use('/api/admin', adminRateLimit, adminStagedRouter);
+app.use('/api/admin', adminRateLimit, adminAttestationRouter);
+// Internal Jobs — protected by CRON_SECRET, rate-limited
+app.use('/api/internal/jobs', adminRateLimit, cronRouter);
 
 // Admin Startup Check
 const adminApiKey = process.env.ADMIN_API_KEY;

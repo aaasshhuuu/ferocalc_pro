@@ -1,0 +1,118 @@
+{
+  "bankCode": "INDUSIND",
+  "bankName": "IndusInd Bank",
+  "sourceUrl": "https://www.indusind.bank.in/in/en/personal/fixed-deposit-interest-rate.html",
+  "productScope": "Callable retail domestic/NRO/NRE term deposits below INR 3 crore; standard table only",
+  "effectiveFrom": "2026-07-24",
+  "sourceReview": {
+    "reviewedOn": "2026-10-23",
+    "basis": "Official IndusInd Bank fixed deposit interest rate page captured via read-only discovery. Table 0 contains all 17 callable retail slabs below INR 3 crore with 34 regular and senior rates. Non-callable table (Table 3) and October 13 2026 non-callable senior policy notice are explicitly distinguished and excluded from callable card rates.",
+    "rawSnapshotSha256": "639a231f8e5e0b0dbc69968899d7f647fddfebf5c6d446bb9714e8605e443180",
+    "capturedAt": "2026-10-23T14:12:35.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false,
+    "policyReconciliation": {
+      "callableEffectiveDate": "2026-07-24",
+      "nonCallableNoticeDate": "2026-10-13",
+      "scopeOfNotice": "Withdrawal of resident senior citizen additional interest benefit on Non-Callable Fixed Deposits only; callable retail deposits retain senior benefits as published in Table 0."
+    }
+  },
+  "eligibilityNotes": [
+    "Resident Senior Citizen customers (aged 60 years and above) receive an additional interest benefit (+0.75% for 2 to 3 years, +0.50% for other tenures).",
+    "Senior citizen rates are NOT applicable to NRE/NRO deposits.",
+    "Minimum tenure for NRE fixed deposits is one year (365 days); sub-1-year slabs are not applicable to NRE deposits.",
+    "Non-callable deposits (Above 1 crore to less than 3 crores - Premature Withdrawal Not Allowed) are excluded from this callable adapter.",
+    "Bulk deposits (>= 3 Crore) and financial institution deposits are excluded from this retail adapter."
+  ],
+  "tenures": [
+    {
+      "label": "7 days to 30 days",
+      "regular": 3.25,
+      "senior": 3.75
+    },
+    {
+      "label": "31 days to 45 days",
+      "regular": 3.5,
+      "senior": 4.0
+    },
+    {
+      "label": "46 days to 60 days",
+      "regular": 4.5,
+      "senior": 5.0
+    },
+    {
+      "label": "61 days to 90 days",
+      "regular": 4.75,
+      "senior": 5.25
+    },
+    {
+      "label": "91 days to 120 days",
+      "regular": 5.0,
+      "senior": 5.5
+    },
+    {
+      "label": "121 days to 179 days",
+      "regular": 5.0,
+      "senior": 5.5
+    },
+    {
+      "label": "180 days",
+      "regular": 6.0,
+      "senior": 6.5,
+      "isBespoke": true
+    },
+    {
+      "label": "181 days to 210 days",
+      "regular": 5.75,
+      "senior": 6.25
+    },
+    {
+      "label": "211 days to 269 days",
+      "regular": 6.0,
+      "senior": 6.5
+    },
+    {
+      "label": "270 days to 364 days",
+      "regular": 6.25,
+      "senior": 6.75
+    },
+    {
+      "label": "1 Year to below 1 Year 6 Month",
+      "regular": 6.75,
+      "senior": 7.25
+    },
+    {
+      "label": "1 Year 6 months to below 1 Year 7 months",
+      "regular": 6.9,
+      "senior": 7.4
+    },
+    {
+      "label": "1 Year 7 months to below 2 Years",
+      "regular": 6.9,
+      "senior": 7.4
+    },
+    {
+      "label": "2 Years to 3 Years",
+      "regular": 7.0,
+      "senior": 7.75
+    },
+    {
+      "label": "Above 3 Years up to below 61 Months",
+      "regular": 6.65,
+      "senior": 7.15
+    },
+    {
+      "label": "61 Months and above",
+      "regular": 6.5,
+      "senior": 7.0,
+      "isBespoke": true
+    },
+    {
+      "label": "Tax Saver (5 years)",
+      "regular": 6.65,
+      "senior": 7.15,
+      "isBespoke": true,
+      "schemeName": "TAX_SAVER"
+    }
+  ]
+}

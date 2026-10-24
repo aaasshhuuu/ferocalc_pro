@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class PersonalLoanEligibilityScreen extends StatefulWidget {
   const PersonalLoanEligibilityScreen({Key? key}) : super(key: key);
@@ -47,24 +50,70 @@ class _PersonalLoanEligibilityScreenState extends State<PersonalLoanEligibilityS
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateEligibility();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'personal_loan_eligibility',
+      calculatorName: 'Personal Loan Eligibility',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Max Eligible Loan',
+      primaryResultValue: _currencyFormat.format(_maxLoanAmount),
+      category: 'Loans',
+    );
+  }
+
+
+  Map<String, String> _getInputs() => {
+    'Net Monthly Income': _currencyFormat.format(_monthlyIncome),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_tenureYears.toInt()} Years',
+    'Existing Other EMIs': _currencyFormat.format(_otherEmis),
+    'Max FOIR Ratio': '${_foir.toStringAsFixed(0)}%',
+  };
+
+  Map<String, String> _getResults() => {
+    'Maximum Loan Eligibility': _currencyFormat.format(_maxLoanAmount),
+    'Maximum Allowable EMI': _currencyFormat.format(_eligibleEmi),
+  };
 
   void _shareResult(BuildContext context) {
-    // Use share_plus to share the calculation result text
-    final resultText = 'Check out my calculation on FeroCalc!';
-    // For now show a snackbar since share_plus may not work on web
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: const Text('Result shared!'), backgroundColor: const Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Personal Loan Eligibility',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Personal Loan Eligibility',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(title: 'Personal Loan Eligibility', actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)]),
+      appBar: CustomAppBar(
+        title: 'Personal Loan Eligibility',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(context)),
@@ -102,6 +151,12 @@ class _PersonalLoanEligibilityScreenState extends State<PersonalLoanEligibilityS
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'Max Eligible Loan',
@@ -110,6 +165,9 @@ class _PersonalLoanEligibilityScreenState extends State<PersonalLoanEligibilityS
                 SubResult(label: 'Eligible EMI Affordability', value: _currencyFormat.format(_eligibleEmi)),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'personal_loan_eligibility'),
+            const SizedBox(height: 24),
           ],
         ),
       ),

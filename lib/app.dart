@@ -12,11 +12,11 @@ class FinCalcProApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
-        ThemeMode themeMode = ThemeMode.system;
-        if (themeState is ThemeDark) {
-          themeMode = ThemeMode.dark;
-        } else if (themeState is ThemeLight) {
+        ThemeMode themeMode = ThemeMode.dark;
+        if (themeState is ThemeLight) {
           themeMode = ThemeMode.light;
+        } else if (themeState is ThemeDark) {
+          themeMode = ThemeMode.dark;
         }
 
         return MaterialApp.router(

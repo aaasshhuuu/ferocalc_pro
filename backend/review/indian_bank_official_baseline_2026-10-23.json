@@ -1,0 +1,234 @@
+{
+  "bankCode": "INDIAN_BANK",
+  "bankName": "Indian Bank",
+  "sourceUrl": "https://indianbank.bank.in/en/deposit-rates",
+  "productScope": "Domestic callable retail fixed deposits below INR 3 crore; Table 0 (Standard 14 tenures and 4 special callable schemes: IND Supreme 2.0, Ind Green, Ind Grow, Ind Prosper)",
+  "effectiveFrom": "2026-10-23",
+  "effectiveDatesByTable": {
+    "standardCallableRetail": "2026-10-23",
+    "indSupreme300": "2026-08-04",
+    "indGreen500": "2026-06-05",
+    "indGrow555": "2026-10-23",
+    "indProsper777": "2026-10-23"
+  },
+  "sourceReview": {
+    "reviewedOn": "2026-10-24",
+    "basis": "Official Indian Bank deposit rates page HTML. Table 0 contains 18 callable retail domestic rows (< Rs. 3 Crore) with revised rates effective 23.10.2026. Special schemes IND Supreme 2.0 (300 days), Ind Green (500 days), Ind Grow (555 days), and Ind Prosper (777 days) are embedded in Table 0 and further detailed in dedicated scheme tables. Bulk deposits (Rs. 3 Cr - Rs. 5 Cr in Table 5), non-callable options, savings bank deposits (Table 6), and foreclosure charges (Tables 7, 8) are strictly excluded. Source remains disabled pending human review and governance sign-off.",
+    "rawSnapshotSha256": "aada350205165d87fe4fbb3de107e798951e67b02c634980702f4dc8f363eedb",
+    "capturedAt": "2026-10-24T12:05:00.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates: Additional 0.50% p.a. interest is offered to Senior Citizens (aged 60+) for Domestic Retail Term Deposits (< Rs. 3 Crore).",
+    "Senior Citizen special offer: Additional 0.25% p.a. over normal Senior Citizen rate (+0.75% total over General Public) for deposit bucket 'above 5 Years up to 10 Years'.",
+    "IB - Golden Ager: Special Term Deposit Account for Super Senior Citizens (aged 80+) offering additional 0.25% p.a. higher rate over normal Senior Citizen rate for all deposit buckets (+0.75% for <= 5 years, +1.00% for > 5 years).",
+    "NRE fixed deposits require a minimum tenure of 1 year. Sub-one-year slabs are not eligible for NRE deposits.",
+    "Senior and Super Senior preferential rates are not available for NRE/NRO deposits or HUF accounts.",
+    "Bulk deposits (>= 3 Crore), non-callable deposits, and savings bank deposits are strictly excluded from domestic retail callable term deposits."
+  ],
+  "tenures": [
+    {
+      "label": "7 days to 14 days",
+      "regular": 2.8,
+      "senior": 3.3,
+      "superSenior": 3.55,
+      "minDays": 7,
+      "maxDays": 14,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "15 days to 29 days",
+      "regular": 2.8,
+      "senior": 3.3,
+      "superSenior": 3.55,
+      "minDays": 15,
+      "maxDays": 29,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "30 days to 45 days",
+      "regular": 3.0,
+      "senior": 3.5,
+      "superSenior": 3.75,
+      "minDays": 30,
+      "maxDays": 45,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "46 days to 90 days",
+      "regular": 3.25,
+      "senior": 3.75,
+      "superSenior": 4.0,
+      "minDays": 46,
+      "maxDays": 90,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "91 days to 120 days",
+      "regular": 3.5,
+      "senior": 4.0,
+      "superSenior": 4.25,
+      "minDays": 91,
+      "maxDays": 120,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "121 days to 180 days",
+      "regular": 3.85,
+      "senior": 4.35,
+      "superSenior": 4.6,
+      "minDays": 121,
+      "maxDays": 180,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "181 days to less than 9 months",
+      "regular": 4.5,
+      "senior": 5.0,
+      "superSenior": 5.25,
+      "minDays": 181,
+      "maxDays": 273,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "9 months to less than 1 year",
+      "regular": 4.75,
+      "senior": 5.25,
+      "superSenior": 5.5,
+      "minDays": 274,
+      "maxDays": 364,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "IND Supreme 2.0(300 days)",
+      "regular": 6.2,
+      "senior": 6.7,
+      "superSenior": 6.95,
+      "minDays": 300,
+      "maxDays": 300,
+      "isBespoke": true,
+      "rateCategory": "SPECIAL_SCHEME",
+      "schemeName": "IND_SUPREME_300",
+      "effectiveFrom": "2026-08-04"
+    },
+    {
+      "label": "1 year",
+      "regular": 6.1,
+      "senior": 6.6,
+      "superSenior": 6.85,
+      "minDays": 365,
+      "maxDays": 365,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "Above 1 year to less than 2 years",
+      "regular": 6.2,
+      "senior": 6.7,
+      "superSenior": 6.95,
+      "minDays": 366,
+      "maxDays": 729,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "Ind Green (500 Days)",
+      "regular": 6.4,
+      "senior": 6.9,
+      "superSenior": 7.15,
+      "minDays": 500,
+      "maxDays": 500,
+      "isBespoke": true,
+      "rateCategory": "SPECIAL_SCHEME",
+      "schemeName": "IND_GREEN_500",
+      "effectiveFrom": "2026-06-05"
+    },
+    {
+      "label": "Ind Grow (555 Days)",
+      "regular": 6.8,
+      "senior": 7.3,
+      "superSenior": 7.55,
+      "minDays": 555,
+      "maxDays": 555,
+      "isBespoke": true,
+      "rateCategory": "SPECIAL_SCHEME",
+      "schemeName": "IND_GROW_555",
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "2 years to less than 3 years",
+      "regular": 6.15,
+      "senior": 6.65,
+      "superSenior": 6.9,
+      "minDays": 730,
+      "maxDays": 1094,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "Ind Prosper(777 Days)",
+      "regular": 6.75,
+      "senior": 7.25,
+      "superSenior": 7.5,
+      "minDays": 777,
+      "maxDays": 777,
+      "isBespoke": true,
+      "rateCategory": "SPECIAL_SCHEME",
+      "schemeName": "IND_PROSPER_777",
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "3 years to less than 5 years",
+      "regular": 6.05,
+      "senior": 6.55,
+      "superSenior": 6.8,
+      "minDays": 1095,
+      "maxDays": 1824,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "5 year",
+      "regular": 6.0,
+      "senior": 6.5,
+      "superSenior": 6.75,
+      "minDays": 1825,
+      "maxDays": 1825,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    },
+    {
+      "label": "Above 5 years",
+      "regular": 6.0,
+      "senior": 6.75,
+      "superSenior": 7.0,
+      "minDays": 1826,
+      "maxDays": 3650,
+      "rateCategory": "STANDARD",
+      "schemeName": null,
+      "effectiveFrom": "2026-10-23"
+    }
+  ]
+}

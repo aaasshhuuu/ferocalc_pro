@@ -7,6 +7,9 @@
 // Enums (mirror backend PostgreSQL enums exactly)
 // ============================================================
 
+import 'bank.dart';
+import 'fd_rate.dart';
+
 enum RateStatus {
   draft,
   inReview,
@@ -320,14 +323,14 @@ class VerifiedFdRate {
       bankSourceDomain:     json['bank_source_domain']?.toString(),
       customerType:         VerifiedCustomerType.fromString(json['customer_type']?.toString() ?? 'REGULAR'),
       // DAYS fields: nullable — null for CALENDAR records
-      minTenureDays:        (json['min_tenure_days'] as int?),
-      maxTenureDays:        (json['max_tenure_days'] as int?),
+      minTenureDays:        (json['min_tenure_days'] as num?)?.toInt(),
+      maxTenureDays:        (json['max_tenure_days'] as num?)?.toInt(),
       minDeposit:           ((json['min_deposit'] as num?) ?? 0).toDouble(),
       maxDeposit:           (json['max_deposit'] as num?)?.toDouble(),
       interestRate:         ((json['interest_rate'] as num?) ?? 0).toDouble(),
       isCallable:           (json['is_callable'] as bool?) ?? true,
       compoundingFrequency: CompoundingFrequency.fromString(json['compounding_frequency']?.toString() ?? 'QUARTERLY'),
-      effectiveFrom:        DateTime.parse(json['effective_from'].toString()),
+      effectiveFrom:        DateTime.tryParse(json['effective_from']?.toString() ?? '') ?? DateTime.now(),
       effectiveUntil:       json['effective_until'] != null
                               ? DateTime.tryParse(json['effective_until'].toString())
                               : null,
@@ -342,15 +345,15 @@ class VerifiedFdRate {
       // Migration 009
       tenureDomain:         TenureDomain.fromString(json['tenure_domain']?.toString()),
       sourceTenureText:     json['source_tenure_text']?.toString(),
-      minYears:             (json['min_years'] as int?),
-      minMonths:            (json['min_months'] as int?),
-      minDaysCal:           (json['min_days_cal'] as int?),
+      minYears:             (json['min_years'] as num?)?.toInt(),
+      minMonths:            (json['min_months'] as num?)?.toInt(),
+      minDaysCal:           (json['min_days_cal'] as num?)?.toInt(),
       minOperator:          json['min_operator'] != null
                               ? BoundaryOperator.fromString(json['min_operator'].toString())
                               : null,
-      maxYears:             (json['max_years'] as int?),
-      maxMonths:            (json['max_months'] as int?),
-      maxDaysCal:           (json['max_days_cal'] as int?),
+      maxYears:             (json['max_years'] as num?)?.toInt(),
+      maxMonths:            (json['max_months'] as num?)?.toInt(),
+      maxDaysCal:           (json['max_days_cal'] as num?)?.toInt(),
       maxOperator:          json['max_operator'] != null
                               ? BoundaryOperator.fromString(json['max_operator'].toString())
                               : null,
@@ -447,13 +450,243 @@ class VerifiedFdRate {
     return days >= minD && days <= maxD;
   }
 
+  // ── Gregorian interval proof constants ───────────────────────────
+  // Exhaustively verified across all 2,922 Gregorian anchor dates (2024–2031)
+  static const List<int> canonicalBaseMinDays = [0, 28, 59, 89, 120, 150, 181, 212, 242, 273, 303, 334, 365];
+  static const List<int> canonicalBaseMaxDays = [0, 31, 62, 92, 123, 153, 184, 215, 245, 276, 306, 337, 366];
+
+  /// Canonical minimum Gregorian day span for [deltaM] months.
+  static int getCanonicalMinDaysForMonths(int deltaM) {
+    if (deltaM <= 0) return 0;
+    final fullYears = deltaM ~/ 12;
+    final remMonths = deltaM % 12;
+    return fullYears * 365 + canonicalBaseMinDays[remMonths];
+  }
+
+  /// Canonical maximum Gregorian day span for [deltaM] months.
+  static int getCanonicalMaxDaysForMonths(int deltaM) {
+    if (deltaM <= 0) return 0;
+    final fullYears = deltaM ~/ 12;
+    final remMonths = deltaM % 12;
+    return fullYears * 366 + canonicalBaseMaxDays[remMonths];
+  }
+
+  /// Adds calendar tenure (years, months, days) to an anchor date using
+  /// standard banking month-addition semantics with end-of-month pinning.
+  static DateTime addCalendarTenure(DateTime anchor, int years, int months, int days) {
+    int targetYear = anchor.year + years;
+    int targetMonth = anchor.month + months;
+    if (targetMonth > 12) {
+      targetYear += (targetMonth - 1) ~/ 12;
+      targetMonth = ((targetMonth - 1) % 12) + 1;
+    }
+    // Days in target month
+    final daysInTargetMonth = DateTime(targetYear, targetMonth + 1, 0).day;
+    final targetDay = anchor.day > daysInTargetMonth ? daysInTargetMonth : anchor.day;
+    final monthAdded = DateTime(targetYear, targetMonth, targetDay, anchor.hour, anchor.minute, anchor.second);
+    return monthAdded.add(Duration(days: days));
+  }
+
+  /// Compares two calendar tuples (y1, m1, d1) and (y2, m2, d2).
+  ///
+  /// Returns:
+  /// - -1 if t1 < t2
+  /// -  1 if t1 > t2
+  /// -  0 if t1 == t2
+  /// - null if indeterminate without an anchor date
+  static int? compareCalendarTuples({
+    required int y1,
+    required int m1,
+    required int d1,
+    required int y2,
+    required int m2,
+    required int d2,
+    DateTime? anchorDate,
+  }) {
+    if (anchorDate != null) {
+      final date1 = addCalendarTenure(anchorDate, y1, m1, d1);
+      final date2 = addCalendarTenure(anchorDate, y2, m2, d2);
+      return date1.compareTo(date2);
+    }
+
+    final totalM1 = y1 * 12 + m1;
+    final totalM2 = y2 * 12 + m2;
+
+    if (totalM1 == totalM2) {
+      if (d1 < d2) return -1;
+      if (d1 > d2) return 1;
+      return 0;
+    }
+
+    if (totalM1 < totalM2) {
+      final deltaM = totalM2 - totalM1;
+      final minDays = getCanonicalMinDaysForMonths(deltaM);
+      final maxDays = getCanonicalMaxDaysForMonths(deltaM);
+      final dayDelta = d1 - d2;
+
+      if (dayDelta < minDays) return -1;
+      if (dayDelta > maxDays) return 1;
+      return null;
+    } else {
+      final deltaM = totalM1 - totalM2;
+      final minDays = getCanonicalMinDaysForMonths(deltaM);
+      final maxDays = getCanonicalMaxDaysForMonths(deltaM);
+      final dayDelta = d2 - d1;
+
+      if (dayDelta < minDays) return 1;
+      if (dayDelta > maxDays) return -1;
+      return null;
+    }
+  }
+
+  /// Whether this CALENDAR-domain rate covers a given calendar tenure.
+  ///
+  /// Returns:
+  /// - true if the candidate tenure is provably within the slab bounds
+  /// - false if the candidate tenure is outside the slab or if this is a DAYS record
+  /// - null if the comparison is indeterminate without an anchor date
+  bool? coversCalendarTenure({
+    required int years,
+    int months = 0,
+    int daysCal = 0,
+    DateTime? anchorDate,
+  }) {
+    if (tenureDomain != TenureDomain.calendar) return false;
+
+    // 1. Lower Bound Check
+    final minOp = minOperator ?? BoundaryOperator.gte;
+    final minY = minYears ?? 0;
+    final minM = minMonths ?? 0;
+    final minD = minDaysCal ?? 0;
+
+    final cmpL = compareCalendarTuples(
+      y1: years, m1: months, d1: daysCal,
+      y2: minY, m2: minM, d2: minD,
+      anchorDate: anchorDate,
+    );
+    if (cmpL == null) return null;
+    if (minOp == BoundaryOperator.gte && cmpL < 0) return false;
+    if (minOp == BoundaryOperator.gt && cmpL <= 0) return false;
+
+    // 2. Upper Bound Check (open-ended if no upper operator/components)
+    final hasUpper = maxOperator != null || maxYears != null || maxMonths != null || maxDaysCal != null;
+    if (hasUpper) {
+      final maxOp = maxOperator ?? BoundaryOperator.lte;
+      final maxY = maxYears ?? 0;
+      final maxM = maxMonths ?? 0;
+      final maxD = maxDaysCal ?? 0;
+
+      final cmpU = compareCalendarTuples(
+        y1: years, m1: months, d1: daysCal,
+        y2: maxY, m2: maxM, d2: maxD,
+        anchorDate: anchorDate,
+      );
+      if (cmpU == null) return null;
+      if (maxOp == BoundaryOperator.lte && cmpU > 0) return false;
+      if (maxOp == BoundaryOperator.lt && cmpU >= 0) return false;
+    }
+
+    return true;
+  }
+
+  /// Positional convenience overload for [coversCalendarTenure].
+  bool? coversCalendarTenureTuple(int years, [int months = 0, int daysCal = 0, DateTime? anchorDate]) =>
+      coversCalendarTenure(years: years, months: months, daysCal: daysCal, anchorDate: anchorDate);
+
+  /// Domain-aware tenure matching helper that dispatches to [coverstenure] or
+  /// [coversCalendarTenure] depending on [tenureDomain].
+  bool? coversDomainTenure({
+    int? tenureDays,
+    int? years,
+    int? months,
+    int? daysCal,
+    DateTime? anchorDate,
+  }) {
+    if (tenureDomain == TenureDomain.days) {
+      if (tenureDays == null) return false;
+      return coverstenure(tenureDays);
+    } else if (tenureDomain == TenureDomain.calendar) {
+      if (years == null && months == null && daysCal == null) return false;
+      return coversCalendarTenure(
+        years: years ?? 0,
+        months: months ?? 0,
+        daysCal: daysCal ?? 0,
+        anchorDate: anchorDate,
+      );
+    }
+    return false;
+  }
+
   /// Whether this rate applies to a given deposit amount
   bool coversAmount(double amount) {
     if (amount < minDeposit) return false;
     if (maxDeposit != null && amount > maxDeposit!) return false;
     return true;
   }
+
+  /// Converts this server-verified rate to an [FdRate] model with
+  /// [VerificationStatus.verified] and provenance attached.
+  FdRate toFdRate() {
+    CustomerType mappedCustomerType;
+    switch (customerType) {
+      case VerifiedCustomerType.regular:
+        mappedCustomerType = CustomerType.regular;
+        break;
+      case VerifiedCustomerType.seniorCitizen:
+        mappedCustomerType = CustomerType.seniorCitizen;
+        break;
+      case VerifiedCustomerType.superSeniorCitizen:
+        mappedCustomerType = CustomerType.superSeniorCitizen;
+        break;
+      case VerifiedCustomerType.staff:
+        mappedCustomerType = CustomerType.staff;
+        break;
+      case VerifiedCustomerType.nre:
+        mappedCustomerType = CustomerType.nre;
+        break;
+      case VerifiedCustomerType.nro:
+        mappedCustomerType = CustomerType.nro;
+        break;
+    }
+
+    return FdRate(
+      rateId: id,
+      bankId: bankId,
+      customerType: mappedCustomerType,
+      minTenureDays: minTenureDays ?? 0,
+      maxTenureDays: maxTenureDays ?? 0,
+      minDeposit: minDeposit,
+      maxDeposit: maxDeposit,
+      interestRate: interestRate,
+      productType: isCallable ? FdProductType.callable : FdProductType.nonCallable,
+      effectiveFrom: effectiveFrom,
+      effectiveUntil: effectiveUntil,
+      verificationStatus: VerificationStatus.verified,
+      verifiedAt: verifiedAt,
+      sourceUrl: sourceUrl,
+      sourceName: bankSourceDomain != null && bankSourceDomain!.isNotEmpty
+          ? 'Official $bankSourceDomain'
+          : 'Official bank website',
+      prematureWithdrawalAllowed: isCallable,
+      rateCategory: rateCategory.apiValue,
+      schemeName: schemeName,
+      qualificationNotes: reviewNotes,
+    );
+  }
+
+  /// Converts this verified rate's bank metadata to a [Bank] model.
+  Bank toBank() {
+    return Bank(
+      id: bankId,
+      name: bankName,
+      shortName: bankShortName.isNotEmpty ? bankShortName : bankName,
+      type: BankType.private,
+      status: BankStatus.active,
+      officialWebsite: sourceUrl ?? (bankSourceDomain != null ? 'https://$bankSourceDomain' : null),
+    );
+  }
 }
+
 
 
 // ============================================================

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'route_names.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/calculators/presentation/screens/calculators_hub_screen.dart';
 import '../../features/calculators/presentation/screens/emi_calculator_screen.dart';
@@ -32,12 +31,24 @@ import '../../features/calculators/presentation/screens/sukanya_samriddhi_screen
 import '../../features/calculators/presentation/screens/stock_return_calculator_screen.dart';
 import '../../features/calculators/presentation/screens/cagr_calculator_screen.dart';
 import '../../features/calculators/presentation/screens/dividend_yield_calculator_screen.dart';
+import '../../features/calculators/presentation/screens/simple_interest_calculator_screen.dart';
+import '../../features/calculators/presentation/screens/compound_interest_calculator_screen.dart';
+import '../../features/calculators/presentation/screens/amortization_schedule_screen.dart';
+import '../../features/calculators/presentation/screens/ssy_schedule_screen.dart';
 import '../../features/compare/presentation/screens/compare_screen.dart';
 import '../../features/compare/presentation/screens/comparison_dashboard_screen.dart';
 import '../../features/compare/presentation/screens/bank_detail_screen.dart';
+import '../../features/compare/presentation/screens/two_bank_comparison_screen.dart';
 import '../../features/insights/presentation/screens/insights_screen.dart';
+import '../../features/insights/presentation/screens/financial_management_detail_screen.dart';
+import '../../features/insights/presentation/screens/financial_literacy_hub_screen.dart';
+import '../../features/insights/presentation/screens/financial_literacy_detail_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/privacy_policy_screen.dart';
+import '../../features/history/presentation/screens/calculation_history_screen.dart';
+import '../../features/history/presentation/screens/calculation_history_detail_screen.dart';
+import '../../features/history/data/models/calculation_history_entry.dart';
+import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../core/widgets/custom_bottom_nav.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -98,6 +109,12 @@ Widget _getCalculatorScreen(String type) {
       return const CagrCalculatorScreen();
     case 'dividend_yield':
       return const DividendYieldCalculatorScreen();
+    case 'simple_interest':
+      return const SimpleInterestCalculatorScreen();
+    case 'compound_interest':
+      return const CompoundInterestCalculatorScreen();
+    case 'general_interest':
+      return const SimpleInterestCalculatorScreen();
     default:
       return const EmiCalculatorScreen();
   }
@@ -116,11 +133,6 @@ final GoRouter appRouter = GoRouter(
       path: '/onboarding',
       name: RouteNames.onboarding,
       builder: (context, state) => const OnboardingScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      name: RouteNames.login,
-      builder: (context, state) => const LoginScreen(),
     ),
 
     // Main shell with bottom navigation
@@ -143,7 +155,9 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/compare',
           name: RouteNames.compare,
-          builder: (context, state) => const CompareScreen(),
+          builder: (context, state) => CompareScreen(
+            initialSource: state.uri.queryParameters['source'],
+          ),
         ),
         GoRoute(
           path: '/insights',
@@ -168,11 +182,141 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
+    // Amortization Schedule
+    GoRoute(
+      path: '/amortization-schedule',
+      name: RouteNames.amortizationSchedule,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final loanAmount = (extra?['loanAmount'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['loanAmount'] ?? '') ??
+            1000000.0;
+        final interestRate = (extra?['interestRate'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['interestRate'] ?? '') ??
+            8.5;
+        final tenureMonths = (extra?['tenureMonths'] as num?)?.toInt() ??
+            int.tryParse(state.uri.queryParameters['tenureMonths'] ?? '') ??
+            120;
+        final isFlatRate = (extra?['isFlatRate'] as bool?) ??
+            (state.uri.queryParameters['isFlatRate'] == 'true');
+        return AmortizationScheduleScreen(
+          loanAmount: loanAmount,
+          interestRate: interestRate,
+          tenureMonths: tenureMonths,
+          isFlatRate: isFlatRate,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/calculator/emi/schedule',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final loanAmount = (extra?['loanAmount'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['loanAmount'] ?? '') ??
+            1000000.0;
+        final interestRate = (extra?['interestRate'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['interestRate'] ?? '') ??
+            8.5;
+        final tenureMonths = (extra?['tenureMonths'] as num?)?.toInt() ??
+            int.tryParse(state.uri.queryParameters['tenureMonths'] ?? '') ??
+            120;
+        final isFlatRate = (extra?['isFlatRate'] as bool?) ??
+            (state.uri.queryParameters['isFlatRate'] == 'true');
+        return AmortizationScheduleScreen(
+          loanAmount: loanAmount,
+          interestRate: interestRate,
+          tenureMonths: tenureMonths,
+          isFlatRate: isFlatRate,
+        );
+      },
+    ),
+
+    // Sukanya Samriddhi Year-wise Schedule
+    GoRoute(
+      path: '/calculator/sukanya/schedule',
+      name: RouteNames.ssySchedule,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final girlAge = (extra?['girlAge'] as num?)?.toInt() ??
+            int.tryParse(state.uri.queryParameters['girlAge'] ?? '') ??
+            0;
+        final interestRate = (extra?['interestRate'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['interestRate'] ?? '') ??
+            8.2;
+        final yearlyDeposits = (extra?['yearlyDeposits'] as List<dynamic>?)
+                ?.map((e) => (e as num).toDouble())
+                .toList() ??
+            (state.uri.queryParameters['yearlyDeposit'] != null
+                ? List.filled(
+                    15,
+                    double.tryParse(
+                          state.uri.queryParameters['yearlyDeposit']!,
+                        ) ??
+                        150000.0,
+                  )
+                : List.filled(15, 150000.0));
+        final isVariable = (extra?['isVariable'] as bool?) ?? false;
+
+        return SsyScheduleScreen(
+          girlAge: girlAge,
+          interestRate: interestRate,
+          yearlyDeposits: yearlyDeposits,
+          isVariable: isVariable,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/ssy-schedule',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final girlAge = (extra?['girlAge'] as num?)?.toInt() ??
+            int.tryParse(state.uri.queryParameters['girlAge'] ?? '') ??
+            0;
+        final interestRate = (extra?['interestRate'] as num?)?.toDouble() ??
+            double.tryParse(state.uri.queryParameters['interestRate'] ?? '') ??
+            8.2;
+        final yearlyDeposits = (extra?['yearlyDeposits'] as List<dynamic>?)
+                ?.map((e) => (e as num).toDouble())
+                .toList() ??
+            (state.uri.queryParameters['yearlyDeposit'] != null
+                ? List.filled(
+                    15,
+                    double.tryParse(
+                          state.uri.queryParameters['yearlyDeposit']!,
+                        ) ??
+                        150000.0,
+                  )
+                : List.filled(15, 150000.0));
+        final isVariable = (extra?['isVariable'] as bool?) ?? false;
+
+        return SsyScheduleScreen(
+          girlAge: girlAge,
+          interestRate: interestRate,
+          yearlyDeposits: yearlyDeposits,
+          isVariable: isVariable,
+        );
+      },
+    ),
+
     // Comparison dashboard
     GoRoute(
       path: '/comparison-dashboard',
       name: RouteNames.comparisonDashboard,
       builder: (context, state) => const ComparisonDashboardScreen(),
+    ),
+
+    // Two Bank Side-by-Side Comparison
+    GoRoute(
+      path: '/compare/two-banks',
+      name: RouteNames.twoBankCompare,
+      builder: (context, state) {
+        final bankAId = state.uri.queryParameters['bankA'];
+        final bankBId = state.uri.queryParameters['bankB'];
+        return TwoBankComparisonScreen(
+          initialBankAId: bankAId,
+          initialBankBId: bankBId,
+        );
+      },
     ),
 
     // Bank Detail Screen
@@ -195,6 +339,55 @@ final GoRouter appRouter = GoRouter(
       path: '/privacy-policy',
       name: 'privacyPolicy',
       builder: (context, state) => const PrivacyPolicyScreen(),
+    ),
+
+    // Calculation History
+    GoRoute(
+      path: '/history',
+      name: RouteNames.history,
+      builder: (context, state) => const CalculationHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/history/detail',
+      name: RouteNames.historyDetail,
+      builder: (context, state) {
+        final entry = state.extra as CalculationHistoryEntry;
+        return CalculationHistoryDetailScreen(entry: entry);
+      },
+    ),
+
+    // Financial Management Topic Detail
+    GoRoute(
+      path: '/insights/financial-management/:topicId',
+      name: RouteNames.financialManagementDetail,
+      builder: (context, state) {
+        final topicId = state.pathParameters['topicId'] ?? '';
+        return FinancialManagementDetailScreen(topicId: topicId);
+      },
+    ),
+
+    // Financial Literacy Hub and Detail
+    GoRoute(
+      path: '/financial-literacy',
+      name: RouteNames.financialLiteracyHub,
+      builder: (context, state) => const FinancialLiteracyHubScreen(),
+      routes: [
+        GoRoute(
+          path: ':topicId',
+          name: RouteNames.financialLiteracyDetail,
+          builder: (context, state) {
+            final topicId = state.pathParameters['topicId'] ?? '';
+            return FinancialLiteracyDetailScreen(topicId: topicId);
+          },
+        ),
+      ],
+    ),
+
+    // Notifications Screen
+    GoRoute(
+      path: '/notifications',
+      name: RouteNames.notifications,
+      builder: (context, state) => const NotificationsScreen(),
     ),
   ],
 );

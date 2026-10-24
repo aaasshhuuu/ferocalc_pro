@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
+import 'amortization_schedule_screen.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:fincalc_pro/core/utils/formatters.dart';
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/chart_widgets.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 import 'package:fincalc_pro/config/themes/app_colors.dart';
 import 'package:fincalc_pro/config/themes/app_gradients.dart';
 import 'package:fincalc_pro/config/themes/app_text_styles.dart';
@@ -28,6 +32,7 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
   double _interestRate = 8.5;
   double _tenure = 10;
   bool _isMonths = false;
+  bool _isFlatRate = false;
 
   double _emi = 0;
   double _totalInterest = 0;
@@ -53,29 +58,109 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
   }
 
   void _calculateEmi() {
-    double n = _isMonths ? _tenure : _tenure * 12;
-    _emi = FinancialMath.calculateEMI(
-      principal: _loanAmount,
-      annualRate: _interestRate,
-      months: n.toInt(),
-    );
-    _totalPayment = _emi * n;
-    _totalInterest = _totalPayment - _loanAmount;
+    final int months = (_isMonths ? _tenure : _tenure * 12).toInt();
+    if (_isFlatRate) {
+      _emi = FinancialMath.calculateFlatRateEMI(
+        principal: _loanAmount,
+        annualRate: _interestRate,
+        months: months,
+      );
+      final double tYears = months / 12.0;
+      _totalInterest = FinancialMath.calculateSimpleInterest(
+        principal: _loanAmount,
+        annualRate: _interestRate,
+        time: tYears,
+        timeUnit: TimeUnit.years,
+      );
+      _totalPayment = _loanAmount + _totalInterest;
+    } else {
+      _emi = FinancialMath.calculateEMI(
+        principal: _loanAmount,
+        annualRate: _interestRate,
+        months: months,
+      );
+      _totalPayment = _emi * months;
+      _totalInterest = _totalPayment - _loanAmount;
+    }
     _animationController.forward(from: 0.0);
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateEmi();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'emi',
+      calculatorName: 'EMI Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Monthly EMI',
+      primaryResultValue: _currencyFormat.format(_emi),
+      category: 'Loans',
+      rawInputs: {
+        'loanAmount': _loanAmount,
+        'interestRate': _interestRate,
+        'tenure': _tenure,
+        'isMonths': _isMonths,
+        'isFlatRate': _isFlatRate,
+      },
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Loan Amount': _currencyFormat.format(_loanAmount),
+    'Interest Rate': '${_interestRate.toStringAsFixed(2)}% p.a.',
+    'Tenure': '${_tenure.toStringAsFixed(0)} ${_isMonths ? 'months' : 'years'}',
+    'Interest Scheme': _isFlatRate ? 'Flat Rate' : 'Reducing Balance',
+  };
+
+  Map<String, String> _getResults() => {
+    'Monthly EMI': _currencyFormat.format(_emi),
+    'Total Interest': _currencyFormat.format(_totalInterest),
+    'Total Payment': _currencyFormat.format(_totalPayment),
+    'Calculation Method': _isFlatRate ? 'Flat Rate' : 'Reducing Balance',
+  };
 
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc EMI Calculator\n\nLoan: ₹${_loanAmount.toStringAsFixed(0)}\nRate: ${_interestRate.toStringAsFixed(2)}%\nTenure: ${_tenure.toStringAsFixed(0)} ${_isMonths ? 'months' : 'years'}\nEMI: ₹${_emi.toStringAsFixed(0)}\nTotal Interest: ₹${_totalInterest.toStringAsFixed(0)}\nTotal Payment: ₹${_totalPayment.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Result shared!'), backgroundColor: Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'EMI Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'EMI Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
+  }
+
+  void _openAmortizationSchedule(BuildContext context) {
+    final int months = (_isMonths ? _tenure : _tenure * 12).toInt();
+    final args = {
+      'loanAmount': _loanAmount,
+      'interestRate': _interestRate,
+      'tenureMonths': months,
+      'isFlatRate': _isFlatRate,
+    };
+    try {
+      context.push('/amortization-schedule', extra: args);
+    } catch (_) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => AmortizationScheduleScreen(
+            loanAmount: _loanAmount,
+            interestRate: _interestRate,
+            tenureMonths: months,
+            isFlatRate: _isFlatRate,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -102,6 +187,52 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
             GlassmorphicCard(
               child: Column(
                 children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text('Interest Method', style: AppTextStyles.bodyText),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            key: const ValueKey('emi_method_reducing'),
+                            label: const Text('Reducing Balance'),
+                            selected: !_isFlatRate,
+                            onSelected: (val) {
+                              setState(() => _isFlatRate = false);
+                              _calculateEmi();
+                            },
+                          ),
+                          ChoiceChip(
+                            key: const ValueKey('emi_method_flat'),
+                            label: const Text('Flat Rate'),
+                            selected: _isFlatRate,
+                            onSelected: (val) {
+                              setState(() => _isFlatRate = true);
+                              _calculateEmi();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _isFlatRate
+                          ? 'Flat-rate interest calculated on the original principal.'
+                          : 'Reducing-balance loan interest calculated on the outstanding balance.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   InputSliderField(
                     label: 'Loan Amount',
                     value: _loanAmount,
@@ -126,11 +257,15 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
                     },
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       Text('Tenure in', style: AppTextStyles.bodyText),
-                      Row(
+                      Wrap(
+                        spacing: 8,
                         children: [
                           ChoiceChip(
                             label: const Text('Years'),
@@ -143,7 +278,6 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
                               _calculateEmi();
                             },
                           ),
-                          const SizedBox(width: 8),
                           ChoiceChip(
                             label: const Text('Months'),
                             selected: _isMonths,
@@ -174,6 +308,12 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             FadeTransition(
               opacity: _fadeAnimation,
@@ -183,7 +323,8 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
                 subResults: [
                   SubResult(label: 'Principal Amount', value: _currencyFormat.format(_loanAmount)),
                   SubResult(label: 'Total Interest', value: _currencyFormat.format(_totalInterest)),
-                  SubResult(label: 'Total Amount', value: _currencyFormat.format(_totalPayment)),
+                  SubResult(label: 'Total Payment', value: _currencyFormat.format(_totalPayment)),
+                  SubResult(label: 'Calculation Method', value: _isFlatRate ? 'Flat Rate' : 'Reducing Balance'),
                 ],
               ),
             ),
@@ -192,13 +333,12 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
             const SizedBox(height: 24),
 
             GradientButton(
+              key: const ValueKey('view_amortization_schedule_button'),
               text: 'View Amortization Schedule',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Amortization schedule coming soon!'), backgroundColor: Color(0xFF10B981)),
-                );
-              },
+              onPressed: () => _openAmortizationSchedule(context),
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'emi'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               child: Text(
@@ -263,8 +403,10 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
               _legendItem('Principal', const Color(0xFF1A5276)),
               _legendItem('Interest', const Color(0xFFC9A96E)),
@@ -277,6 +419,7 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
 
   Widget _legendItem(String label, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
         const SizedBox(width: 6),
