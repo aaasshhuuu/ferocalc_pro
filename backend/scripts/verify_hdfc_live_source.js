@@ -19,10 +19,10 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
 const baseline = require('../review/hdfc_official_baseline_2026-08-19.json');
 const { HdfcRateParser } = require('../parsers/hdfc_parser');
 const { normalizeLabelKey } = require('../parsers/hdfc_canonical_tenure');
+const { fetchWithHardenedCurl } = require('./curl_transport');
 
 const OUT = path.join(__dirname, '../review/live-evidence');
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -77,22 +77,15 @@ async function fetchOfficial(start) {
   throw new Error('Redirect limit exceeded');
 }
 
-function fetchWithCurl(url) {
-  if (!allowed(url)) throw new Error('Refusing non-HTTPS or non-HDFC URL for curl: ' + url);
-  const curlBin = process.platform === 'win32' ? 'curl.exe' : 'curl';
-  const curlCmd = `${curlBin} -s -L --max-redirs 3 --max-filesize 5242880 ` +
-    `-H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36" ` +
-    `-H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" ` +
-    `-H "Accept-Language: en-IN,en;q=0.9" ` +
-    `"${url}"`;
-  const buf = execSync(curlCmd, { timeout: 30000, maxBuffer: MAX_BYTES });
-  if (buf.length > MAX_BYTES) throw new Error('Curl response exceeds 5 MB limit');
-  const str = buf.toString('utf-8');
-  if (str.includes('<title>Just a moment...</title>') || str.includes('Attention Required! | Cloudflare') || str.includes('Request Rejected')) {
-    throw new Error('Cloudflare / WAF block detected on datacenter IP');
-  }
-  if (buf.length < 5000) throw new Error('Curl response suspiciously small');
-  return { url, status: 200, type: 'text/html', body: buf, fetchMethod: 'curl' };
+function fetchWithCurl(url, overrides = {}) {
+  return fetchWithHardenedCurl(url, {
+    allowed,
+    expectedType: /text\/html|application\/xhtml\+xml/i,
+    maxBytes: MAX_BYTES,
+    minBytes: 5000,
+    maxRedirects: MAX_REDIRECTS,
+    ...overrides,
+  });
 }
 
 function norm(s) {
