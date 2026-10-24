@@ -129,7 +129,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
   },
-
+  {
+    id: 'central-bank-retail-domestic',
+    bankCode: 'CENTRAL_BANK',
+    bankName: 'Central Bank of India',
+    sourceUrl: 'https://www.centralbank.bank.in/en/interest-rates-on-deposit',
+    sourceType: 'HTML',
+    parserId: 'central_bank_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic FD rates below Rs. 3 crore and special schemes (333, 444, 555 days); disabled pending full live-source parity and human review',
+  },
 ];
 
 class SourceRegistry {
