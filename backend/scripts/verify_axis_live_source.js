@@ -211,7 +211,7 @@ async function runVerification(options = {}) {
 
   if (isOffline) {
     if (options.body) {
-      body = Buffer.isBuffer(options.body) ? options.body : Buffer.from(options.body);
+      body = options.body;
     } else {
       const targetPath = fixturePath || path.join(__dirname, '../review/source-discovery/axis_domestic_less_than_3_crores.pdf');
       if (!fs.existsSync(targetPath)) {
@@ -292,7 +292,7 @@ async function runVerification(options = {}) {
     fs.writeFileSync(snapshotPath, body);
   }
 
-  report.bodyBytes = body.length;
+  report.bodyBytes = Buffer.isBuffer(body) ? body.length : Buffer.byteLength(String(body), 'utf8');
   report.sourceContentSha256 = hash;
 
   const parsed = new AxisRateParser().parse(body, {

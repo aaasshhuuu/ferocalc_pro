@@ -278,7 +278,7 @@ await run('live-fetch failure fails closed and exits non-zero without snapshot f
 
 // 15. Fallback rejection: offline fixture cannot produce live PASS
 await run('fallback rejection: offline fixture cannot produce live-source PASS', async () => {
-  const res = await runVerification({ offline: true });
+  const res = await runVerification({ offline: true, body: SYNTHETIC_FIXTURE });
   assert.strictEqual(res.report.isLiveRun, false);
   assert.strictEqual(res.report.sourceFetchStatus, 'OFFLINE_LOADED');
   assert.strictEqual(res.report.fetchMethod, 'OFFLINE_FIXTURE');
