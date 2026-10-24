@@ -22,6 +22,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'indusind.bank.in',
   'uco.bank.in',
   'ucobank.com',
+  'au.bank.in',
+  'aubank.in',
 ];
 
 function isOfficialDomain(url) {

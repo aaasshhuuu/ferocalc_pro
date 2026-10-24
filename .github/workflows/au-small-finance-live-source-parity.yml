@@ -1,0 +1,44 @@
+name: AU Small Finance Bank Live Source Parity Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["sync/latest-local-changes-2026-10-23"]
+    paths:
+      - "backend/parsers/au_small_finance_parser.js"
+      - "backend/review/au_small_finance_official_baseline_2026-09-01.json"
+      - "backend/scripts/verify_au_small_finance_live_source.js"
+      - ".github/workflows/au-small-finance-live-source-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-source-parity:
+    name: Verify official table without staging or promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Fetch official AU Small Finance Bank page and check all baseline rows
+        run: node scripts/verify_au_small_finance_live_source.js
+      - name: Upload raw snapshot and parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: au-small-finance-live-source-evidence
+          path: backend/review/live-evidence/
+          if-no-files-found: warn
+          retention-days: 14

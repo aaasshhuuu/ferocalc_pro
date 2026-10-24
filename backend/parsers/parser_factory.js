@@ -11,6 +11,7 @@ const { UnionBankRateParser } = require('./union_bank_parser');
 const { PnbRateParser } = require('./pnb_parser');
 const { IndusIndRateParser } = require('./indusind_parser');
 const { UcoRateParser } = require('./uco_parser');
+const { AuSmallFinanceRateParser } = require('./au_small_finance_parser');
 
 const PARSER_MAP = {
   SBI: new SbiRateParser(),
@@ -21,6 +22,7 @@ const PARSER_MAP = {
   PNB: new PnbRateParser(),
   INDUSIND: new IndusIndRateParser(),
   UCO: new UcoRateParser(),
+  AU_SMALL_FINANCE: new AuSmallFinanceRateParser(),
 };
 
 /**

@@ -105,6 +105,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic/NRO FD rates below Rs. 3 crore; disabled due to expired special schemes (333 and 444 days expired 30.06.2026) pending official resolution and review',
   },
+  {
+    id: 'au-small-finance-retail-domestic',
+    bankCode: 'AU_SMALL_FINANCE',
+    bankName: 'AU Small Finance Bank',
+    sourceUrl: 'https://www.au.bank.in/interest-rates/fixed-deposit-interest-rates',
+    sourceType: 'HTML',
+    parserId: 'au_small_finance_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic/NRE/NRO FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
+  },
 
 ];
 
