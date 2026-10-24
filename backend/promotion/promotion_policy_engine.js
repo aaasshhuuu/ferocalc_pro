@@ -24,6 +24,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'ucobank.com',
   'au.bank.in',
   'aubank.in',
+  'canarabank.bank.in',
+  'canarabank.com',
 ];
 
 function isOfficialDomain(url) {

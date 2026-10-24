@@ -117,6 +117,18 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic/NRE/NRO FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
   },
+  {
+    id: 'canara-retail-domestic',
+    bankCode: 'CANARA',
+    bankName: 'Canara Bank',
+    sourceUrl: 'https://www.canarabank.bank.in/term-deposits-rate-of-interest-p.a.',
+    sourceType: 'HTML',
+    parserId: 'canara_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic FD rates below Rs. 3 crore; disabled pending full live-source parity and human review',
+  },
 
 ];
 
