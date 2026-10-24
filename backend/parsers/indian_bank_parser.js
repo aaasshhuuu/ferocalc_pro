@@ -132,6 +132,23 @@ function addRateSpread(baseRate, spread) {
   return Math.round((Number(baseRate) + Number(spread)) * 100) / 100;
 }
 
+/**
+ * Extracts an explicit scheme effective date (w.e.f DD.MM.YYYY) from the HTML content
+ * following a given scheme identifier.
+ */
+function extractSchemeDate(html, schemePattern) {
+  if (!html) return null;
+  // Locate the dedicated scheme section following Table 0
+  const t0End = html.indexOf('</table>');
+  const searchArea = t0End !== -1 ? html.slice(t0End) : html;
+  const p = searchArea.search(schemePattern);
+  if (p === -1) return null;
+  const chunk = searchArea.slice(p, p + 2500);
+  const m = chunk.match(/Rate\s+of\s+Interest[^<]*?w\.e\.f\s*[:.]?\s*(\d{2})[./-](\d{2})[./-](\d{4})/i);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return null;
+}
+
 class IndianBankRateParser extends BaseRateParser {
   constructor() {
     super({
@@ -194,6 +211,27 @@ class IndianBankRateParser extends BaseRateParser {
     }
 
     const effectiveFrom = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+
+    // Extract special scheme effective dates directly from HTML content if published
+    const indSupremeDate = extractSchemeDate(html, /IND\s*Supreme\s*2\.0/i);
+    const indGreenDate = extractSchemeDate(html, /IND\s*GREEN/i);
+    const indGrowDate = extractSchemeDate(html, /IND\s*GROW/i);
+    const indProsperDate = extractSchemeDate(html, /IND\s*Proposer|IND\s*Prosper/i);
+
+    const effectiveDatesByTable = {
+      standardCallableRetail: effectiveFrom,
+      indSupreme300: indSupremeDate || '2026-08-04',
+      indGreen500: indGreenDate || '2026-06-05',
+      indGrow555: indGrowDate || effectiveFrom,
+      indProsper777: indProsperDate || effectiveFrom,
+    };
+
+    const schemeEffectiveDatesSource = {
+      indSupreme300: indSupremeDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
+      indGreen500: indGreenDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
+      indGrow555: indGrowDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
+      indProsper777: indProsperDate ? 'EXTRACTED_FROM_SOURCE' : 'BASELINE_METADATA_FALLBACK',
+    };
 
     // 3. Locate column indices for Period and Revised Rate
     let colPeriod = -1;
@@ -289,25 +327,25 @@ class IndianBankRateParser extends BaseRateParser {
       if (isIndSupreme) {
         schemeName = 'IND_SUPREME_300';
         rateCategory = 'SPECIAL_SCHEME';
-        rowEffectiveFrom = '2026-08-04';
+        rowEffectiveFrom = effectiveDatesByTable.indSupreme300;
         isBespokeTenure = true;
         specialSchemeCount++;
       } else if (isIndGreen) {
         schemeName = 'IND_GREEN_500';
         rateCategory = 'SPECIAL_SCHEME';
-        rowEffectiveFrom = '2026-06-05';
+        rowEffectiveFrom = effectiveDatesByTable.indGreen500;
         isBespokeTenure = true;
         specialSchemeCount++;
       } else if (isIndGrow) {
         schemeName = 'IND_GROW_555';
         rateCategory = 'SPECIAL_SCHEME';
-        rowEffectiveFrom = '2026-10-23';
+        rowEffectiveFrom = effectiveDatesByTable.indGrow555;
         isBespokeTenure = true;
         specialSchemeCount++;
       } else if (isIndProsper) {
         schemeName = 'IND_PROSPER_777';
         rateCategory = 'SPECIAL_SCHEME';
-        rowEffectiveFrom = '2026-10-23';
+        rowEffectiveFrom = effectiveDatesByTable.indProsper777;
         isBespokeTenure = true;
         specialSchemeCount++;
       } else {
@@ -440,6 +478,8 @@ class IndianBankRateParser extends BaseRateParser {
         yieldIncludedAsRate: false,
         nonCallableRatesIncluded: false,
         bulkRatesIncluded: false,
+        effectiveDatesByTable,
+        schemeEffectiveDatesSource,
       },
     });
   }
@@ -449,6 +489,7 @@ module.exports = {
   IndianBankRateParser,
   normalizeTenureLabel,
   extractCalendarTenure,
+  extractSchemeDate,
   SOURCE_URL,
   EXPECTED_CALLABLE_ROWS,
 };
