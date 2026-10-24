@@ -73,8 +73,108 @@ function norm(s) {
   return normalizeTenureLabel(s).replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-async function main() {
+/**
+ * Reconciles parsed Axis PDF candidates and metadata against baseline specification.
+ * Pure verification logic decoupled from transport/fetch.
+ */
+function verifyContent(parsed, baselineConfig, context = {}) {
+  const mismatches = [];
+  let nonCallableColumnsExcluded = false;
+  let yieldExcludedFromRates = false;
+  let bulkTablesExcluded = false;
+  let matchedTenureRows = 0;
+
+  if (!parsed.success) {
+    mismatches.push('Live parser failed closed: ' + (parsed.errors || []).join('; '));
+  }
+
+  const effectiveDateMatched = parsed.effectiveFrom === baselineConfig.effectiveFrom;
+  if (!effectiveDateMatched) {
+    mismatches.push(
+      'Effective date mismatch: expected ' + baselineConfig.effectiveFrom + ', got ' + (parsed.effectiveFrom || 'null')
+    );
+  }
+
+  if (parsed.metadata?.nonCallableRatesIncluded === false) {
+    nonCallableColumnsExcluded = true;
+  } else {
+    mismatches.push('Non-callable rates were improperly included in candidates');
+  }
+
+  if (parsed.metadata?.yieldIncludedAsRate === false) {
+    yieldExcludedFromRates = true;
+  } else {
+    mismatches.push('Annualized yield was improperly used as interest rate');
+  }
+
+  if (parsed.metadata?.bulkTablesExcluded === true) {
+    bulkTablesExcluded = true;
+  } else {
+    mismatches.push('Bulk tables were not excluded');
+  }
+
+  if (parsed.candidates.length !== baselineConfig.tenures.length * 2) {
+    mismatches.push(
+      `Candidate count mismatch: expected ${baselineConfig.tenures.length * 2}, got ${parsed.candidates.length}`
+    );
+  }
+
+  // Group candidates by normalized tenure label and customer type
+  const actual = new Map();
+  for (const c of parsed.candidates) {
+    const key = norm(c.tenureLabel);
+    if (!actual.has(key)) actual.set(key, {});
+    if (actual.get(key)[c.customerType] !== undefined) {
+      mismatches.push(`Duplicate candidate for tenure "${c.tenureLabel}" / ${c.customerType}`);
+    }
+    actual.get(key)[c.customerType] = c.interestRate;
+  }
+
+  // Compare against baseline
+  for (const e of baselineConfig.tenures) {
+    const a = actual.get(norm(e.label));
+    if (!a) {
+      mismatches.push('Missing tenure row: ' + e.label);
+      continue;
+    }
+    matchedTenureRows++;
+    if (Number(a.REGULAR) !== e.regular) {
+      mismatches.push(`${e.label} regular mismatch: expected ${e.regular}, got ${a.REGULAR}`);
+    }
+    if (Number(a.SENIOR_CITIZEN) !== e.senior) {
+      mismatches.push(`${e.label} senior mismatch: expected ${e.senior}, got ${a.SENIOR_CITIZEN}`);
+    }
+  }
+
+  return {
+    mismatches,
+    effectiveDateMatched,
+    nonCallableColumnsExcluded,
+    yieldExcludedFromRates,
+    bulkTablesExcluded,
+    matchedTenureRows,
+    totalBaselineRows: baselineConfig.tenures.length,
+    comparedRateValues: matchedTenureRows * 2,
+  };
+}
+
+/**
+ * Runs Axis Bank live source verification or offline baseline check.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.offline] - Run in offline mode using fixture
+ * @param {string} [options.fixturePath] - Path to offline fixture file
+ * @param {Buffer|string} [options.body] - In-memory fixture body
+ * @param {string} [options.mockFetchFailure] - Deterministic simulation of live-fetch failure
+ * @param {number|null} [options.mockHttpStatus] - Status code for mock fetch failure
+ * @returns {Promise<{ success: boolean, report: object, exitCode: number }>}
+ */
+async function runVerification(options = {}) {
+  const isOffline = Boolean(options.offline || process.argv.includes('--offline'));
+  const fixturePath = options.fixturePath || null;
+
   fs.mkdirSync(OUT, { recursive: true });
+
   const report = {
     bankCode: baseline.bankCode,
     sourceUrl: baseline.sourceUrl,
@@ -82,148 +182,166 @@ async function main() {
     expectedEffectiveFrom: baseline.effectiveFrom,
     publicationDate: baseline.publicationDate,
     fetchedAt: new Date().toISOString(),
+    isLiveRun: !isOffline,
     sourceFetchStatus: 'NOT_STARTED',
     fetchMethod: 'NONE',
+    httpStatus: null,
+    finalUrl: baseline.sourceUrl,
+    contentType: null,
     parserStatus: 'NOT_RUN',
     parityStatus: 'FAIL_CLOSED',
     mismatches: [],
     nonCallableColumnsExcluded: false,
     yieldExcludedFromRates: false,
     bulkTablesExcluded: false,
+    matchedTenureRows: 0,
+    totalBaselineRows: baseline.tenures.length,
+    comparedRateValues: 0,
     activationApproved: false,
   };
 
   const reportPath = path.join(OUT, 'axis-live-parity-report.json');
   const snapshotPath = path.join(OUT, 'axis-live-page.pdf');
 
-  try {
-    let f;
+  let body = null;
+  let finalUrl = baseline.sourceUrl;
+  let httpStatus = null;
+  let contentType = 'application/pdf';
+  let fetchMethod = 'NONE';
+
+  if (isOffline) {
+    if (options.body) {
+      body = Buffer.isBuffer(options.body) ? options.body : Buffer.from(options.body);
+    } else {
+      const targetPath = fixturePath || path.join(__dirname, '../review/source-discovery/axis_domestic_less_than_3_crores.pdf');
+      if (!fs.existsSync(targetPath)) {
+        report.sourceFetchStatus = 'FAILED';
+        report.mismatches.push(`Offline fixture file not found: ${targetPath}`);
+        fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
+        return { success: false, report, exitCode: 1 };
+      }
+      body = fs.readFileSync(targetPath);
+    }
+    fetchMethod = 'OFFLINE_FIXTURE';
+    report.sourceFetchStatus = 'OFFLINE_LOADED';
+    report.fetchMethod = fetchMethod;
+    report.httpStatus = null; // Do NOT fabricate HTTP 200 for local file
+    report.note = 'OFFLINE BASELINE RUN: Local fixture used; live source was NOT verified.';
+  } else if (options.mockFetchFailure) {
+    report.sourceFetchStatus = 'FAILED';
+    report.fetchMethod = 'NONE';
+    report.httpStatus = options.mockHttpStatus || null;
+    report.parityStatus = 'FAIL_CLOSED';
+    report.mismatches.push(`Live official source fetch failed on all methods: ${options.mockFetchFailure}`);
+    report.note = 'Live source fetch failed. Archived snapshots are strictly prohibited from generating a live-source PASS.';
+
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
+    return { success: false, report, exitCode: 1 };
+  } else {
+    // LIVE MODE: Strictly live network fetch.
+    // Archived discovery snapshots are strictly prohibited from being used here.
+    const fetchErrors = [];
+
     // Attempt 1: Node fetch
     try {
-      f = await fetchOfficial(baseline.sourceUrl);
-    } catch (fetchErr) {
+      const f = await fetchOfficial(baseline.sourceUrl);
+      body = f.body;
+      finalUrl = f.url;
+      httpStatus = f.status;
+      contentType = f.type;
+      fetchMethod = f.fetchMethod;
+    } catch (e1) {
+      fetchErrors.push('node-fetch: ' + e1.message);
+
       // Attempt 2: curl
       try {
-        f = fetchWithCurl(baseline.sourceUrl);
-      } catch (curlErr) {
-        // Attempt 3: Discovery snapshot fallback
-        const discPath = path.join(__dirname, '../review/source-discovery/axis_domestic_less_than_3_crores.pdf');
-        if (fs.existsSync(discPath)) {
-          const body = fs.readFileSync(discPath);
-          f = { url: baseline.sourceUrl, status: 200, type: 'application/pdf', body, fetchMethod: 'discovery-snapshot-fallback' };
-        } else {
-          throw new Error(`Fetch failed: ${fetchErr.message}; curl failed: ${curlErr.message}; no discovery snapshot.`);
-        }
+        const c = fetchWithCurl(baseline.sourceUrl);
+        body = c.body;
+        finalUrl = c.url;
+        httpStatus = c.status;
+        contentType = c.type;
+        fetchMethod = c.fetchMethod;
+      } catch (e2) {
+        fetchErrors.push('curl: ' + e2.message);
       }
     }
 
-    const hash = crypto.createHash('sha256').update(f.body).digest('hex');
-    fs.writeFileSync(snapshotPath, f.body);
+    if (!body) {
+      // Both live fetch attempts failed: FAIL CLOSED, record actual error, do NOT fallback to snapshot!
+      report.sourceFetchStatus = 'FAILED';
+      report.fetchMethod = 'NONE';
+      report.httpStatus = null;
+      report.parityStatus = 'FAIL_CLOSED';
+      report.mismatches.push(`Live official source fetch failed on all methods: ${fetchErrors.join('; ')}`);
+      report.note = 'Live source fetch failed. Archived snapshots are strictly prohibited from generating a live-source PASS.';
 
-    Object.assign(report, {
-      sourceFetchStatus: 'SUCCESS',
-      fetchMethod: f.fetchMethod,
-      finalUrl: f.url,
-      httpStatus: f.status,
-      contentType: f.type,
-      bodyBytes: f.body.length,
-      sourceContentSha256: hash,
-    });
-
-    const parsed = new AxisRateParser().parse(f.body, {
-      sourceId: 'axis-retail-domestic',
-      sourceUrl: f.url,
-      sourceContentHash: hash,
-      extractedAt: report.fetchedAt,
-    });
-
-    Object.assign(report, {
-      parserStatus: parsed.success ? 'SUCCESS' : 'FAILED',
-      parserErrors: parsed.errors,
-      extractedEffectiveFrom: parsed.effectiveFrom,
-      rawTableCount: parsed.rawTableCount,
-      extractedRows: parsed.metadata?.extractedRows || 0,
-      validRows: parsed.metadata?.validRows || 0,
-      candidateCount: parsed.candidates.length,
-    });
-
-    if (!parsed.success) {
-      report.mismatches.push('Live parser failed closed: ' + parsed.errors.join('; '));
+      fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
+      console.error(JSON.stringify(report, null, 2));
+      return { success: false, report, exitCode: 1 };
     }
 
-    if (parsed.effectiveFrom !== baseline.effectiveFrom) {
-      report.mismatches.push(
-        'Effective date mismatch: expected ' + baseline.effectiveFrom + ', got ' + (parsed.effectiveFrom || 'null')
-      );
-    }
+    report.sourceFetchStatus = 'SUCCESS';
+    report.fetchMethod = fetchMethod;
+    report.httpStatus = httpStatus;
+    report.finalUrl = finalUrl;
+    report.contentType = contentType;
+  }
 
-    if (parsed.metadata?.nonCallableRatesIncluded === false) {
-      report.nonCallableColumnsExcluded = true;
-    } else {
-      report.mismatches.push('Non-callable rates were improperly included in candidates');
-    }
+  const hash = crypto.createHash('sha256').update(body).digest('hex');
+  if (!isOffline) {
+    fs.writeFileSync(snapshotPath, body);
+  }
 
-    if (parsed.metadata?.yieldIncludedAsRate === false) {
-      report.yieldExcludedFromRates = true;
-    } else {
-      report.mismatches.push('Annualized yield was improperly used as interest rate');
-    }
+  report.bodyBytes = body.length;
+  report.sourceContentSha256 = hash;
 
-    if (parsed.metadata?.bulkTablesExcluded === true) {
-      report.bulkTablesExcluded = true;
-    } else {
-      report.mismatches.push('Bulk tables were not excluded');
-    }
+  const parsed = new AxisRateParser().parse(body, {
+    sourceId: 'axis-retail-domestic',
+    sourceUrl: finalUrl,
+    sourceContentHash: hash,
+    extractedAt: report.fetchedAt,
+  });
 
-    if (parsed.candidates.length !== baseline.tenures.length * 2) {
-      report.mismatches.push(
-        `Candidate count mismatch: expected ${baseline.tenures.length * 2}, got ${parsed.candidates.length}`
-      );
-    }
+  report.parserStatus = parsed.success ? 'SUCCESS' : 'FAILED';
+  report.parserErrors = parsed.errors;
+  report.extractedEffectiveFrom = parsed.effectiveFrom;
+  report.rawTableCount = parsed.rawTableCount;
+  report.extractedRows = parsed.metadata?.extractedRows || 0;
+  report.validRows = parsed.metadata?.validRows || 0;
+  report.candidateCount = parsed.candidates.length;
 
-    // Group candidates by normalized tenure label and customer type
-    const actual = new Map();
-    for (const c of parsed.candidates) {
-      const key = norm(c.tenureLabel);
-      if (!actual.has(key)) actual.set(key, {});
-      if (actual.get(key)[c.customerType] !== undefined) {
-        report.mismatches.push(`Duplicate candidate for tenure "${c.tenureLabel}" / ${c.customerType}`);
-      }
-      actual.get(key)[c.customerType] = c.interestRate;
-    }
+  const verification = verifyContent(parsed, baseline, { isOffline, hash });
 
-    // Compare against baseline
-    let matchedTenureRows = 0;
-    for (const e of baseline.tenures) {
-      const a = actual.get(norm(e.label));
-      if (!a) {
-        report.mismatches.push('Missing tenure row: ' + e.label);
-        continue;
-      }
-      matchedTenureRows++;
-      if (Number(a.REGULAR) !== e.regular) {
-        report.mismatches.push(`${e.label} regular mismatch: expected ${e.regular}, got ${a.REGULAR}`);
-      }
-      if (Number(a.SENIOR_CITIZEN) !== e.senior) {
-        report.mismatches.push(`${e.label} senior mismatch: expected ${e.senior}, got ${a.SENIOR_CITIZEN}`);
-      }
-    }
+  report.mismatches.push(...verification.mismatches);
+  report.nonCallableColumnsExcluded = verification.nonCallableColumnsExcluded;
+  report.yieldExcludedFromRates = verification.yieldExcludedFromRates;
+  report.bulkTablesExcluded = verification.bulkTablesExcluded;
+  report.matchedTenureRows = verification.matchedTenureRows;
+  report.totalBaselineRows = verification.totalBaselineRows;
+  report.comparedRateValues = verification.comparedRateValues;
 
-    report.matchedTenureRows = matchedTenureRows;
-    report.totalBaselineRows = baseline.tenures.length;
-    report.comparedRateValues = matchedTenureRows * 2;
-
+  if (isOffline) {
+    report.parityStatus = report.mismatches.length === 0 ? 'OFFLINE_BASELINE_PASS' : 'FAIL_CLOSED';
+    report.activationApproved = false;
+  } else {
     report.parityStatus = report.mismatches.length === 0 ? 'PASS' : 'FAIL_CLOSED';
     report.activationApproved = false;
     report.note = 'Parity verifies official PDF schedule extraction only; it does not authorize source activation, staging, promotion, or release. Axis Bank source remains disabled pending human review and governance sign-off.';
-  } catch (e) {
-    report.error = e.message;
   }
 
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
 
-  // Exit code 0 allows CI to upload live evidence report and raw snapshot artifact while keeping parityStatus FAIL_CLOSED.
+  const passed = report.mismatches.length === 0;
+  return { success: passed, report, exitCode: passed ? 0 : 1 };
+}
+
+async function main() {
+  const isOffline = process.argv.includes('--offline');
+  const fixtureIdx = process.argv.indexOf('--fixture');
+  const fixturePath = fixtureIdx !== -1 && fixtureIdx + 1 < process.argv.length ? process.argv[fixtureIdx + 1] : null;
+  const result = await runVerification({ offline: isOffline, fixturePath });
+  process.exit(result.exitCode);
 }
 
 if (require.main === module) {
@@ -234,5 +352,7 @@ module.exports = {
   fetchOfficial,
   fetchWithCurl,
   allowed,
+  verifyContent,
+  runVerification,
   main,
 };

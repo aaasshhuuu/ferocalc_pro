@@ -16,6 +16,7 @@ const {
 } = require('../parsers/au_small_finance_parser');
 const { getParserForBank } = require('../parsers/parser_factory');
 const { defaultRegistry } = require('../collectors/source_registry');
+const { runVerification, verifyContent } = require('../scripts/verify_au_small_finance_live_source');
 
 const SOURCE_URL = 'https://www.au.bank.in/interest-rates/fixed-deposit-interest-rates';
 
@@ -115,9 +116,9 @@ const hash = crypto.createHash('sha256').update(FIXTURE).digest('hex');
 const parser = new AuSmallFinanceRateParser();
 const tests = [];
 
-function run(name, fn) {
+async function run(name, fn) {
   try {
-    fn();
+    await fn();
     console.log('  PASS: ' + name);
     tests.push(true);
   } catch (e) {
@@ -126,10 +127,11 @@ function run(name, fn) {
   }
 }
 
+(async () => {
 console.log('AU Small Finance Bank Parser Regression Test Suite');
 
 // 1. Full extraction from fixture
-run('extracts all 12 callable retail rows yielding 24 candidates across Regular and Senior Citizen', () => {
+await run('extracts all 12 callable retail rows yielding 24 candidates across Regular and Senior Citizen', () => {
   const res = parser.parse(FIXTURE, { sourceContentHash: hash, sourceUrl: SOURCE_URL });
   assert.strictEqual(res.success, true, res.errors.join('; '));
   assert.strictEqual(res.effectiveFrom, '2026-09-01');
@@ -342,8 +344,37 @@ run('matches official baseline JSON values for all 12 tenures and 24 rates', () 
   }
 });
 
+// 14. Fail-closed: live-fetch failure exits non-zero without snapshot fallback
+await run('live-fetch failure fails closed and exits non-zero without snapshot fallback', async () => {
+  const res = await runVerification({
+    mockFetchFailure: 'Connection timed out (ETIMEDOUT)',
+    mockHttpStatus: null,
+  });
+  assert.strictEqual(res.success, false);
+  assert.strictEqual(res.exitCode, 1);
+  assert.strictEqual(res.report.sourceFetchStatus, 'FAILED');
+  assert.strictEqual(res.report.parityStatus, 'FAIL_CLOSED');
+  assert.strictEqual(res.report.httpStatus, null);
+  assert.strictEqual(res.report.fetchMethod, 'NONE');
+  assert.ok(res.report.mismatches.some(m => m.includes('Live official source fetch failed')));
+});
+
+// 15. Fallback rejection: offline fixture cannot produce live PASS
+await run('fallback rejection: offline fixture cannot produce live-source PASS', async () => {
+  const res = await runVerification({ offline: true, body: Buffer.from(FIXTURE) });
+  assert.strictEqual(res.report.isLiveRun, false);
+  assert.strictEqual(res.report.sourceFetchStatus, 'OFFLINE_LOADED');
+  assert.strictEqual(res.report.fetchMethod, 'OFFLINE_FIXTURE');
+  assert.strictEqual(res.report.httpStatus, null, 'Must not fabricate HTTP 200 for local file');
+  assert.notStrictEqual(res.report.parityStatus, 'PASS', 'Offline fixture must never produce live PASS');
+  assert.strictEqual(res.report.parityStatus, 'OFFLINE_BASELINE_PASS');
+  assert.strictEqual(res.report.activationApproved, false);
+  assert.strictEqual(res.report.matchedTenureRows, 12);
+});
+
 const passed = tests.filter(Boolean).length;
 console.log(`\nAU Small Finance Bank suite completed: ${passed}/${tests.length} tests passed.`);
 if (passed !== tests.length) {
   process.exit(1);
 }
+})();
