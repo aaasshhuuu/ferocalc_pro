@@ -141,6 +141,19 @@ const PILOT_SOURCES = [
     pollingIntervalHours: 24,
     description: 'Callable retail domestic FD rates below Rs. 3 crore and special schemes (333, 444, 555 days); disabled pending full live-source parity and human review',
   },
+  {
+    id: 'axis-retail-domestic',
+    bankCode: 'AXIS',
+    bankName: 'Axis Bank',
+    sourceUrl: 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-08-october-2026.pdf?sfvrsn=15a73678_1',
+    landingPageUrl: 'https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates',
+    sourceType: 'PDF',
+    parserId: 'axis_retail_pdf',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Callable retail domestic FD rates below Rs. 3 crore from official PDF schedule; disabled pending full live-source parity and human review',
+  },
 ];
 
 class SourceRegistry {

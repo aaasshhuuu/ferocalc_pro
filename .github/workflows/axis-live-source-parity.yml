@@ -1,0 +1,45 @@
+name: Axis Bank Live Source Parity Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["sync/latest-local-changes-2026-10-23"]
+    paths:
+      - "backend/parsers/axis_parser.js"
+      - "backend/parsers/pdf_text_extractor.js"
+      - "backend/review/axis_official_baseline_2026-07-01.json"
+      - "backend/scripts/verify_axis_live_source.js"
+      - ".github/workflows/axis-live-source-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-source-parity:
+    name: Verify official PDF table without staging or promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Fetch official Axis Bank PDF schedule and check all baseline rows
+        run: node scripts/verify_axis_live_source.js
+      - name: Upload raw snapshot and parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axis-live-source-evidence
+          path: backend/review/live-evidence/
+          if-no-files-found: warn
+          retention-days: 14

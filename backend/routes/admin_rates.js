@@ -59,6 +59,7 @@ const ALLOWED_SOURCE_DOMAINS = [
   'hdfc.bank.in',
   'icicibank.com',
   'axisbank.com',
+  'axis.bank.in',
   'theunitybank.com',
   'idfcfirst.bank.in',
   'unionbankofindia.bank.in',
