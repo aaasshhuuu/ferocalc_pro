@@ -11,7 +11,7 @@
 'use strict';
 
 // Strict regex anchored to project 'web' and team scope 'kuldip12490-8771s-projects'
-const NARROW_PREVIEW_PATTERN = /^https:\/\/web-[a-z0-9]+-kuldip12490-8771s-projects\.vercel\.app$/;
+const NARROW_PREVIEW_PATTERN = /^https:\/\/web-[a-z0-9]+(?:-[a-z0-9]+)*-kuldip12490-8771s-projects\.vercel\.app$/;
 
 /**
  * Evaluates whether an inbound browser Origin header is permitted.
