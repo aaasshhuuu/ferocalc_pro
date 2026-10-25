@@ -19,11 +19,10 @@ const PORT = process.env.PORT || 3001;
 // Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
 app.use(helmet());
 
-// CORS
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000', 'http://localhost:8080'];
-app.use(cors({ origin: allowedOrigins }));
+// CORS — scoped production allowlist + narrow scoped Vercel preview allowlist
+const { createCorsOriginValidator, parseAllowedOrigins } = require('./cors_policy');
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+app.use(cors({ origin: createCorsOriginValidator(allowedOrigins) }));
 app.use(express.json());
 
 // Rate Limiting (in-memory, per-instance — NOT globally distributed)
