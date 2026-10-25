@@ -71,6 +71,8 @@ test('isOriginAllowed: allows exact match scoped Vercel preview origins', () => 
   assert.strictEqual(isOriginAllowed(SCOPED_PREVIEW_ORIGIN, CONFIGURED_ORIGINS), true);
   assert.strictEqual(isOriginAllowed('https://web-abc123xyz-kuldip12490-8771s-projects.vercel.app', CONFIGURED_ORIGINS), true);
   assert.strictEqual(isOriginAllowed('https://web-1-kuldip12490-8771s-projects.vercel.app', CONFIGURED_ORIGINS), true);
+  // Actual branch-style Vercel preview alias observed during preflight.
+  assert.strictEqual(isOriginAllowed('https://web-git-sync-latest-local-cha-cf40a2-kuldip12490-8771s-projects.vercel.app', CONFIGURED_ORIGINS), true);
 });
 
 test('isOriginAllowed: rejects insecure HTTP preview origin', () => {
