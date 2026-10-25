@@ -23,6 +23,7 @@ const app = require('../server');
 const PROD_ORIGIN = 'https://web-psi-kohl-23.vercel.app';
 const SCOPED_PREVIEW_ORIGIN_1 = 'https://web-gvc763jzd-kuldip12490-8771s-projects.vercel.app';
 const SCOPED_PREVIEW_ORIGIN_2 = 'https://web-0a1b2c3d4e-kuldip12490-8771s-projects.vercel.app';
+const SCOPED_BRANCH_PREVIEW_ORIGIN = 'https://web-git-sync-latest-local-cha-cf40a2-kuldip12490-8771s-projects.vercel.app';
 const UNRELATED_VERCEL_APP = 'https://unrelated-project.vercel.app';
 const UNRELATED_TEAM_SCOPE = 'https://web-gvc763jzd-otherteam.vercel.app';
 const SPOOFED_SUFFIX = 'https://web-gvc763jzd-kuldip12490-8771s-projects.vercel.app.attacker.com';
@@ -123,6 +124,29 @@ async function main() {
       });
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.headers.get('access-control-allow-origin'), SCOPED_PREVIEW_ORIGIN_2);
+    });
+
+    // 3B. Scoped Branch-Slug Preview Alias (e.g. web-git-sync-latest-local-cha-cf40a2-kuldip12490-8771s-projects.vercel.app)
+    await test('3.3 OPTIONS preflight allows scoped branch-slug preview alias', async () => {
+      const res = await fetch(`${baseUrl}/api/health`, {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': SCOPED_BRANCH_PREVIEW_ORIGIN,
+          'Access-Control-Request-Method': 'GET',
+        },
+      });
+      assert.strictEqual(res.status, 204);
+      assert.strictEqual(res.headers.get('access-control-allow-origin'), SCOPED_BRANCH_PREVIEW_ORIGIN);
+    });
+
+    await test('3.4 GET allows scoped branch-slug preview alias', async () => {
+      const res = await fetch(`${baseUrl}/api/health`, {
+        headers: { 'Origin': SCOPED_BRANCH_PREVIEW_ORIGIN },
+      });
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.headers.get('access-control-allow-origin'), SCOPED_BRANCH_PREVIEW_ORIGIN);
+      const json = await res.json();
+      assert.strictEqual(json.status, 'ok');
     });
 
     // 4. Unrelated Vercel Hostname Rejection
