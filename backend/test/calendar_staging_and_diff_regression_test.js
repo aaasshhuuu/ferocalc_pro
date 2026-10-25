@@ -1408,7 +1408,7 @@ async function runTests() {
     assert.ok(parsed.candidates.every(c => c.sourceContentHash === fixture.sourceContentHash));
   });
 
-  await test('50. Tracked HDFC human-review worksheet contains 38 REVIEW_REQUIRED rows with blank reviewer fields', () => {
+  await test('50. Tracked HDFC human-review worksheet contains 38 APPROVED rows with completed owner sign-off', () => {
     const fs = require('fs');
     const path = require('path');
     const reviewCsvPath = path.join(__dirname, '..', 'review', 'hdfc_batch_2_human_review.csv');
@@ -1437,9 +1437,9 @@ async function runTests() {
       assert.strictEqual(row[indexes.effective_from], '2026-08-19');
       assert.strictEqual(row[indexes.min_deposit], '5000.00');
       assert.strictEqual(row[indexes.max_deposit], '29999999.00');
-      assert.strictEqual(row[indexes.reviewer_decision], '');
-      assert.strictEqual(row[indexes.reviewer_name], '');
-      assert.strictEqual(row[indexes.reviewed_at], '');
+      assert.strictEqual(row[indexes.reviewer_decision], 'APPROVED');
+      assert.strictEqual(row[indexes.reviewer_name], 'Ashu Rajput');
+      assert.strictEqual(row[indexes.reviewed_at], '2026-10-25T14:32:00+05:30');
     }
 
     const byReviewId = new Map(rows.map(row => [row[indexes.review_id], row]));
