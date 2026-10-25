@@ -1,0 +1,118 @@
+name: Dependency Remediation Preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/package.json"
+      - "backend/package-lock.json"
+      - ".github/workflows/dependency-remediation-preview.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-remediation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview-upgrades:
+    name: Preview, test, and publish safe npm audit remediation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out PR head branch (not GitHub's synthetic merge ref)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install current lockfile
+        run: npm ci
+
+      - name: Apply non-force compatible security updates
+        shell: bash
+        run: |
+          set +e
+          npm audit fix
+          status=$?
+          echo "npm audit fix exit code: $status"
+          exit 0
+
+      - name: Test node-cron 4 major upgrade and regenerate lockfile
+        run: npm install --save node-cron@^4.6.0
+
+      - name: Capture remaining audit findings
+        shell: bash
+        run: |
+          npm audit --json > npm-audit-candidate.json || true
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('npm-audit-candidate.json', 'utf8'));
+          console.log('Dependency audit candidate:', JSON.stringify(report.metadata?.vulnerabilities || {}));
+          for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+            const via = (item.via || []).map(entry => typeof entry === 'string' ? entry : { title: entry.title, url: entry.url, range: entry.range }).slice(0, 10);
+            console.log(JSON.stringify({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable, via }));
+          }
+          NODE
+
+      - name: Run backend regression suite against candidate upgrades
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee candidate-backend-test.log
+
+      - name: Publish tested dependency remediation to the isolated sync branch
+        if: success() && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          # Refuse to write anywhere except the explicit isolated review branch.
+          test "$TARGET_BRANCH" = "sync/latest-local-changes-2026-10-23"
+          node -e "const r=require('./npm-audit-candidate.json'); const v=r.metadata?.vulnerabilities || {}; if ((v.total || 0) !== 0) { console.error('Refusing dependency candidate with audit findings:', v); process.exit(1); }"
+          git add -- package.json package-lock.json
+          git diff --cached --check
+          changed="$(git diff --cached --name-only)"
+          if [ -z "$changed" ]; then
+            echo "No dependency changes remain to publish."
+            exit 0
+          fi
+          expected="$(printf 'backend/package-lock.json\nbackend/package.json')"
+          actual="$(printf '%s\n' "$changed" | sort)"
+          if [ "$actual" != "$expected" ]; then
+            echo "Refusing unexpected staged paths:"
+            printf '%s\n' "$changed"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(deps): remediate backend npm audit findings"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+      - name: Export tested candidate dependency files
+        if: always()
+        run: |
+          mkdir -p ../dependency-remediation-candidate
+          cp package.json package-lock.json ../dependency-remediation-candidate/
+          if [ -f npm-audit-candidate.json ]; then cp npm-audit-candidate.json ../dependency-remediation-candidate/; fi
+          if [ -f candidate-backend-test.log ]; then cp candidate-backend-test.log ../dependency-remediation-candidate/; fi
+
+      - name: Upload candidate files for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-remediation-candidate
+          path: dependency-remediation-candidate/
+          if-no-files-found: error
+          retention-days: 3

@@ -1,16 +1,17 @@
-import 'package:flutter/material.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class SipCalculatorScreen extends StatefulWidget {
   const SipCalculatorScreen({Key? key}) : super(key: key);
@@ -47,7 +48,7 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
   }
 
   void _calculateSip() {
-    int months = (_periodYears * 12).toInt();
+    final int months = (_periodYears * 12).toInt();
     _investedAmount = _monthlyInvestment * months;
     _totalValue = FinancialMath.calculateSIPMaturity(
       monthlyInvestment: _monthlyInvestment,
@@ -59,16 +60,48 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateSip();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'sip',
+      calculatorName: 'SIP Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Total Value',
+      primaryResultValue: _currencyFormat.format(_totalValue),
+      category: 'Investments',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Monthly Investment': _currencyFormat.format(_monthlyInvestment),
+    'Expected Return Rate': '${_expectedReturn.toStringAsFixed(2)}% p.a.',
+    'Time Period': '${_periodYears.toInt()} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'Invested Amount': _currencyFormat.format(_investedAmount),
+    'Estimated Returns': _currencyFormat.format(_estimatedReturns),
+    'Total Value': _currencyFormat.format(_totalValue),
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc SIP Calculator\n\nMonthly Investment: ₹${_monthlyInvestment.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(2)}%\nTime Period: ${_periodYears.toStringAsFixed(0)} Years\nInvested Amount: ₹${_investedAmount.toStringAsFixed(0)}\nEstimated Returns: ₹${_estimatedReturns.toStringAsFixed(0)}\nTotal Value: ₹${_totalValue.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Result shared!'), backgroundColor: Color(0xFF10B981)),
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'SIP Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
     );
   }
 
   void _exportPdf(BuildContext context) {
-    _shareResult(context);
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'SIP Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -76,7 +109,18 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
     return Scaffold(
       appBar: CustomAppBar(
         title: 'SIP Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -128,6 +172,12 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             FadeTransition(
               opacity: _fadeAnimation,
@@ -144,12 +194,12 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
             _buildChart(context),
             const SizedBox(height: 24),
 
-            GradientButton(text: 'Export PDF',
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PDF exported!'), backgroundColor: Color(0xFF10B981)),
-                );
-              }),
+            GradientButton(
+              text: 'Export PDF',
+              onPressed: () => _exportPdf(context),
+            ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'sip'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               child: Text(
@@ -183,10 +233,14 @@ class _SipCalculatorScreenState extends State<SipCalculatorScreen> with SingleTi
       ),
       child: Column(
         children: [
-          Text('Breakdown', style: TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          )),
+          Text(
+            'Breakdown',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 200,

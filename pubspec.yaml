@@ -1,7 +1,7 @@
 name: fincalc_pro
 description: Finora – FD, RD, SIP & EMI Calculator.
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.1+7
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -49,6 +49,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -57,3 +58,10 @@ flutter:
     - assets/icons/
     - assets/animations/
 
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/images/ferocalc_icon.png"
+  adaptive_icon_background: "#000B1B"
+  adaptive_icon_foreground: "assets/images/ferocalc_foreground.png"
+  min_sdk_android: 21

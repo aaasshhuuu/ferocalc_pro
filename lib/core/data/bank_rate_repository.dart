@@ -26,8 +26,22 @@ class BankRateRepository {
       _banks.where((b) => b.type == type).toList();
 
   static Bank? getBankById(String id) {
+    final normalized = id.trim().toLowerCase();
+    // Historical note: Fincare Small Finance Bank amalgamated into AU Small Finance Bank on 1 April 2024.
+    if (normalized == 'fincare' ||
+        normalized == 'fincare_sfb' ||
+        normalized == 'fincare_small_finance_bank') {
+      return getBankById('au_sfb');
+    }
+    final clean = normalized.replaceFirst(RegExp(r'^bank[_-]'), '');
     try {
-      return _banks.firstWhere((b) => b.id == id);
+      return _banks.firstWhere((b) =>
+          b.id == normalized ||
+          b.id == clean ||
+          b.shortName.trim().toLowerCase() == normalized ||
+          b.shortName.trim().toLowerCase() == clean ||
+          b.name.trim().toLowerCase() == normalized ||
+          b.name.trim().toLowerCase() == clean);
     } catch (_) {
       return null;
     }
@@ -38,8 +52,15 @@ class BankRateRepository {
   // ═══════════════════════════════════════════════════════════════
 
   /// Get all rates for a bank
-  static List<FdRate> getRatesForBank(String bankId) =>
-      _rates.where((r) => r.bankId == bankId).toList();
+  static List<FdRate> getRatesForBank(String bankId) {
+    final normalized = bankId.trim().toLowerCase();
+    if (normalized == 'fincare' ||
+        normalized == 'fincare_sfb' ||
+        normalized == 'fincare_small_finance_bank') {
+      return getRatesForBank('au_sfb');
+    }
+    return _rates.where((r) => r.bankId == normalized).toList();
+  }
 
   /// Get rates matching specific criteria
   static List<FdRate> findRates({
@@ -49,8 +70,17 @@ class BankRateRepository {
     double? depositAmount,
     bool includeUnverified = true,
   }) {
+    String? targetBankId = bankId;
+    if (targetBankId != null) {
+      final normalized = targetBankId.trim().toLowerCase();
+      if (normalized == 'fincare' ||
+          normalized == 'fincare_sfb' ||
+          normalized == 'fincare_small_finance_bank') {
+        targetBankId = 'au_sfb';
+      }
+    }
     return _rates.where((r) {
-      if (bankId != null && r.bankId != bankId) return false;
+      if (targetBankId != null && r.bankId != targetBankId) return false;
       if (r.customerType != customerType) return false;
       if (tenureDays != null && !r.appliesToTenure(tenureDays)) return false;
       if (depositAmount != null && !r.appliesToAmount(depositAmount)) return false;

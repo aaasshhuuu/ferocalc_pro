@@ -56,9 +56,25 @@ async function requireAdmin(req, res, next) {
 const ALLOWED_SOURCE_DOMAINS = [
   'sbi.co.in',
   'hdfcbank.com',
+  'hdfc.bank.in',
   'icicibank.com',
   'axisbank.com',
+  'axis.bank.in',
   'theunitybank.com',
+  'idfcfirst.bank.in',
+  'unionbankofindia.bank.in',
+  'pnb.bank.in',
+  'indusind.bank.in',
+  'uco.bank.in',
+  'ucobank.com',
+  'au.bank.in',
+  'aubank.in',
+  'canarabank.bank.in',
+  'canarabank.com',
+  'centralbank.bank.in',
+  'centralbankofindia.co.in',
+  'indianbank.bank.in',
+  'indianbank.in',
 ];
 
 function isOfficialDomain(url) {

@@ -16,7 +16,10 @@ class BankRateResponse {
 
   factory BankRateResponse.fromJson(Map<String, dynamic> json) {
     var banksList = json['banks'] as List? ?? [];
-    List<BankInfo> banks = banksList.map((b) {
+    // Fincare SFB amalgamated with AU SFB on 1 April 2024; omit obsolete standalone records
+    List<BankInfo> banks = banksList
+        .where((b) => !(b['name']?.toString().toLowerCase().contains('fincare') ?? false))
+        .map((b) {
       return BankInfo(
         name: b['name']?.toString() ?? '',
         type: b['type']?.toString() ?? '',
@@ -124,7 +127,10 @@ class BankRateApiService {
           list = [];
         }
         isLastResponseFromCache = false;
-        return list.map((b) => BankInfo(
+        // Fincare SFB amalgamated with AU SFB on 1 April 2024; omit obsolete standalone records
+        return list
+            .where((b) => !(b['name']?.toString().toLowerCase().contains('fincare') ?? false))
+            .map((b) => BankInfo(
           name: b['name']?.toString() ?? '',
           type: b['type']?.toString() ?? '',
           country: b['country']?.toString() ?? 'India',

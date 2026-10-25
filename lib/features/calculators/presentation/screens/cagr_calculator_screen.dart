@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'dart:math';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class CagrCalculatorScreen extends StatefulWidget {
   const CagrCalculatorScreen({Key? key}) : super(key: key);
@@ -44,14 +46,47 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateCagr();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'cagr',
+      calculatorName: 'CAGR Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'CAGR',
+      primaryResultValue: '${_cagr.toStringAsFixed(2)}%',
+      category: 'Investments',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Beginning Value': '₹${_beginCtrl.text}',
+    'Ending Value': '₹${_endCtrl.text}',
+    'Number of Years': '${_yearsCtrl.text} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'CAGR': '${_cagr.toStringAsFixed(2)}%',
+    'Absolute Return': '${_absReturn.toStringAsFixed(2)}%',
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc CAGR Calculator\n\nBeginning Value: ${_beginCtrl.text}\nEnding Value: ${_endCtrl.text}\nYears: ${_yearsCtrl.text}\nCAGR: ${_cagr.toStringAsFixed(2)}%\nAbsolute Return: ${_absReturn.toStringAsFixed(2)}%\n\nDownload FeroCalc for more!';
-    Share.share(text);
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'CAGR Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   void _exportPdf(BuildContext context) {
-    final text = 'FeroCalc CAGR Report\n\nBeginning Value: ${_beginCtrl.text}\nEnding Value: ${_endCtrl.text}\nYears: ${_yearsCtrl.text}\nCAGR: ${_cagr.toStringAsFixed(2)}%\nAbsolute Return: ${_absReturn.toStringAsFixed(2)}%';
-    Share.share(text, subject: 'FeroCalc - CAGR Report');
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'CAGR Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -59,7 +94,18 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'CAGR Calculator',
-        actions: [IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)), const SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
@@ -80,6 +126,12 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            GradientButton(
+              key: const ValueKey('calculate_button'),
+              text: 'Calculate',
+              onPressed: _calculateAndSave,
+            ),
             const SizedBox(height: 24),
             ResultDisplayCard(
               mainLabel: 'CAGR',
@@ -88,6 +140,8 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
                 SubResult(label: 'Absolute Return', value: '${_absReturn.toStringAsFixed(2)}%'),
               ],
             ),
+            const SizedBox(height: 24),
+            const CalculatorPurposeCard(calculatorId: 'cagr'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
               child: Text(

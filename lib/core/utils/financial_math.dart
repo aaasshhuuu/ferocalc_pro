@@ -95,6 +95,7 @@ class FinancialMath {
     double tolerance = 1e-10,
   }) {
     if (principal <= 0 || emi <= 0 || months <= 0) return 0;
+    if (emi * months <= principal + 1e-7) return 0;
 
     // Initial guess
     double r = 0.01;
@@ -102,10 +103,10 @@ class FinancialMath {
     for (int i = 0; i < maxIterations; i++) {
       final double factor = pow(1 + r, months).toDouble();
       final double f = principal * r * factor / (factor - 1) - emi;
+      final double factorMinus1 = factor - 1;
       final double fPrime = principal *
-          (factor * (factor - 1) - r * months * pow(1 + r, months - 1).toDouble() * (factor - 1) +
-              r * factor * months * pow(1 + r, months - 1).toDouble()) /
-          ((factor - 1) * (factor - 1));
+          (factor * factorMinus1 - months * r * pow(1 + r, months - 1).toDouble()) /
+          (factorMinus1 * factorMinus1);
 
       if (fPrime.abs() < 1e-20) break;
       final double rNew = r - f / fPrime;
@@ -132,12 +133,78 @@ class FinancialMath {
     return n.ceil();
   }
 
+  /// Calculate Flat Rate EMI (Simple Interest Loan)
+  /// In a flat rate loan, interest is calculated on the entire initial principal
+  /// using Simple Interest for the full tenure:
+  /// Total Interest = P × R × (months / 12) / 100
+  /// Total Payment = P + Total Interest
+  /// Monthly EMI = Total Payment / months
+  static double calculateFlatRateEMI({
+    required double principal,
+    required double annualRate,
+    required int months,
+  }) {
+    principal = _validatePositive(principal);
+    annualRate = _validatePositive(annualRate);
+    if (months <= 0 || principal <= 0) return 0.0;
+    if (annualRate == 0) return principal / months;
+
+    final double tYears = months / 12.0;
+    final double totalInterest = (principal * annualRate * tYears) / 100.0;
+    final double totalPayment = principal + totalInterest;
+    final double result = totalPayment / months;
+    return _validateFinite(result, 0.0);
+  }
+
+  /// Reverse calculate maximum Loan Amount from Flat Rate EMI
+  /// Total Payment = EMI × months
+  /// P = Total Payment / (1 + (R / 100) × (months / 12))
+  static double calculateFlatRateLoanAmount({
+    required double emi,
+    required double annualRate,
+    required int months,
+  }) {
+    emi = _validatePositive(emi);
+    annualRate = _validatePositive(annualRate);
+    if (months <= 0 || emi <= 0) return 0.0;
+    final double totalPayment = emi * months;
+    if (annualRate == 0) return totalPayment;
+
+    final double tYears = months / 12.0;
+    final double denominator = 1.0 + (annualRate * tYears / 100.0);
+    final double result = totalPayment / denominator;
+    return _validateFinite(result, 0.0);
+  }
+
+  /// Calculate Flat Interest Rate (Simple Interest) from loan parameters
+  /// Total Payment = EMI × months
+  /// Total Interest = Total Payment - Principal
+  /// Flat Rate = (Total Interest × 100) / (Principal × T_years)
+  static double calculateFlatInterestRate({
+    required double principal,
+    required double emi,
+    required int months,
+  }) {
+    principal = _validatePositive(principal);
+    emi = _validatePositive(emi);
+    if (principal <= 0 || emi <= 0 || months <= 0) return 0.0;
+    final double totalPayment = emi * months;
+    if (totalPayment <= principal) return 0.0;
+
+    final double totalInterest = totalPayment - principal;
+    final double tYears = months / 12.0;
+    final double flatRate = (totalInterest * 100.0) / (principal * tYears);
+    return _validateFinite(flatRate, 0.0);
+  }
+
   /// Generate complete amortization schedule
   static List<Map<String, double>> generateAmortizationSchedule({
     required double principal,
     required double annualRate,
     required int months,
   }) {
+    if (months <= 0 || principal <= 0) return [];
+
     final double emi = calculateEMI(
       principal: principal,
       annualRate: annualRate,
@@ -152,7 +219,7 @@ class FinancialMath {
       final double interest = balance * monthlyRate;
       final double principalPart = emi - interest;
       balance -= principalPart;
-      if (balance < 0) balance = 0;
+      if (balance < 0 || (i == months && balance.abs() < 1.0)) balance = 0;
 
       schedule.add({
         'month': i.toDouble(),
@@ -242,6 +309,10 @@ class FinancialMath {
     required int months,
     int compoundingFrequency = 4, // Quarterly
   }) {
+    monthlyDeposit = _validatePositive(monthlyDeposit);
+    annualRate = _validatePositive(annualRate);
+    if (months <= 0 || monthlyDeposit <= 0) return 0;
+    if (annualRate == 0) return monthlyDeposit * months;
     final double r = annualRate / 100;
     final double n = compoundingFrequency.toDouble();
     double maturity = 0;
@@ -354,6 +425,7 @@ class FinancialMath {
     required double years,
   }) {
     if (initialValue <= 0 || years <= 0) return 0;
+    if (finalValue <= 0) return -100.0;
     return (pow(finalValue / initialValue, 1 / years).toDouble() - 1) * 100;
   }
 
@@ -486,6 +558,41 @@ class FinancialMath {
       'totalDeposit': totalDeposit,
       'totalInterest': balance - totalDeposit,
     };
+  }
+
+  /// Generate complete year-wise Sukanya Samriddhi Yojana (SSY) schedule
+  static List<Map<String, double>> generateSSYSchedule({
+    required List<double> yearlyDeposits,
+    required double annualRate,
+    required int girlAge,
+  }) {
+    final int maturityYears = 21 - girlAge;
+    if (maturityYears <= 0) return [];
+    final double r = annualRate / 100;
+    double openingBalance = 0;
+    final List<Map<String, double>> schedule = [];
+
+    for (int year = 0; year < maturityYears; year++) {
+      final double deposit = (year < 15 && year < yearlyDeposits.length)
+          ? yearlyDeposits[year]
+          : 0.0;
+      final double balanceBeforeInterest = openingBalance + deposit;
+      final double interest = balanceBeforeInterest * r;
+      final double closingBalance = balanceBeforeInterest + interest;
+
+      schedule.add({
+        'year': (year + 1).toDouble(),
+        'age': (girlAge + year + 1).toDouble(),
+        'openingBalance': openingBalance,
+        'deposit': deposit,
+        'interest': interest,
+        'closingBalance': closingBalance,
+      });
+
+      openingBalance = closingBalance;
+    }
+
+    return schedule;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -824,6 +931,15 @@ class FinancialMath {
     required double dividendGrowthRate,
     required int years,
   }) {
+    if (sharePrice <= 0 || years <= 0) {
+      return {
+        'currentYield': 0,
+        'annualIncome': annualDividend > 0 && numberOfShares > 0 ? annualDividend * numberOfShares : 0,
+        'totalDividend': 0,
+        'yieldOnCost': 0,
+        'futureAnnualDividend': 0,
+      };
+    }
     final double currentYield = (annualDividend / sharePrice) * 100;
     double totalDividend = 0;
     double currentDividend = annualDividend * numberOfShares;
@@ -868,4 +984,191 @@ class FinancialMath {
       'totalPayment': totalPayment + processingFee,
     };
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // GENERAL INTEREST CALCULATORS
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Convert time and time unit to equivalent years (using 365-day year).
+  static double convertTimeToYears({
+    required double time,
+    required TimeUnit timeUnit,
+  }) {
+    time = _validatePositive(time);
+    switch (timeUnit) {
+      case TimeUnit.years:
+        return time;
+      case TimeUnit.quarters:
+        return time / 4.0;
+      case TimeUnit.months:
+        return time / 12.0;
+      case TimeUnit.days:
+        return time / 365.0;
+    }
+  }
+
+  /// Calculate Simple Interest
+  /// Formula: SI = P × R × T / 100
+  /// where T is time in years.
+  static double calculateSimpleInterest({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+  }) {
+    principal = _validatePositive(principal);
+    annualRate = _validatePositive(annualRate);
+    time = _validatePositive(time);
+    if (principal <= 0 || annualRate <= 0 || time <= 0) return 0.0;
+
+    final double tYears = convertTimeToYears(time: time, timeUnit: timeUnit);
+    final double result = (principal * annualRate * tYears) / 100.0;
+    return _validateFinite(result, 0.0);
+  }
+
+  /// Calculate Total Amount under Simple Interest
+  /// Formula: Amount = Principal + Simple Interest
+  static double calculateSimpleInterestAmount({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+  }) {
+    principal = _validatePositive(principal);
+    if (principal <= 0) return 0.0;
+    final double interest = calculateSimpleInterest(
+      principal: principal,
+      annualRate: annualRate,
+      time: time,
+      timeUnit: timeUnit,
+    );
+    return principal + interest;
+  }
+
+  /// Calculate Simple Interest Summary (principal, interest, totalAmount)
+  static Map<String, double> calculateSimpleInterestSummary({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+  }) {
+    principal = _validatePositive(principal);
+    final double interest = calculateSimpleInterest(
+      principal: principal,
+      annualRate: annualRate,
+      time: time,
+      timeUnit: timeUnit,
+    );
+    final double totalAmount = principal <= 0 ? 0.0 : (principal + interest);
+
+    return {
+      'principal': principal,
+      'interest': interest,
+      'totalAmount': totalAmount,
+    };
+  }
+
+  /// Calculate Compound Interest Total/Maturity Amount
+  /// Formula: A = P × (1 + R / (100 × n))^(n × T)
+  /// where T is time in years, n is compounding frequency per year.
+  static double calculateCompoundInterestAmount({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+    int compoundingFrequency = 1,
+  }) {
+    principal = _validatePositive(principal);
+    annualRate = _validatePositive(annualRate);
+    time = _validatePositive(time);
+    if (principal <= 0) return 0.0;
+    if (annualRate <= 0 || time <= 0) return principal;
+
+    final int n = compoundingFrequency <= 0 ? 1 : compoundingFrequency;
+    final double tYears = convertTimeToYears(time: time, timeUnit: timeUnit);
+    final double rateFraction = annualRate / (100.0 * n);
+    final double exponent = n * tYears;
+
+    final double result = principal * pow(1.0 + rateFraction, exponent).toDouble();
+    return _validateFinite(result, principal);
+  }
+
+  /// Calculate Compound Interest
+  /// Formula: CI = A - P
+  static double calculateCompoundInterest({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+    int compoundingFrequency = 1,
+  }) {
+    principal = _validatePositive(principal);
+    if (principal <= 0) return 0.0;
+    final double amount = calculateCompoundInterestAmount(
+      principal: principal,
+      annualRate: annualRate,
+      time: time,
+      timeUnit: timeUnit,
+      compoundingFrequency: compoundingFrequency,
+    );
+    final double interest = amount - principal;
+    return _validateFinite(interest, 0.0);
+  }
+
+  /// Calculate Compound Interest Summary (principal, interest, totalAmount)
+  static Map<String, double> calculateCompoundInterestSummary({
+    required double principal,
+    required double annualRate,
+    required double time,
+    TimeUnit timeUnit = TimeUnit.years,
+    int compoundingFrequency = 1,
+  }) {
+    principal = _validatePositive(principal);
+    if (principal <= 0) {
+      return {
+        'principal': 0.0,
+        'interest': 0.0,
+        'totalAmount': 0.0,
+      };
+    }
+    final double amount = calculateCompoundInterestAmount(
+      principal: principal,
+      annualRate: annualRate,
+      time: time,
+      timeUnit: timeUnit,
+      compoundingFrequency: compoundingFrequency,
+    );
+    final double interest = (amount - principal).clamp(0.0, double.infinity);
+
+    return {
+      'principal': principal,
+      'interest': _validateFinite(interest, 0.0),
+      'totalAmount': amount,
+    };
+  }
 }
+
+/// Time unit enumeration for financial interest calculators.
+enum TimeUnit {
+  years('Years', 'Yr'),
+  quarters('Quarters', 'Qtr'),
+  months('Months', 'Mo'),
+  days('Days', 'Days');
+
+  final String label;
+  final String shortLabel;
+  const TimeUnit(this.label, this.shortLabel);
+}
+
+/// Compounding frequency enumeration for compound interest calculations.
+enum CompoundingFrequency {
+  yearly(1, 'Yearly'),
+  halfYearly(2, 'Half-yearly'),
+  quarterly(4, 'Quarterly'),
+  monthly(12, 'Monthly');
+
+  final int timesPerYear;
+  final String label;
+  const CompoundingFrequency(this.timesPerYear, this.label);
+}
+

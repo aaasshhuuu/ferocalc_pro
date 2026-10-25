@@ -1,0 +1,44 @@
+name: Indian Bank Live Source Parity Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["sync/latest-local-changes-2026-10-23"]
+    paths:
+      - "backend/parsers/indian_bank_parser.js"
+      - "backend/review/indian_bank_official_baseline_2026-10-23.json"
+      - "backend/scripts/verify_indian_bank_live_source.js"
+      - ".github/workflows/indian-bank-live-source-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-source-parity:
+    name: Verify official table without staging or promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Fetch official Indian Bank page and check all baseline rows
+        run: node scripts/verify_indian_bank_live_source.js
+      - name: Upload raw snapshot and parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indian-bank-live-source-evidence
+          path: backend/review/live-evidence/
+          if-no-files-found: warn
+          retention-days: 14

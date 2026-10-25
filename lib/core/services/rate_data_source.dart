@@ -18,10 +18,12 @@ abstract class RateDataSource {
 
   /// Fetch top-ranked rates for display on the home screen.
   /// [customerType] defaults to REGULAR if null.
+  /// [isCallable] defaults to true (callable only) if omitted.
   Future<List<VerifiedFdRate>> fetchTopVerifiedRates({
     int? tenureDays,
     String? customerType,
     int limit,
+    bool? isCallable,
   });
 
   /// Fetch all rates, optionally filtered.
@@ -30,6 +32,7 @@ abstract class RateDataSource {
     int? tenureDays,
     double? depositAmount,
     String? bankId,
+    bool? isCallable,
   });
 
   /// Whether this source is currently available (e.g., network/DB reachable).
@@ -64,6 +67,7 @@ class VerifiedSupabaseRateDataSource implements RateDataSource {
     int? tenureDays,
     String? customerType,
     int limit = 10,
+    bool? isCallable = true,
   }) async {
     // Delegates to the concrete HTTP service.
     // VerifiedRateService handles Dio calls and graceful error fallback.
@@ -71,6 +75,7 @@ class VerifiedSupabaseRateDataSource implements RateDataSource {
       tenureDays: tenureDays,
       customerType: customerType ?? 'REGULAR',
       limit: limit,
+      isCallable: isCallable,
     );
   }
 
@@ -80,12 +85,14 @@ class VerifiedSupabaseRateDataSource implements RateDataSource {
     int? tenureDays,
     double? depositAmount,
     String? bankId,
+    bool? isCallable = true,
   }) async {
     return VerifiedRateService.fetchAll(
       customerType: customerType,
       tenureDays: tenureDays,
       depositAmount: depositAmount,
       bankId: bankId,
+      isCallable: isCallable,
     );
   }
 }
@@ -111,6 +118,7 @@ class LegacyJsonRateDataSource implements RateDataSource {
     int? tenureDays,
     String? customerType,
     int limit = 10,
+    bool? isCallable = true,
   }) async {
     // Legacy source does not produce VerifiedFdRate objects.
     // Return empty — caller will fall back to legacy BankInfo display.
@@ -123,6 +131,7 @@ class LegacyJsonRateDataSource implements RateDataSource {
     int? tenureDays,
     double? depositAmount,
     String? bankId,
+    bool? isCallable = true,
   }) async {
     return VerifiedRatesResponse(
       rates: [],

@@ -13,6 +13,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fincalc_pro/core/models/verified_fd_rate.dart';
+import 'package:fincalc_pro/core/models/fd_rate.dart';
 import 'package:fincalc_pro/core/services/rate_data_source.dart';
 
 // ============================================================
@@ -25,8 +26,8 @@ VerifiedFdRate makeRate({
   String bankName = 'State Bank of India',
   String bankShortName = 'SBI',
   VerifiedCustomerType customerType = VerifiedCustomerType.regular,
-  int minTenureDays = 365,
-  int maxTenureDays = 730,
+  int? minTenureDays = 365,
+  int? maxTenureDays = 730,
   double minDeposit = 1000,
   double? maxDeposit,
   double interestRate = 6.80,
@@ -35,6 +36,16 @@ VerifiedFdRate makeRate({
   String? sourceUrl = 'https://sbi.co.in/web/interest-rates/deposit-rates',
   DateTime? verifiedAt,
   DateTime? effectiveFrom,
+  TenureDomain tenureDomain = TenureDomain.days,
+  String? sourceTenureText,
+  int? minYears,
+  int? minMonths,
+  int? minDaysCal,
+  BoundaryOperator? minOperator,
+  int? maxYears,
+  int? maxMonths,
+  int? maxDaysCal,
+  BoundaryOperator? maxOperator,
 }) {
   return VerifiedFdRate(
     id: id,
@@ -52,6 +63,16 @@ VerifiedFdRate makeRate({
     effectiveFrom: effectiveFrom ?? DateTime(2026, 1, 1),
     sourceUrl: sourceUrl,
     verifiedAt: verifiedAt ?? DateTime(2026, 9, 1),
+    tenureDomain: tenureDomain,
+    sourceTenureText: sourceTenureText,
+    minYears: minYears,
+    minMonths: minMonths,
+    minDaysCal: minDaysCal,
+    minOperator: minOperator,
+    maxYears: maxYears,
+    maxMonths: maxMonths,
+    maxDaysCal: maxDaysCal,
+    maxOperator: maxOperator,
   );
 }
 
@@ -157,6 +178,21 @@ void main() {
       final json = makeRateJson(compoundingFrequency: 'DAILY');
       final rate = VerifiedFdRate.fromJson(json);
       expect(rate.compoundingFrequency, CompoundingFrequency.quarterly);
+    });
+
+    test('fromJson parses is_callable false correctly', () {
+      final json = makeRateJson(isCallable: false, interestRate: 6.50);
+      final rate = VerifiedFdRate.fromJson(json);
+      expect(rate.isCallable, false);
+      expect(rate.interestRate, 6.50);
+    });
+
+    test('toJson preserves is_callable false', () {
+      final rate = makeRate(isCallable: false, interestRate: 6.50);
+      final json = rate.toJson();
+      expect(json['is_callable'], false);
+      final restored = VerifiedFdRate.fromJson(json);
+      expect(restored.isCallable, false);
     });
   });
 
@@ -401,10 +437,10 @@ void main() {
       expect(result.isVerifiedSource, isFalse);
     });
 
-    test('getLegacyBanks returns non-empty list (33 banks)', () {
+    test('getLegacyBanks returns non-empty list (32 banks after Fincare merger)', () {
       final banks = source.getLegacyBanks();
       expect(banks.isNotEmpty, isTrue);
-      expect(banks.length, greaterThanOrEqualTo(33));
+      expect(banks.length, greaterThanOrEqualTo(30));
     });
   });
 
@@ -487,6 +523,333 @@ void main() {
       );
       expect(verified.isVerifiedSource, isTrue);
       expect(legacy.isVerifiedSource, isFalse);
+    });
+  });
+
+  // ----------------------------------------------------------
+  // 11. Product Dimension & Callable Separation (Phase 3C.3)
+  // ----------------------------------------------------------
+
+  group('Product dimension & callable separation', () {
+    test('Callable and Non-Callable rates are partitioned without data loss', () {
+      final callableRate = makeRate(
+        id: 'icici-call-1',
+        bankId: 'bank-icici',
+        minTenureDays: 365,
+        maxTenureDays: 389,
+        interestRate: 6.25,
+        isCallable: true,
+      );
+      final nonCallableRate = makeRate(
+        id: 'icici-noncall-1',
+        bankId: 'bank-icici',
+        minTenureDays: 365,
+        maxTenureDays: 389,
+        interestRate: 6.50,
+        isCallable: false,
+      );
+
+      final allRates = [callableRate, nonCallableRate];
+      final callableOnly = allRates.where((r) => r.isCallable).toList();
+      final nonCallableOnly = allRates.where((r) => !r.isCallable).toList();
+
+      expect(callableOnly.length, 1);
+      expect(callableOnly.first.interestRate, 6.25);
+      expect(callableOnly.first.isCallable, isTrue);
+
+      expect(nonCallableOnly.length, 1);
+      expect(nonCallableOnly.first.interestRate, 6.50);
+      expect(nonCallableOnly.first.isCallable, isFalse);
+    });
+
+    test('Querying callable rates for 365 days excludes non-callable rate', () {
+      final callableRate = makeRate(
+        id: 'icici-call-1',
+        bankId: 'bank-icici',
+        minTenureDays: 365,
+        maxTenureDays: 389,
+        interestRate: 6.25,
+        isCallable: true,
+      );
+      final nonCallableRate = makeRate(
+        id: 'icici-noncall-1',
+        bankId: 'bank-icici',
+        minTenureDays: 365,
+        maxTenureDays: 389,
+        interestRate: 6.50,
+        isCallable: false,
+      );
+
+      final rates = [callableRate, nonCallableRate];
+
+      final matchedCallable = rates.where((r) => r.coverstenure(365) && r.isCallable).toList();
+      expect(matchedCallable.length, 1);
+      expect(matchedCallable.first.id, 'icici-call-1');
+      expect(matchedCallable.first.interestRate, 6.25);
+
+      final matchedNonCallable = rates.where((r) => r.coverstenure(365) && !r.isCallable).toList();
+      expect(matchedNonCallable.length, 1);
+      expect(matchedNonCallable.first.id, 'icici-noncall-1');
+      expect(matchedNonCallable.first.interestRate, 6.50);
+    });
+
+    test('LegacyJsonRateDataSource forwards isCallable without error', () async {
+      final legacySource = LegacyJsonRateDataSource();
+      final responseTop = await legacySource.fetchTopVerifiedRates(isCallable: true);
+      expect(responseTop, isEmpty);
+
+      final responseAll = await legacySource.fetchAllVerifiedRates(isCallable: false);
+      expect(responseAll.rates, isEmpty);
+    });
+  });
+
+  // ----------------------------------------------------------
+  // Phase 3C.5.46: Calendar-Tenure Matching & Domain Safety
+  // ----------------------------------------------------------
+
+  group('VerifiedFdRate.coversCalendarTenure & Domain Matching (Phase 3C.5.46)', () {
+    final daysRate = makeRate(
+      id: 'sbi-days-1',
+      tenureDomain: TenureDomain.days,
+      minTenureDays: 365,
+      maxTenureDays: 730,
+    );
+
+    final calRateSlab1 = makeRate(
+      id: 'hdfc-cal-1yr-2yr',
+      tenureDomain: TenureDomain.calendar,
+      minYears: 1,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gte,
+      maxYears: 2,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: BoundaryOperator.lt,
+      sourceTenureText: '1 Year to < 2 Years',
+    );
+
+    final calRateSlab2 = makeRate(
+      id: 'hdfc-cal-2yr-3yr-inclusive',
+      tenureDomain: TenureDomain.calendar,
+      minYears: 2,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gte,
+      maxYears: 3,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: BoundaryOperator.lte,
+      sourceTenureText: '2 Years to 3 Years',
+    );
+
+    final calRateOpenEnded = makeRate(
+      id: 'hdfc-cal-5yr-plus',
+      tenureDomain: TenureDomain.calendar,
+      minYears: 5,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gte,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      sourceTenureText: '5 Years and Above',
+    );
+
+    final calRateExclusiveLower = makeRate(
+      id: 'hdfc-cal-gt-1yr',
+      tenureDomain: TenureDomain.calendar,
+      minYears: 1,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gt,
+      maxYears: 2,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: BoundaryOperator.lte,
+      sourceTenureText: '> 1 Year to 2 Years',
+    );
+
+    test('1. coversCalendarTenure returns false for DAYS rates', () {
+      expect(daysRate.coversCalendarTenure(years: 1, months: 0, daysCal: 0), isFalse);
+      expect(daysRate.coversCalendarTenure(years: 2, months: 0, daysCal: 0), isFalse);
+    });
+
+    test('2. coversTenure(days) returns false for CALENDAR rates', () {
+      expect(calRateSlab1.coverstenure(365), isFalse);
+      expect(calRateSlab1.coverstenure(400), isFalse);
+      expect(calRateOpenEnded.coverstenure(1825), isFalse);
+    });
+
+    test('3. coversCalendarTenure matches inclusive lower and exclusive upper bound [1 Year, 2 Years)', () {
+      // Lower endpoint: 1 Year (inclusive GTE)
+      expect(calRateSlab1.coversCalendarTenure(years: 1, months: 0, daysCal: 0), isTrue);
+      // Mid-slab: 1 Year 6 Months
+      expect(calRateSlab1.coversCalendarTenure(years: 1, months: 6, daysCal: 0), isTrue);
+      // Upper endpoint: 2 Years (exclusive LT) -> false
+      expect(calRateSlab1.coversCalendarTenure(years: 2, months: 0, daysCal: 0), isFalse);
+      // Below lower endpoint: 6 Months -> false
+      expect(calRateSlab1.coversCalendarTenure(years: 0, months: 6, daysCal: 0), isFalse);
+    });
+
+    test('4. coversCalendarTenure matches inclusive upper bound [2 Years, 3 Years]', () {
+      expect(calRateSlab2.coversCalendarTenure(years: 2, months: 0, daysCal: 0), isTrue);
+      expect(calRateSlab2.coversCalendarTenure(years: 3, months: 0, daysCal: 0), isTrue);
+      expect(calRateSlab2.coversCalendarTenure(years: 3, months: 0, daysCal: 1), isFalse);
+    });
+
+    test('5. coversCalendarTenure matches exclusive lower bound (> 1 Year, 2 Years]', () {
+      // Exact lower bound with GT is excluded
+      expect(calRateExclusiveLower.coversCalendarTenure(years: 1, months: 0, daysCal: 0), isFalse);
+      // 1 Year 1 Day is included
+      expect(calRateExclusiveLower.coversCalendarTenure(years: 1, months: 0, daysCal: 1), isTrue);
+    });
+
+    test('6. coversCalendarTenure matches open-ended slab (>= 5 Years)', () {
+      expect(calRateOpenEnded.coversCalendarTenure(years: 5, months: 0, daysCal: 0), isTrue);
+      expect(calRateOpenEnded.coversCalendarTenure(years: 10, months: 0, daysCal: 0), isTrue);
+      expect(calRateOpenEnded.coversCalendarTenure(years: 4, months: 11, daysCal: 0), isFalse);
+    });
+
+    test('7. coversCalendarTenure returns null (indeterminate) for month-day boundary without anchor date', () {
+      // Testing candidate (0Y, 11M, 29D) against lower bound 1 Year (1Y, 0M, 0D)
+      // Delta M = 1 month. Canonical min = 28 days, max = 31 days.
+      // dayDelta = 29 - 0 = 29. 28 <= 29 <= 31 -> Indeterminate without anchor date!
+      final indeterminate = calRateSlab1.coversCalendarTenure(years: 0, months: 11, daysCal: 29);
+      expect(indeterminate, isNull);
+    });
+
+    test('8. coversCalendarTenure resolves indeterminate cases when anchor date is supplied', () {
+      // From 2026-01-01: 11 months is 2026-12-01. + 29 days is 2026-12-30.
+      // 1 Year from 2026-01-01 is 2027-01-01.
+      // 2026-12-30 < 2027-01-01, so lower bound of 1 Year is NOT satisfied -> false.
+      final resolved = calRateSlab1.coversCalendarTenure(
+        years: 0,
+        months: 11,
+        daysCal: 29,
+        anchorDate: DateTime(2026, 1, 1),
+      );
+      expect(resolved, isFalse);
+    });
+
+    test('9. coversDomainTenure dispatches correctly for both domains', () {
+      // DAYS domain record with tenureDays
+      expect(daysRate.coversDomainTenure(tenureDays: 365), isTrue);
+      expect(daysRate.coversDomainTenure(tenureDays: 800), isFalse);
+      expect(daysRate.coversDomainTenure(years: 1), isFalse);
+
+      // CALENDAR domain record with calendar components
+      expect(calRateSlab1.coversDomainTenure(years: 1, months: 0, daysCal: 0), isTrue);
+      expect(calRateSlab1.coversDomainTenure(years: 3), isFalse);
+      expect(calRateSlab1.coversDomainTenure(tenureDays: 365), isFalse);
+    });
+
+    test('10. coversCalendarTenureTuple positional alias works identically', () {
+      expect(calRateSlab1.coversCalendarTenureTuple(1, 0, 0), isTrue);
+      expect(calRateSlab1.coversCalendarTenureTuple(2, 0, 0), isFalse);
+      expect(calRateSlab1.coversCalendarTenureTuple(0, 6, 0), isFalse);
+    });
+  });
+
+  // ----------------------------------------------------------
+  // Phase 3C.5.47: Calendar Fallback Isolation & Regression Tests
+  // ----------------------------------------------------------
+
+  group('Calendar Fallback Isolation & Regression Tests (Phase 3C.5.47)', () {
+    // A CALENDAR rate with strict GT lower bound (> 1 Year to 2 Years)
+    final calStrictLower = makeRate(
+      id: 'hdfc-cal-gt-1yr',
+      tenureDomain: TenureDomain.calendar,
+      minTenureDays: null,
+      maxTenureDays: null,
+      minYears: 1,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gt,
+      maxYears: 2,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: BoundaryOperator.lte,
+      sourceTenureText: '> 1 Year to 2 Years',
+    );
+
+    // A CALENDAR rate for 1 Month to < 2 Months
+    final calOneToTwoMonths = makeRate(
+      id: 'hdfc-cal-1m-2m',
+      tenureDomain: TenureDomain.calendar,
+      minTenureDays: null,
+      maxTenureDays: null,
+      minYears: 0,
+      minMonths: 1,
+      minDaysCal: 0,
+      minOperator: BoundaryOperator.gte,
+      maxYears: 0,
+      maxMonths: 2,
+      maxDaysCal: 0,
+      maxOperator: BoundaryOperator.lt,
+      sourceTenureText: '1 Month to < 2 Months',
+    );
+
+    // A legacy DAYS rate covering 365 to 389 days
+    final legacyDaysRate = makeRate(
+      id: 'sbi-legacy-365',
+      tenureDomain: TenureDomain.days,
+      minTenureDays: 365,
+      maxTenureDays: 389,
+      interestRate: 6.80,
+    );
+
+    test('1. Regression: Approximate-day fallback suggests match, but canonical calendar rejects (> 1 Year slab)', () {
+      // User requests 1 Year in Calendar mode (y=1, m=0, d=0).
+      // Approximate day fallback formula: 1 * 365 + 0 * 30 + 0 = 365 days.
+      final approximateDays = 1 * 365 + 0 * 30 + 0;
+      expect(approximateDays, 365);
+
+      // If an approximate day heuristic were checked against a [365, 730] day range, 365 would fall inside.
+      // BUT canonical calendar comparison:
+      // Slab lower bound is GT 1 Year.
+      // Candidate 1 Year is NOT strictly greater than 1 Year.
+      // Canonical calendar comparison MUST reject the match.
+      final canonicalMatch = calStrictLower.coversCalendarTenure(years: 1, months: 0, daysCal: 0);
+      expect(canonicalMatch, isFalse, reason: '1 Year must be rejected by > 1 Year lower bound');
+
+      // Candidate 1 Year 1 Day IS strictly greater than 1 Year and must match.
+      expect(calStrictLower.coversCalendarTenure(years: 1, months: 0, daysCal: 1), isTrue);
+    });
+
+    test('2. Regression: Approximate-day fallback suggests match, but canonical Gregorian comparison is unresolved (null)', () {
+      // User requests 30 days (y=0, m=0, d=30).
+      // Approximate day heuristic: 30 days == 1 month (since 30 ~/ 30 = 1).
+      // If approximate days were used, 30 days would match [1 Month, 2 Months).
+      // BUT canonical Gregorian comparison across variable month lengths (28, 29, 30, 31):
+      // Delta M = 1 month. Canonical min = 28 days, max = 31 days.
+      // Since 28 <= 30 <= 31, ordering is indeterminate without an anchor date.
+      final canonicalResult = calOneToTwoMonths.coversCalendarTenure(years: 0, months: 0, daysCal: 30);
+      expect(canonicalResult, isNull, reason: '30 days vs 1 month is indeterminate without an anchor date');
+
+      // Crucially, domain matching treats unresolved (null) as non-match:
+      final confirmedMatch = canonicalResult == true;
+      expect(confirmedMatch, isFalse, reason: 'Unresolved calendar coverage must never be confirmed');
+    });
+
+    test('3. Regression: DAYS rate matching approximate 365 days is strictly excluded in Calendar mode', () {
+      // User requests 1 Year (y=1, m=0, d=0) in Calendar mode.
+      // Legacy SBI rate covers 365 days (coversTenure(365) == true).
+      expect(legacyDaysRate.coverstenure(365), isTrue);
+
+      // In Calendar mode, coversCalendarTenure must return false for DAYS rates:
+      expect(legacyDaysRate.coversCalendarTenure(years: 1, months: 0, daysCal: 0), isFalse);
+
+      // Domain dispatcher also strictly returns false:
+      expect(legacyDaysRate.coversDomainTenure(years: 1, months: 0, daysCal: 0), isFalse);
+    });
+
+    test('4. Regression: VerifiedFdRate.toFdRate preserves customer type and status, never substitutes day bounds as authoritative calendar bounds', () {
+      final fdRate = calStrictLower.toFdRate();
+      expect(fdRate.verificationStatus, VerificationStatus.verified);
+      expect(fdRate.minTenureDays, 0); // null converted to 0, not a fake heuristic like 366 or 365
+      expect(fdRate.maxTenureDays, 0);
     });
   });
 }

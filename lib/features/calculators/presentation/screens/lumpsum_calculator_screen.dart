@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import '../../../../core/utils/calculator_share_helper.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:intl/intl.dart';
 
+import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
 
 class LumpsumCalculatorScreen extends StatefulWidget {
   const LumpsumCalculatorScreen({Key? key}) : super(key: key);
@@ -56,14 +58,48 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
     setState(() {});
   }
 
+  void _calculateAndSave() {
+    _calculateLumpsum();
+    CalculationHistorySaver.save(
+      context: context,
+      calculatorId: 'lumpsum',
+      calculatorName: 'Lumpsum Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+      primaryResultLabel: 'Total Future Value',
+      primaryResultValue: _currencyFormat.format(_totalValue),
+      category: 'Investments',
+    );
+  }
+
+  Map<String, String> _getInputs() => {
+    'Investment Amount': _currencyFormat.format(_investmentAmount),
+    'Expected Return Rate': '${_expectedReturn.toStringAsFixed(1)}% p.a.',
+    'Investment Period': '${_periodYears.toInt()} Years',
+  };
+
+  Map<String, String> _getResults() => {
+    'Invested Amount': _currencyFormat.format(_investmentAmount),
+    'Estimated Returns': _currencyFormat.format(_estimatedReturns),
+    'Total Future Value': _currencyFormat.format(_totalValue),
+  };
+
   void _shareResult(BuildContext context) {
-    final text = 'FeroCalc Lumpsum Calculator\n\nInvestment: \u20B9${_investmentAmount.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(1)}%\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nTotal Value: \u20B9${_totalValue.toStringAsFixed(0)}\nEst. Returns: \u20B9${_estimatedReturns.toStringAsFixed(0)}\n\nDownload FeroCalc for more!';
-    Share.share(text);
+    CalculatorShareHelper.shareText(
+      context: context,
+      title: 'Lumpsum Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   void _exportPdf(BuildContext context) {
-    final text = 'FeroCalc Lumpsum Report\n\nInvestment: \u20B9${_investmentAmount.toStringAsFixed(0)}\nExpected Return: ${_expectedReturn.toStringAsFixed(1)}%\nPeriod: ${_periodYears.toStringAsFixed(0)} Years\nTotal Value: \u20B9${_totalValue.toStringAsFixed(0)}\nEst. Returns: \u20B9${_estimatedReturns.toStringAsFixed(0)}';
-    Share.share(text, subject: 'FeroCalc - Lumpsum Report');
+    CalculatorShareHelper.exportPdf(
+      context: context,
+      title: 'Lumpsum Calculator',
+      inputs: _getInputs(),
+      results: _getResults(),
+    );
   }
 
   @override
@@ -128,6 +164,12 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                GradientButton(
+                  key: const ValueKey('calculate_button'),
+                  text: 'Calculate',
+                  onPressed: _calculateAndSave,
+                ),
                 const SizedBox(height: 24),
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -147,6 +189,8 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
                   text: 'Export PDF',
                   onPressed: () => _exportPdf(context),
                 ),
+                const SizedBox(height: 24),
+                const CalculatorPurposeCard(calculatorId: 'lumpsum'),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                   child: Text(

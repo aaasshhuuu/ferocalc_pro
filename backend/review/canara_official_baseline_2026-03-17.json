@@ -1,0 +1,121 @@
+{
+  "bankCode": "CANARA",
+  "bankName": "Canara Bank",
+  "sourceUrl": "https://www.canarabank.bank.in/term-deposits-rate-of-interest-p.a.",
+  "productScope": "Domestic callable retail fixed deposits below INR 3 crore; Table 0 (Rows 7 to 18)",
+  "effectiveFrom": "2026-03-17",
+  "sourceReview": {
+    "reviewedOn": "2026-10-24",
+    "basis": "Official Canara Bank term deposit rate page HTML. Table 0 contains 12 callable retail rows effective 17.03.2026. Non-callable columns (Col 5-8), annualized yields (Col 2, 4), and bulk tables (Tables 2-5 >= 3 Cr) are strictly excluded. Card rates are strictly separated from yields. Source remains disabled pending human review and governance sign-off.",
+    "rawSnapshotSha256": "61cb21ad59a679067ae5b45043731f64c529663dd5f77bf108a934790c331ac6",
+    "capturedAt": "2026-10-24T10:43:00.000Z",
+    "rawHttpStatus": 200,
+    "activationApproved": false
+  },
+  "eligibilityNotes": [
+    "Senior Citizen rates: Additional 0.50% interest is offered to Senior Citizens for domestic term deposits of less than Rs. 3 Crore with tenure of 180 days and above.",
+    "For tenures below 180 days, senior citizen rates are identical to general public card rates.",
+    "Senior citizen preferential rates do not apply to NRO, NRE, or Capital Gains deposits.",
+    "NRE fixed deposits require a minimum tenure of 1 year. Sub-one-year slabs are not eligible for NRE deposits.",
+    "Non-callable deposits (> 1 Cr to < 3 Cr) and bulk deposits (>= 3 Cr) are strictly excluded from callable retail candidates.",
+    "Annualized yield represents compounding return and is strictly excluded from card interest rates."
+  ],
+  "tenures": [
+    {
+      "label": "7 Days to 45 Days*",
+      "regular": 3.0,
+      "senior": 3.0,
+      "yield": 3.03,
+      "seniorYield": 3.03,
+      "schemeName": null
+    },
+    {
+      "label": "46 Days to 90 Days",
+      "regular": 4.0,
+      "senior": 4.0,
+      "yield": 4.06,
+      "seniorYield": 4.06,
+      "schemeName": null
+    },
+    {
+      "label": "91 Days to 179 Days",
+      "regular": 4.25,
+      "senior": 4.25,
+      "yield": 4.32,
+      "seniorYield": 4.32,
+      "schemeName": null
+    },
+    {
+      "label": "180 Days to 269 Days",
+      "regular": 5.25,
+      "senior": 5.75,
+      "yield": 5.35,
+      "seniorYield": 5.87,
+      "schemeName": null
+    },
+    {
+      "label": "270 Days to less than 1 Year",
+      "regular": 5.5,
+      "senior": 6.0,
+      "yield": 5.61,
+      "seniorYield": 6.14,
+      "schemeName": null
+    },
+    {
+      "label": "1 Year & above to 1 year 3 months Only (Except 444 days)",
+      "regular": 6.25,
+      "senior": 6.75,
+      "yield": 6.4,
+      "seniorYield": 6.92,
+      "schemeName": null
+    },
+    {
+      "label": "444 Days ##",
+      "regular": 6.5,
+      "senior": 7.0,
+      "yield": 6.66,
+      "seniorYield": 7.19,
+      "schemeName": "CANARA_444"
+    },
+    {
+      "label": "555 Days ##",
+      "regular": 6.6,
+      "senior": 7.1,
+      "yield": 6.77,
+      "seniorYield": 7.29,
+      "schemeName": "CANARA_555"
+    },
+    {
+      "label": "Above 1 Year 3 months to less than 2 Years (Except 555 days)",
+      "regular": 6.25,
+      "senior": 6.75,
+      "yield": 6.4,
+      "seniorYield": 6.92,
+      "schemeName": null
+    },
+    {
+      "label": "2 Years & above to less than 3 Years",
+      "regular": 6.25,
+      "senior": 6.75,
+      "yield": 6.4,
+      "seniorYield": 6.92,
+      "schemeName": null
+    },
+    {
+      "label": "3 Years & above to less than 5 Years",
+      "regular": 6.25,
+      "senior": 6.75,
+      "yield": 6.4,
+      "seniorYield": 6.92,
+      "schemeName": null
+    },
+    {
+      "label": "5 Years & above to 10 Years",
+      "regular": 6.25,
+      "senior": 6.75,
+      "yield": 6.4,
+      "seniorYield": 6.92,
+      "schemeName": null
+    }
+  ]
+}
