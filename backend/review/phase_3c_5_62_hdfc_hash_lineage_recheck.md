@@ -64,9 +64,9 @@ A catalog search did not find a dedicated DBA/operator authorization table or ch
 
 ## 4. DBA authorization and change-control handling
 
-Rate-review approval by the product owner is separate from DBA/operator authorization for database changes. The current evidence does not contain a DBA/operator legal name, role, signature, or timestamp, nor evidence of the required pre-migration sign-off. Since Migration 017 is already present in staging, the original pre-migration check cannot now be represented as having occurred before execution.
+Rate-review approval by the product owner is separate from DBA/operator authorization for database changes. The current evidence does not contain a DBA/operator legal name, role, signature, or timestamp, nor evidence of the required pre-migration sign-off. The Phase 3C.5.61 staging migration report records that the 11 read-only prechecks were executed and succeeded before Migration 017. However, the formal packet's DBA-observed precheck/sign-off fields remain blank: execution of read-only queries is not the same as signed DBA authorization.
 
-Required governance action is an independent DBA/operator review of the existing migration ledger, catalog state, recorded prechecks, backup/rehearsal records, and change history. Record the actual conclusion and sign-off truthfully, including a change-control exception if authorization was absent at execution time. Do not backdate authorization, fabricate backup evidence, reapply Migration 017, apply Migration 016, or promote this batch to close the gate.
+Required governance action is an independent DBA/operator review of the existing migration ledger, catalog state, the recorded pre-migration query results, backup/rehearsal records, and change history. Record the actual conclusion and sign-off truthfully, including a change-control exception if authorization was absent at execution time. Do not backdate authorization, fabricate backup evidence, reapply Migration 017, apply Migration 016, or promote this batch to close the gate.
 
 ## 5. Decision
 
