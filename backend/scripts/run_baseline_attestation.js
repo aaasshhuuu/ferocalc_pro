@@ -26,8 +26,12 @@ async function main(dependencies = {}) {
     return usageError(logger, args);
   }
 
-  const environmentLoader = dependencies.loadEnvironment || loadEnv;
-  environmentLoader({ silent: true });
+  if (dependencies.loadEnvironment) {
+    dependencies.loadEnvironment({ silent: true });
+  } else {
+    // Preserve the shared CLI environment-loading contract tested by env_loader_test.
+    loadEnv();
+  }
 
   let RateCollectionService;
   let defaultRegistry;
