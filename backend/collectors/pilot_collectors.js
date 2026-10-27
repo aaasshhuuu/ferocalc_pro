@@ -7,6 +7,46 @@
 
 const { BaseCollector } = require('./base_collector');
 
+/**
+ * Return the full div element containing an exact Liferay analytics article.
+ * This scopes SBI content hashes to the published rate article instead of
+ * transient navigation, session timestamps, and unrelated portal widgets.
+ *
+ * @param {string} html
+ * @param {string} assetId
+ * @returns {string|null}
+ */
+function extractDivByAnalyticsAssetId(html, assetId) {
+  const escapedAssetId = String(assetId).replace(/[.*+?^${}()|[\]\\]/g, '\\class SbiCollector extends BaseCollector {');
+  const opener = new RegExp(
+    `<div\\b(?=[^>]*\\bdata-analytics-asset-id=["']${escapedAssetId}["'])[^>]*>`,
+    'i',
+  ).exec(html);
+
+  if (!opener) return null;
+
+  const start = opener.index;
+  const tagEnd = start + opener[0].length;
+  const divTags = /<\\/?div\\b[^>]*>/gi;
+  divTags.lastIndex = tagEnd;
+  let depth = 1;
+  let match;
+
+  while ((match = divTags.exec(html)) !== null) {
+    if (/^<\\//.test(match[0])) {
+      depth -= 1;
+    } else if (!/\\/\\s*>$/.test(match[0])) {
+      depth += 1;
+    }
+
+    if (depth === 0) {
+      return html.slice(start, divTags.lastIndex).trim();
+    }
+  }
+
+  return null;
+}
+
 class SbiCollector extends BaseCollector {
   constructor(config = {}) {
     super({
@@ -22,15 +62,19 @@ class SbiCollector extends BaseCollector {
     });
   }
 
-  // Specialized normalization for SBI pages if needed
+  /**
+   * SBI's Liferay shell includes changing navigation, portlet IDs, and form
+   * timestamps even when the rate table has not changed. Hash the exact official
+   * INTEREST_RATE article so real table/effective-date edits change the hash,
+   * while unrelated shell churn does not.
+   *
+   * If SBI changes its marker, preserve the full normalized HTML rather than
+   * returning empty or fabricated content.
+   */
   normalize(buffer) {
-    let raw = super.normalize(buffer).toString('utf8');
-    // Extract only main content area if present to eliminate dynamic navigation noise
-    const mainMatch = raw.match(/<div[^>]*class=["'][^"']*deposit-rates[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-    if (mainMatch) {
-      return Buffer.from(mainMatch[1].trim(), 'utf8');
-    }
-    return Buffer.from(raw, 'utf8');
+    const raw = super.normalize(buffer).toString('utf8');
+    const rateArticle = extractDivByAnalyticsAssetId(raw, 'INTEREST_RATE');
+    return Buffer.from(rateArticle || raw, 'utf8');
   }
 }
 
