@@ -19,6 +19,7 @@ class RateCollectionService {
     this.registry = options.registry || defaultRegistry;
     this.storage = options.storage || new MetadataOnlySnapshotStorage();
     this.logger = options.logger || console;
+    this.collectorFactory = options.collectorFactory || createCollector;
   }
 
   /**
@@ -121,16 +122,18 @@ class RateCollectionService {
    * Collect a single registered source.
    */
   async collectSource(sourceConfig, options = {}) {
-    const collector = createCollector(sourceConfig);
+    const collector = this.collectorFactory(sourceConfig);
+    const readOnly = options.readOnly === true;
     this._log('info', 'collection_started', {
       sourceId: collector.id,
       bankCode: collector.bankCode,
       url: collector.sourceUrl,
     });
 
+    // A read-only inspection must not query Supabase even to look up prior telemetry.
     const previousHash = options.previousHash !== undefined
       ? options.previousHash
-      : await this._getPreviousHash(collector.id);
+      : (readOnly ? null : await this._getPreviousHash(collector.id));
 
     const result = await collector.collect({
       previousHash,
@@ -139,8 +142,8 @@ class RateCollectionService {
       maxRetries: options.maxRetries,
     });
 
-    // Save snapshot metadata if successful
-    if (result.bodyBuffer && result.contentHash) {
+    // Snapshot storage is also skipped in read-only inspection mode.
+    if (!readOnly && result.bodyBuffer && result.contentHash) {
       await this.storage.saveSnapshot({
         sourceId: result.sourceId,
         contentHash: result.contentHash,
@@ -166,7 +169,10 @@ class RateCollectionService {
       });
     }
 
-    await this._persistResult(result);
+    // Never persist telemetry or collection logs when explicitly running read-only.
+    if (!readOnly) {
+      await this._persistResult(result);
+    }
     return result;
   }
 
