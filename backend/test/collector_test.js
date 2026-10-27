@@ -12,6 +12,7 @@
 'use strict';
 
 const { BaseCollector } = require('../collectors/base_collector');
+const { SbiCollector } = require('../collectors/pilot_collectors');
 const { SourceRegistry } = require('../collectors/source_registry');
 const { RateCollectionService } = require('../collectors/collection_service');
 const { MetadataOnlySnapshotStorage } = require('../collectors/snapshot_storage');
@@ -64,6 +65,41 @@ async function run() {
   const normHash1 = collector.calculateSha256(bufferWithScript1);
   const normHash2 = collector.calculateSha256(bufferWithScript2);
   assert(normHash1 === normHash2, 'HTML normalization ignores dynamic script tags');
+  // SBI's Liferay portal shell changes independently of the official rate article.
+  const sbiCollector = new SbiCollector();
+  const buildSbiHtml = (portletId, formDate, rate, navTarget) => `
+    <html><body>
+      <div class="navigation" id="${portletId}">
+        <input name="SearchPortlet_formDate" value="${formDate}" />
+        <a href="${navTarget}">Navigation</a>
+      </div>
+      <section id="content"><div id="main-content">
+        <div class="clearfix journal-content-article"
+             data-analytics-asset-id="INTEREST_RATE"
+             data-analytics-asset-title="Retail Domestic term deposits">
+          <div class="table-wrapper"><table><tbody>
+            <tr><td>7 days to 45 days</td><td>${rate}</td></tr>
+          </tbody></table></div>
+          <p>Revised Rates w.e.f. 15/12/2025</p>
+        </div>
+      </div></section>
+    </body></html>`;
+
+  const sbiHtml1 = buildSbiHtml('portlet-abc123', '1793096340551', '3.05', '/web/interest-rates/deposit-rates');
+  const sbiHtml2 = buildSbiHtml('portlet-xyz789', '1793096399999', '3.05', '/web/loan-schemes-interest-rates/personal-loans');
+  const sbiHtmlRateChanged = buildSbiHtml('portlet-xyz789', '1793096399999', '3.06', '/web/loan-schemes-interest-rates/personal-loans');
+  const sbiNormalized = sbiCollector.normalize(Buffer.from(sbiHtml1)).toString('utf8');
+  const sbiHash1 = sbiCollector.calculateSha256(Buffer.from(sbiHtml1));
+  const sbiHash2 = sbiCollector.calculateSha256(Buffer.from(sbiHtml2));
+  const sbiHashRateChanged = sbiCollector.calculateSha256(Buffer.from(sbiHtmlRateChanged));
+
+  assert(sbiNormalized.includes('data-analytics-asset-id="INTEREST_RATE"'), 'SBI hash content contains the official INTEREST_RATE article');
+  assert(!sbiNormalized.includes('SearchPortlet_formDate'), 'SBI article normalization excludes volatile portal form timestamps');
+  assert(sbiHash1 === sbiHash2, 'SBI source hash is stable when only navigation IDs, form dates, and links change');
+  assert(sbiHash1 !== sbiHashRateChanged, 'SBI source hash changes when an official rate value changes');
+
+  const sbiFallback = sbiCollector.normalize(Buffer.from('<html><body><p>Marker temporarily absent</p></body></html>')).toString('utf8');
+  assert(sbiFallback.includes('Marker temporarily absent'), 'SBI normalization fails safely to full normalized HTML if the article marker is absent');
 
   // ----------------------------------------------------------
   console.log('\nGroup 2: Change Classification Logic...');
