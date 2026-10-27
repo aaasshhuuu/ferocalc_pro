@@ -101,28 +101,23 @@ async function run() {
   const sbiFallback = sbiCollector.normalize(Buffer.from('<html><body><p>Marker temporarily absent</p></body></html>')).toString('utf8');
   assert(sbiFallback.includes('Marker temporarily absent'), 'SBI normalization fails safely to full normalized HTML if the article marker is absent');
 
-  // ICICI's full page can change in navigation/promotional sections while the
-  // official interest-tables component remains byte-for-byte stable.
   // HDFC's whole page contains multiple products and rate cards. Hash the
   // effective-date heading plus the retail-under-3-Crore rate table only.
   const hdfcCollector = new HdfcCollector();
-  const buildHdfcHtml = (promoId, promoText, rate, effectiveDate) => \`
-    <html><body>
-      <div id="\${promoId}" class="unrelated-promotion">\${promoText}</div>
-      <div id="rate-section">
-        <h2>Domestic / NRO / NRE FIXED DEPOSIT RATE</h2>
-        <p>Applicable from \${effectiveDate}</p>
-        <div id="IR-less-than-3-cr" class="cmp-container">
-          <div class="fdAmount-tablewrap">
-            <table><tbody>
-              <tr><th>Tenure Bucket</th><th>Interest Rate (per annum)</th></tr>
-              <tr><td>7 - 14 days</td><td>\${rate}%</td></tr>
-            </tbody></table>
-          </div>
-        </div>
-      </div>
-      <div id="other-products">Unrelated page content</div>
-    </body></html>\`;
+  const buildHdfcHtml = (promoId, promoText, rate, effectiveDate) => [
+    '<html><body>',
+    '<div id="' + promoId + '" class="unrelated-promotion">' + promoText + '</div>',
+    '<div id="rate-section">',
+    '<h2>Domestic / NRO / NRE FIXED DEPOSIT RATE</h2>',
+    '<p>Applicable from ' + effectiveDate + '</p>',
+    '<div id="IR-less-than-3-cr" class="cmp-container">',
+    '<div class="fdAmount-tablewrap"><table><tbody>',
+    '<tr><th>Tenure Bucket</th><th>Interest Rate (per annum)</th></tr>',
+    '<tr><td>7 - 14 days</td><td>' + rate + '%</td></tr>',
+    '</tbody></table></div></div></div>',
+    '<div id="other-products">Unrelated page content</div>',
+    '</body></html>',
+  ].join('');
 
   const hdfcHtml1 = buildHdfcHtml('promo-123', 'Campaign A', '2.75', '19th August, 2026');
   const hdfcHtml2 = buildHdfcHtml('promo-999', 'Campaign B updated', '2.75', '19th August, 2026');
