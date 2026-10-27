@@ -40,6 +40,40 @@ function extractSbiInterestRateArticle(html) {
   return null;
 }
 
+/**
+ * Extract the stable official ICICI interest-table component. ICICI's page
+ * shell contains promotional and navigation content that can change without
+ * any FD rate change; the interest-tables component holds the callable and
+ * non-callable rate table used by the parser.
+ *
+ * @param {string} html
+ * @returns {string|null}
+ */
+function extractIciciInterestTables(html) {
+  const opener = /<div\\b(?=[^>]*\\bdata-component=["']interest-tables["'])[^>]*>/i.exec(html);
+  if (!opener) return null;
+
+  const start = opener.index;
+  const divTags = /<\\/?div\\b[^>]*>/gi;
+  divTags.lastIndex = start + opener[0].length;
+  let depth = 1;
+  let match;
+
+  while ((match = divTags.exec(html)) !== null) {
+    if (/^<\\//.test(match[0])) {
+      depth -= 1;
+    } else if (!/\\/\\s*>$/.test(match[0])) {
+      depth += 1;
+    }
+
+    if (depth === 0) {
+      return html.slice(start, divTags.lastIndex).trim();
+    }
+  }
+
+  return null;
+}
+
 class SbiCollector extends BaseCollector {
   constructor(config = {}) {
     super({
@@ -101,6 +135,17 @@ class IciciCollector extends BaseCollector {
       enabled: true,
       ...config,
     });
+  }
+
+  /**
+   * Hash the official interest tables rather than the volatile full page.
+   * If the component marker disappears after an upstream redesign, fail safe
+   * by hashing the full normalized HTML so the change is still detected.
+   */
+  normalize(buffer) {
+    const raw = super.normalize(buffer).toString('utf8');
+    const rateTables = extractIciciInterestTables(raw);
+    return Buffer.from(rateTables || raw, 'utf8');
   }
 }
 
