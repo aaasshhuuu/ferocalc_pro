@@ -62,12 +62,12 @@ async function main(dependencies = {}) {
   logger.log('Database:   ZERO READS / ZERO WRITES');
   logger.log('Attestation: DISABLED');
   logger.log('Promotion:   DISABLED');
-  logger.log(`Started At: ${new Date().toISOString()}\\n`);
+  logger.log(`Started At: ${new Date().toISOString()}\n`);
 
   const reports = [];
 
   for (const src of sources) {
-    logger.log(`\\n--- Inspecting Official Source: ${src.bankCode} (${src.id}) ---`);
+    logger.log(`\n--- Inspecting Official Source: ${src.bankCode} (${src.id}) ---`);
     logger.log(`URL: ${src.sourceUrl}`);
 
     try {
@@ -168,7 +168,7 @@ async function main(dependencies = {}) {
   }
 
   const failed = reports.some((report) => report.error || report.validationStatus === 'REVIEW_REQUIRED');
-  logger.log('\\n====================================================');
+  logger.log('\n====================================================');
   logger.log('READ-ONLY inspection complete.');
   logger.log('Database reads:  0');
   logger.log('Database writes: 0');
