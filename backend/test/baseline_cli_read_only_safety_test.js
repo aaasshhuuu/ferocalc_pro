@@ -174,7 +174,7 @@ async function run() {
       console.error('FAIL: ' + name + ': ' + error.stack);
     }
   }
-  console.log('\\nBaseline CLI read-only safety: ' + (tests.length - failed) + '/' + tests.length + ' passed');
+  console.log('\nBaseline CLI read-only safety: ' + (tests.length - failed) + '/' + tests.length + ' passed');
   if (failed) process.exitCode = 1;
 }
 
