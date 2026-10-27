@@ -37,6 +37,7 @@ const PROMOTION_STATUS = {
 const ALLOWED_OFFICIAL_DOMAINS = [
   'sbi.co.in',
   'hdfcbank.com',
+  'hdfc.bank.in',
   'icicibank.com',
   'axisbank.com',
   'theunitybank.com',
