@@ -23,6 +23,7 @@ class CandidateStagingService {
     this.anomalyDetector = options.anomalyDetector || new AnomalyDetector();
     this.logger = options.logger || console;
     this.supabaseClient = options.supabaseClient || null;
+    this.parserFactory = options.parserFactory || getParserForSource;
   }
 
   /**
@@ -392,7 +393,7 @@ class CandidateStagingService {
     }
 
     // 1. Select appropriate parser
-    const parser = getParserForSource(collectionResult);
+    const parser = this.parserFactory(collectionResult);
     if (!parser) {
       return {
         sourceId,
@@ -439,7 +440,10 @@ class CandidateStagingService {
     });
 
     // 4. Anomaly Detection Layer
-    const baselineRates = options.baselineRates || await this._fetchBaselineRates(bankCode);
+    // Read-only source inspection must not query verified or staged baselines.
+    const baselineRates = options.skipDbAccess
+      ? []
+      : (options.baselineRates || await this._fetchBaselineRates(bankCode));
     const anomalySummary = this.anomalyDetector.detectAnomalies(candidates, baselineRates, {
       sourceId,
       bankCode,
