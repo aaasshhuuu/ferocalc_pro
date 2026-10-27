@@ -340,6 +340,8 @@ async function runBaselineAttestationTestSuite() {
   runTest('2. Official domain validation', () => {
     assert.strictEqual(isOfficialBankDomain('https://sbi.co.in/deposit-rates'), true);
     assert.strictEqual(isOfficialBankDomain('https://www.hdfcbank.com/rates'), true);
+    assert.strictEqual(isOfficialBankDomain('https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate'), true);
+    assert.strictEqual(isOfficialBankDomain('https://hdfc.bank.in.attacker.example/rates'), false);
     assert.strictEqual(isOfficialBankDomain('https://www.icicibank.com/personal-banking'), true);
     assert.strictEqual(isOfficialBankDomain('https://third-party-aggregator.com/fd-rates'), false);
     assert.strictEqual(isOfficialBankDomain('http://malicious-site.org'), false);
