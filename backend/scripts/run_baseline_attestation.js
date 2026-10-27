@@ -171,7 +171,9 @@ async function main(dependencies = {}) {
     }
   }
 
-  const failed = reports.some((report) => report.error || report.validationStatus === 'REVIEW_REQUIRED');
+  const failed = reports.some((report) =>
+    report.error || report.validationStatus === 'REVIEW_REQUIRED' || report.structuralEligibility === false,
+  );
   logger.log('\n====================================================');
   logger.log('READ-ONLY inspection complete.');
   logger.log('Database reads:  0');
