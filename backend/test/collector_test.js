@@ -12,7 +12,7 @@
 'use strict';
 
 const { BaseCollector } = require('../collectors/base_collector');
-const { SbiCollector } = require('../collectors/pilot_collectors');
+const { SbiCollector, IciciCollector } = require('../collectors/pilot_collectors');
 const { SourceRegistry } = require('../collectors/source_registry');
 const { RateCollectionService } = require('../collectors/collection_service');
 const { MetadataOnlySnapshotStorage } = require('../collectors/snapshot_storage');
@@ -100,6 +100,44 @@ async function run() {
 
   const sbiFallback = sbiCollector.normalize(Buffer.from('<html><body><p>Marker temporarily absent</p></body></html>')).toString('utf8');
   assert(sbiFallback.includes('Marker temporarily absent'), 'SBI normalization fails safely to full normalized HTML if the article marker is absent');
+
+  // ICICI's full page can change in navigation/promotional sections while the
+  // official interest-tables component remains byte-for-byte stable.
+  const iciciCollector = new IciciCollector();
+  const buildIciciHtml = (portalId, promoText, rate) => `
+    <html><body>
+      <div class="portal-navigation" id="${portalId}">${promoText}</div>
+      <main><div class="interest-rates-table aem-GridColumn">
+        <div class="container cmp-spacing" id="interest-rates-table-all">
+          <div class="container__cmp">
+            <div class="interest-tables" data-component="interest-tables" data-name="InterestTables">
+              <div class="interest-rates-wrapper">
+                <table><tbody>
+                  <tr><th>With premature withdrawal facility</th><th>Tenure</th></tr>
+                  <tr><td>${rate}%</td><td>7 to 29 Days</td></tr>
+                </tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></main>
+    </body></html>`;
+
+  const iciciHtml1 = buildIciciHtml('portal-123', 'Campaign A', '3.50');
+  const iciciHtml2 = buildIciciHtml('portal-999', 'Campaign B updated', '3.50');
+  const iciciHtmlRateChanged = buildIciciHtml('portal-999', 'Campaign B updated', '3.60');
+  const iciciNormalized = iciciCollector.normalize(Buffer.from(iciciHtml1)).toString('utf8');
+  const iciciHash1 = iciciCollector.calculateSha256(Buffer.from(iciciHtml1));
+  const iciciHash2 = iciciCollector.calculateSha256(Buffer.from(iciciHtml2));
+  const iciciHashRateChanged = iciciCollector.calculateSha256(Buffer.from(iciciHtmlRateChanged));
+
+  assert(iciciNormalized.includes('data-component="interest-tables"'), 'ICICI hash content contains the official interest-tables component');
+  assert(!iciciNormalized.includes('Campaign A') && !iciciNormalized.includes('portal-123'), 'ICICI normalization excludes volatile navigation and promotion content');
+  assert(iciciHash1 === iciciHash2, 'ICICI source hash is stable when only shell navigation/promotions change');
+  assert(iciciHash1 !== iciciHashRateChanged, 'ICICI source hash changes when an official FD rate changes');
+
+  const iciciFallback = iciciCollector.normalize(Buffer.from('<html><body><p>ICICI component temporarily absent</p></body></html>')).toString('utf8');
+  assert(iciciFallback.includes('ICICI component temporarily absent'), 'ICICI normalization fails safely to full normalized HTML if the component marker is absent');
 
   // ----------------------------------------------------------
   console.log('\nGroup 2: Change Classification Logic...');
