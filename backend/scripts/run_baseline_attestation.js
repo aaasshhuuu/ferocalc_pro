@@ -1,192 +1,193 @@
-// FeroCalc Verified FD Rate Engine — Initial Baseline Attestation & Seeding Runner
-//
-// Inspects live candidate batches, constructs baseline attestation records,
-// and supports safe dry-run promotion simulation.
-//
-// Usage:
-//   node scripts/run_baseline_attestation.js --inspect
-//   node scripts/run_baseline_attestation.js --dry-run
-
 'use strict';
 
+// This CLI is intentionally limited to zero-database-access source inspection.
+// Any ambiguous or mutating mode (including the historical --dry-run/--inspect
+// paths) is refused before environment loading, source fetching, or service creation.
+
 const { loadEnv } = require('../env_loader');
-loadEnv();
 
-const { RateCollectionService } = require('../collectors/collection_service');
-const { defaultRegistry } = require('../collectors/source_registry');
-const { CandidateStagingService } = require('../staging/candidate_staging_service');
-const { BaselineAttestationService, isOfficialBankDomain } = require('../attestation/baseline_attestation_service');
+const ALLOWED_FLAGS = new Set(['--inspect-read-only', '--staging']);
 
-async function main() {
-  const args = process.argv.slice(2);
-  const isDryRun = args.includes('--dry-run');
-  const isInspectOnly = args.includes('--inspect') || (!isDryRun);
+function usageError(logger, args) {
+  logger.error('REFUSED: this CLI only supports --inspect-read-only (optionally with --staging).');
+  logger.error('No source requests, database reads/writes, attestations, or promotions were performed.');
+  logger.error('The legacy --inspect and --dry-run modes are disabled because they could trigger side effects.');
+  return { exitCode: 2, reports: [], refusedArgs: args };
+}
 
-  let isCallableFilter = null;
-  if (args.includes('--callable-only')) {
-    isCallableFilter = true;
-  }
-  for (const a of args) {
-    if (a.startsWith('--isCallable=')) {
-      const val = a.split('=')[1].trim().toLowerCase();
-      if (val === 'true' || val === '1') isCallableFilter = true;
-      else if (val === 'false' || val === '0') isCallableFilter = false;
-      else if (val === 'all') isCallableFilter = 'all';
-    }
+async function main(dependencies = {}) {
+  const args = Array.isArray(dependencies.args) ? dependencies.args : process.argv.slice(2);
+  const logger = dependencies.logger || console;
+  const hasReadOnlyFlag = args.includes('--inspect-read-only');
+  const unsupported = args.filter((arg) => !ALLOWED_FLAGS.has(arg));
+
+  // Fail closed before loading .env, constructing Supabase clients, or fetching.
+  if (!hasReadOnlyFlag || unsupported.length > 0) {
+    return usageError(logger, args);
   }
 
-  console.log('====================================================');
-  console.log(' FeroCalc Baseline Attestation & Seeding (Phase 3C) ');
-  console.log('====================================================');
-  console.log(`Mode:       ${isDryRun ? 'DRY-RUN SIMULATION (Zero mutations)' : 'INSPECTION & VERIFICATION'}`);
-  console.log(`Filter:     ${isCallableFilter !== null ? `isCallable=${isCallableFilter}` : 'ALL (Complete batch)'}`);
-  console.log(`Started At: ${new Date().toISOString()}\n`);
+  const environmentLoader = dependencies.loadEnvironment || loadEnv;
+  environmentLoader({ silent: true });
 
-  const collectionService = new RateCollectionService();
-  const stagingService = new CandidateStagingService();
-  const attestationService = new BaselineAttestationService();
-  const sources = defaultRegistry.getEnabledSources();
+  let RateCollectionService;
+  let defaultRegistry;
+  let CandidateStagingService;
+  let BaselineAttestationService;
+  let isOfficialBankDomain = () => false;
 
-  const inspectionReports = [];
+  if (!dependencies.collectionService) {
+    ({ RateCollectionService } = require('../collectors/collection_service'));
+  }
+  if (!dependencies.sources) {
+    ({ defaultRegistry } = require('../collectors/source_registry'));
+  }
+  if (!dependencies.stagingService) {
+    ({ CandidateStagingService } = require('../staging/candidate_staging_service'));
+  }
+  if (!dependencies.attestationService || !dependencies.isOfficialBankDomain) {
+    ({ BaselineAttestationService, isOfficialBankDomain } = require('../attestation/baseline_attestation_service'));
+  } else {
+    isOfficialBankDomain = dependencies.isOfficialBankDomain;
+  }
+
+  const collectionService = dependencies.collectionService || new RateCollectionService();
+  const stagingService = dependencies.stagingService || new CandidateStagingService();
+  const attestationService = dependencies.attestationService || new BaselineAttestationService();
+  const sources = dependencies.sources || defaultRegistry.getEnabledSources();
+
+  logger.log('====================================================');
+  logger.log(' FeroCalc Read-Only Source Inspection (Phase 3C)    ');
+  logger.log('====================================================');
+  logger.log('Mode:       READ-ONLY INSPECTION');
+  logger.log('Database:   ZERO READS / ZERO WRITES');
+  logger.log('Attestation: DISABLED');
+  logger.log('Promotion:   DISABLED');
+  logger.log(`Started At: ${new Date().toISOString()}\\n`);
+
+  const reports = [];
 
   for (const src of sources) {
-    console.log(`\n--- Inspecting Official Source: ${src.bankCode} (${src.id}) ---`);
-    console.log(`URL: ${src.sourceUrl}`);
-
-    const isOfficial = isOfficialBankDomain(src.sourceUrl);
-    console.log(`Official Bank Domain Verified: ${isOfficial ? 'YES' : 'NO'}`);
+    logger.log(`\\n--- Inspecting Official Source: ${src.bankCode} (${src.id}) ---`);
+    logger.log(`URL: ${src.sourceUrl}`);
 
     try {
-      // 1. Fetch source
-      const colResult = await collectionService.collectSource(src, {
+      const officialDomain = isOfficialBankDomain(src.sourceUrl);
+      // readOnly=true suppresses previous-hash queries, snapshot persistence, and
+      // telemetry writes inside RateCollectionService.
+      const collection = await collectionService.collectSource(src, {
         timeoutMs: 15000,
         maxRetries: 2,
+        readOnly: true,
+        previousHash: null,
       });
 
-      console.log(`HTTP Status:  ${colResult.httpStatus}`);
-      console.log(`Content Hash: ${colResult.contentHash ? colResult.contentHash.substring(0, 32) + '...' : 'null'}`);
+      if (collection.status === 'FETCH_FAILED' || !collection.bodyBuffer || !collection.contentHash) {
+        throw new Error('Source fetch failed or returned no body/hash; no attestation evaluation performed.');
+      }
 
-      // 2. Extract & validate candidates
-      const stageResult = await stagingService.processCollectionResult(colResult, {
+      const staged = await stagingService.processCollectionResult(collection, {
         forceReExtract: true,
-        skipDbPersist: true, // Read-only extraction
+        skipDbPersist: true,
+        skipDbAccess: true,
+        baselineRates: [],
       });
 
-      const candidates = stageResult.candidates || [];
-      const validation = stageResult.validation || { validCount: 0, invalidCount: 0, errors: [] };
-      const anomalies = stageResult.anomalies || { candidatesWithAnomalies: 0, anomalyFlags: [] };
+      const candidates = staged.candidates || [];
+      const validation = staged.validation || { validCount: 0, invalidCount: candidates.length, errors: [] };
+      const anomalies = staged.anomalies || { candidatesWithAnomalies: 0, anomalyFlags: [] };
+      const candidateCount = candidates.length;
+      const invalidCandidateCount = validation.invalidCount !== undefined
+        ? validation.invalidCount
+        : candidates.filter((candidate) => candidate.validationStatus === 'INVALID').length;
+      const anomalousCandidateCount = anomalies.candidatesWithAnomalies !== undefined
+        ? anomalies.candidatesWithAnomalies
+        : candidates.filter((candidate) => Array.isArray(candidate.anomalyFlags) && candidate.anomalyFlags.length > 0).length;
 
-      const batch = await attestationService.createBaselineBatch({
-        bankCode: src.bankCode,
-        sourceId: src.id,
+      // Pure/in-memory evaluation only. Do NOT call createBaselineBatch,
+      // getAttestationByBatchId, attestBaseline, or promoteBaseline here.
+      const eligibility = attestationService.evaluateAttestationEligibility({
         sourceUrl: src.sourceUrl,
-        sourceType: src.sourceType || 'HTML',
-        sourceContentHash: colResult.contentHash,
-        fetchedAt: new Date().toISOString(),
-        parserId: stageResult.parserId,
-        parserVersion: stageResult.parserVersion,
-        candidates,
-        validationSummary: validation,
-        anomalySummary: anomalies,
-        effectiveFrom: stageResult.effectiveFrom,
-        notes: `Baseline snapshot inspected on ${new Date().toISOString()}`,
+        sourceContentHash: collection.contentHash,
+        parserId: staged.parserId,
+        parserVersion: staged.parserVersion,
+        candidateCount,
+        invalidCandidateCount,
+        anomalousCandidateCount,
       });
+      const eligibilityIssues = [...(eligibility.issues || [])];
+      if (!officialDomain) eligibilityIssues.push('Source domain is not on the configured official-bank allowlist.');
+      if (!staged.extracted || candidateCount === 0) {
+        eligibilityIssues.push(staged.message || 'Parser did not produce a non-empty candidate set.');
+      }
 
       const report = {
         bankCode: src.bankCode,
         sourceId: src.id,
         sourceUrl: src.sourceUrl,
-        isOfficialDomain: isOfficial,
-        httpStatus: colResult.httpStatus,
-        sourceContentHash: colResult.contentHash,
-        effectiveDate: stageResult.effectiveFrom || 'Not explicitly published in header',
-        candidateCount: candidates.length,
-        validCount: validation.validCount,
-        invalidCount: validation.invalidCount,
-        anomaliesCount: anomalies.candidatesWithAnomalies,
+        isOfficialDomain: officialDomain,
+        httpStatus: collection.httpStatus,
+        sourceContentHash: collection.contentHash,
+        effectiveDate: staged.effectiveFrom || 'Not explicitly published by parser',
+        candidateCount,
+        validCount: validation.validCount || 0,
+        invalidCount: invalidCandidateCount,
+        anomaliesCount: anomalousCandidateCount,
         anomalyFlags: anomalies.anomalyFlags || [],
-        validationStatus: validation.invalidCount === 0 ? 'VALID' : 'INVALID',
-        batchId: batch.batchId,
-        attestationEligibility: batch.metadata?.eligibility?.eligible || false,
-        attestationIssues: batch.metadata?.eligibility?.issues || [],
+        validationStatus: staged.extracted && invalidCandidateCount === 0 ? 'VALID' : 'REVIEW_REQUIRED',
+        batchId: attestationService.generateBatchId(src.bankCode, src.id, collection.contentHash),
+        structuralEligibility: eligibilityIssues.length === 0,
+        eligibilityIssues,
+        databaseAccess: 'NONE',
+        attestationWritten: false,
+        promotionPerformed: false,
+        note: 'Structural eligibility is not source approval; candidate values and effective dates still require evidence review.',
       };
 
-      inspectionReports.push(report);
-
-      console.log(`Candidates Extracted: ${report.candidateCount}`);
-      console.log(`  - Valid:            ${report.validCount}`);
-      console.log(`  - Invalid:          ${report.invalidCount}`);
-      console.log(`  - Anomalous:        ${report.anomaliesCount}`);
-      console.log(`Effective Date:       ${report.effectiveDate}`);
-      console.log(`Batch ID:             ${report.batchId}`);
-      console.log(`Attestation Eligible: ${report.attestationEligibility ? 'YES (Meets 100% of criteria)' : 'NO'}`);
-      if (!report.attestationEligibility) {
-        console.log(`Issues:               ${report.attestationIssues.join('; ')}`);
+      reports.push(report);
+      logger.log(`HTTP Status:         ${report.httpStatus}`);
+      logger.log(`Source Hash:         ${report.sourceContentHash.substring(0, 24)}...`);
+      logger.log(`Candidates:          ${report.candidateCount} (valid ${report.validCount}, invalid ${report.invalidCount})`);
+      logger.log(`Anomalous:           ${report.anomaliesCount}`);
+      logger.log(`Effective Date:      ${report.effectiveDate}`);
+      logger.log(`Structural Eligible: ${report.structuralEligibility ? 'YES' : 'NO'}`);
+      if (report.eligibilityIssues.length) {
+        logger.log(`Issues:              ${report.eligibilityIssues.join('; ')}`);
       }
-
-      // If dry-run requested, simulate attestation and promotion
-      if (isDryRun && report.attestationEligibility) {
-        console.log('\n  [Dry-Run Simulation]');
-        // 1. Simulate attestation
-        const attestedBatch = await attestationService.attestBaseline({
-          attestationId: batch.id,
-          adminUserId: 'admin_dry_run_simulation',
-          notes: 'Dry-run test attestation',
-        });
-        console.log(`  - Attestation Status: ${attestedBatch.attestationStatus}`);
-
-        // 2. Simulate promotion
-        const promoResult = await attestationService.promoteBaseline({
-          attestationId: batch.id,
-          adminUserId: 'admin_dry_run_simulation',
-          dryRun: true,
-          isCallable: isCallableFilter,
-        });
-        console.log(`  - Candidates Evaluated: ${promoResult.totalCandidates}`);
-        console.log(`  - Simulated Promoted:   ${promoResult.promotedCount}`);
-        console.log(`  - Remaining In Review:  ${promoResult.reviewCount}`);
-        console.log(`  - Invalid:              ${promoResult.invalidCount}`);
-      }
-
-    } catch (err) {
-      console.error(`Inspection failed for ${src.bankCode}:`, err.message);
-      inspectionReports.push({
+    } catch (error) {
+      reports.push({
         bankCode: src.bankCode,
         sourceId: src.id,
-        error: err.message,
+        sourceUrl: src.sourceUrl,
+        error: error.message,
+        databaseAccess: 'NONE',
+        attestationWritten: false,
+        promotionPerformed: false,
       });
+      logger.error(`Read-only inspection failed for ${src.bankCode}: ${error.message}`);
     }
   }
 
-  console.log('\n====================================================');
-  console.log('         BASELINE ATTESTATION SUMMARY TABLE         ');
-  console.log('====================================================');
-  for (const r of inspectionReports) {
-    console.log(`\nBank: [${r.bankCode}] (${r.sourceId})`);
-    console.log(`  Official Source:   ${r.sourceUrl}`);
-    console.log(`  Official Domain:   ${r.isOfficialDomain ? 'CONFIRMED' : 'UNVERIFIED'}`);
-    console.log(`  Source Hash:       ${r.sourceContentHash ? r.sourceContentHash.substring(0, 24) + '...' : 'N/A'}`);
-    console.log(`  Effective Date:    ${r.effectiveDate}`);
-    console.log(`  Candidates Count:  ${r.candidateCount}`);
-    console.log(`  Validation Status: ${r.validationStatus}`);
-    console.log(`  Anomalies:         ${r.anomaliesCount === 0 ? 'None (Clean)' : r.anomalyFlags.join(', ')}`);
-    console.log(`  Batch ID:          ${r.batchId}`);
-    console.log(`  Attestation Ready: ${r.attestationEligibility ? 'YES' : 'NO'}`);
-  }
+  const failed = reports.some((report) => report.error || report.validationStatus === 'REVIEW_REQUIRED');
+  logger.log('\\n====================================================');
+  logger.log('READ-ONLY inspection complete.');
+  logger.log('Database reads:  0');
+  logger.log('Database writes: 0');
+  logger.log('Attestations:    0');
+  logger.log('Promotions:      0');
+  logger.log('====================================================');
 
-  console.log('\n----------------------------------------------------');
-  console.log('SAFETY GUARANTEE: Zero production rates were modified.');
-  console.log('Initial baseline remains in IN_REVIEW pending admin action.');
-  console.log('----------------------------------------------------');
-
-  return inspectionReports;
+  return { exitCode: failed ? 1 : 0, reports };
 }
 
 if (require.main === module) {
-  main().catch(err => {
-    console.error('Fatal execution error:', err);
-    process.exit(1);
-  });
+  main()
+    .then((result) => {
+      if (result.exitCode) process.exitCode = result.exitCode;
+    })
+    .catch((error) => {
+      console.error('Fatal read-only inspection error:', error.message);
+      process.exitCode = 1;
+    });
 }
 
-module.exports = { main };
+module.exports = { main, ALLOWED_FLAGS };
