@@ -8,34 +8,27 @@
 const { BaseCollector } = require('./base_collector');
 
 /**
- * Return the full div element containing an exact Liferay analytics article.
- * This scopes SBI content hashes to the published rate article instead of
- * transient navigation, session timestamps, and unrelated portal widgets.
+ * Extract a complete Liferay content article by its stable analytics marker.
+ * Counting nested div tags avoids truncating nested rate tables at the first
+ * closing div, and excludes volatile portal navigation outside the article.
  *
  * @param {string} html
- * @param {string} assetId
  * @returns {string|null}
  */
-function extractDivByAnalyticsAssetId(html, assetId) {
-  const escapedAssetId = String(assetId).replace(/[.*+?^${}()|[\]\\]/g, '\\class SbiCollector extends BaseCollector {');
-  const opener = new RegExp(
-    `<div\\b(?=[^>]*\\bdata-analytics-asset-id=["']${escapedAssetId}["'])[^>]*>`,
-    'i',
-  ).exec(html);
-
+function extractSbiInterestRateArticle(html) {
+  const opener = /<div\b(?=[^>]*\bdata-analytics-asset-id=["']INTEREST_RATE["'])[^>]*>/i.exec(html);
   if (!opener) return null;
 
   const start = opener.index;
-  const tagEnd = start + opener[0].length;
-  const divTags = /<\\/?div\\b[^>]*>/gi;
-  divTags.lastIndex = tagEnd;
+  const divTags = /<\/?div\b[^>]*>/gi;
+  divTags.lastIndex = start + opener[0].length;
   let depth = 1;
   let match;
 
   while ((match = divTags.exec(html)) !== null) {
-    if (/^<\\//.test(match[0])) {
+    if (/^<\//.test(match[0])) {
       depth -= 1;
-    } else if (!/\\/\\s*>$/.test(match[0])) {
+    } else if (!/\/\s*>$/.test(match[0])) {
       depth += 1;
     }
 
@@ -63,17 +56,18 @@ class SbiCollector extends BaseCollector {
   }
 
   /**
-   * SBI's Liferay shell includes changing navigation, portlet IDs, and form
-   * timestamps even when the rate table has not changed. Hash the exact official
-   * INTEREST_RATE article so real table/effective-date edits change the hash,
-   * while unrelated shell churn does not.
+   * Hash only SBI's official INTEREST_RATE article, not the Liferay portal
+   * shell. The shell contains volatile navigation, portlet IDs, and request
+   * timestamps which change between identical rate-table fetches. The table,
+   * senior-citizen rows, special schemes, and effective-date text remain inside
+   * the hashed article, so real rate/effective-date changes still change SHA-256.
    *
-   * If SBI changes its marker, preserve the full normalized HTML rather than
-   * returning empty or fabricated content.
+   * If SBI changes the marker, fall back to the full normalized HTML rather
+   * than returning empty or fabricated content.
    */
   normalize(buffer) {
     const raw = super.normalize(buffer).toString('utf8');
-    const rateArticle = extractDivByAnalyticsAssetId(raw, 'INTEREST_RATE');
+    const rateArticle = extractSbiInterestRateArticle(raw);
     return Buffer.from(rateArticle || raw, 'utf8');
   }
 }
