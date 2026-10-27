@@ -50,19 +50,19 @@ function extractSbiInterestRateArticle(html) {
  * @returns {string|null}
  */
 function extractIciciInterestTables(html) {
-  const opener = /<div\\b(?=[^>]*\\bdata-component=["']interest-tables["'])[^>]*>/i.exec(html);
+  const opener = /<div\b(?=[^>]*\bdata-component=["']interest-tables["'])[^>]*>/i.exec(html);
   if (!opener) return null;
 
   const start = opener.index;
-  const divTags = /<\\/?div\\b[^>]*>/gi;
+  const divTags = /<\/?div\b[^>]*>/gi;
   divTags.lastIndex = start + opener[0].length;
   let depth = 1;
   let match;
 
   while ((match = divTags.exec(html)) !== null) {
-    if (/^<\\//.test(match[0])) {
+    if (/^<\//.test(match[0])) {
       depth -= 1;
-    } else if (!/\\/\\s*>$/.test(match[0])) {
+    } else if (!/\/\s*>$/.test(match[0])) {
       depth += 1;
     }
 
