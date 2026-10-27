@@ -12,7 +12,7 @@
 'use strict';
 
 const { BaseCollector } = require('../collectors/base_collector');
-const { SbiCollector, IciciCollector } = require('../collectors/pilot_collectors');
+const { SbiCollector, HdfcCollector, IciciCollector } = require('../collectors/pilot_collectors');
 const { SourceRegistry } = require('../collectors/source_registry');
 const { RateCollectionService } = require('../collectors/collection_service');
 const { MetadataOnlySnapshotStorage } = require('../collectors/snapshot_storage');
@@ -103,6 +103,48 @@ async function run() {
 
   // ICICI's full page can change in navigation/promotional sections while the
   // official interest-tables component remains byte-for-byte stable.
+  // HDFC's whole page contains multiple products and rate cards. Hash the
+  // effective-date heading plus the retail-under-3-Crore rate table only.
+  const hdfcCollector = new HdfcCollector();
+  const buildHdfcHtml = (promoId, promoText, rate, effectiveDate) => \`
+    <html><body>
+      <div id="\${promoId}" class="unrelated-promotion">\${promoText}</div>
+      <div id="rate-section">
+        <h2>Domestic / NRO / NRE FIXED DEPOSIT RATE</h2>
+        <p>Applicable from \${effectiveDate}</p>
+        <div id="IR-less-than-3-cr" class="cmp-container">
+          <div class="fdAmount-tablewrap">
+            <table><tbody>
+              <tr><th>Tenure Bucket</th><th>Interest Rate (per annum)</th></tr>
+              <tr><td>7 - 14 days</td><td>\${rate}%</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+      <div id="other-products">Unrelated page content</div>
+    </body></html>\`;
+
+  const hdfcHtml1 = buildHdfcHtml('promo-123', 'Campaign A', '2.75', '19th August, 2026');
+  const hdfcHtml2 = buildHdfcHtml('promo-999', 'Campaign B updated', '2.75', '19th August, 2026');
+  const hdfcRateChanged = buildHdfcHtml('promo-999', 'Campaign B updated', '2.76', '19th August, 2026');
+  const hdfcDateChanged = buildHdfcHtml('promo-999', 'Campaign B updated', '2.75', '20th August, 2026');
+  const hdfcNormalized = hdfcCollector.normalize(Buffer.from(hdfcHtml1)).toString('utf8');
+  const hdfcHash1 = hdfcCollector.calculateSha256(Buffer.from(hdfcHtml1));
+  const hdfcHash2 = hdfcCollector.calculateSha256(Buffer.from(hdfcHtml2));
+  const hdfcHashRateChanged = hdfcCollector.calculateSha256(Buffer.from(hdfcRateChanged));
+  const hdfcHashDateChanged = hdfcCollector.calculateSha256(Buffer.from(hdfcDateChanged));
+
+  assert(hdfcNormalized.includes('Domestic / NRO / NRE FIXED DEPOSIT RATE'), 'HDFC normalization keeps the official rate heading');
+  assert(hdfcNormalized.includes('Applicable from 19th August, 2026'), 'HDFC hash section includes the effective date');
+  assert(hdfcNormalized.includes('id="IR-less-than-3-cr"'), 'HDFC hash section includes the retail under-3-Crore table');
+  assert(!hdfcNormalized.includes('Campaign A') && !hdfcNormalized.includes('promo-123'), 'HDFC normalization excludes unrelated promotion markup');
+  assert(hdfcHash1 === hdfcHash2, 'HDFC source hash is stable when unrelated page-shell content changes');
+  assert(hdfcHash1 !== hdfcHashRateChanged, 'HDFC source hash changes when a retail FD rate changes');
+  assert(hdfcHash1 !== hdfcHashDateChanged, 'HDFC source hash changes when the published effective date changes');
+
+  const hdfcFallback = hdfcCollector.normalize(Buffer.from('<html><body><p>HDFC markers temporarily absent</p></body></html>')).toString('utf8');
+  assert(hdfcFallback.includes('HDFC markers temporarily absent'), 'HDFC normalization fails safely to full normalized HTML if markers are absent');
+
   const iciciCollector = new IciciCollector();
   const buildIciciHtml = (portalId, promoText, rate) => `
     <html><body>
