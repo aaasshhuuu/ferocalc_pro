@@ -2,6 +2,5 @@ build
 .dart_tool
 android
 windows
-backend
 test
 assets/images/finora_logo.jpg
