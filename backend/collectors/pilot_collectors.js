@@ -120,6 +120,95 @@ class HdfcCollector extends BaseCollector {
       ...config,
     });
   }
+
+  /**
+   * Hash the official retail FD section including both its effective date and
+   * under-3-Crore rate table, while excluding unrelated AEM page-shell noise.
+   * If the official marker disappears, fall back to full normalized HTML so an
+   * upstream redesign is detected instead of hashing empty content.
+   */
+  normalize(buffer) {
+    const raw = super.normalize(buffer).toString('utf8');
+    const section = extractHdfcRateSection(raw);
+    return Buffer.from(section || raw, 'utf8');
+  }
+}
+
+es.
+ *
+ * @param {string} html
+ * @returns {string|null}
+ */
+function extractHdfcRateSection(html) {
+  const tableOpener = /<div\b(?=[^>]*\bid=["']IR-less-than-3-cr["'])[^>]*>/i.exec(html);
+  if (!tableOpener) return null;
+
+  const tableStart = tableOpener.index;
+  const divTags = /<\/?div\b[^>]*>/gi;
+  const ancestors = [];
+  let match;
+
+  while ((match = divTags.exec(html)) !== null && match.index < tableStart) {
+    const tag = match[0];
+    if (/^<\//.test(tag)) {
+      ancestors.pop();
+    } else if (!/\/\s*>$/.test(tag)) {
+      ancestors.push({ start: match.index, openTag: tag });
+    }
+  }
+
+  const heading = 'domestic / nro / nre fixed deposit rate';
+  const selected = ancestors
+    .filter((ancestor) => html.slice(ancestor.start, tableStart)
+      .replace(/\s+/g, ' ')
+      .toLowerCase()
+      .includes(heading))
+    .pop();
+
+  if (!selected) return null;
+
+  const outerOpener = /<div\b[^>]*>/gi;
+  outerOpener.lastIndex = selected.start;
+  const opener = outerOpener.exec(html);
+  if (!opener || opener.index !== selected.start) return null;
+
+  divTags.lastIndex = selected.start + opener[0].length;
+  let depth = 1;
+
+  while ((match = divTags.exec(html)) !== null) {
+    if (/^<\//.test(match[0])) {
+      depth -= 1;
+    } else if (!/\/\s*>$/.test(match[0])) {
+      depth += 1;
+    }
+
+    if (depth === 0) {
+      const section = html.slice(selected.start, divTags.lastIndex).trim();
+      if (!section.includes('id="IR-less-than-3-cr"') &&
+          !section.includes("id='IR-less-than-3-cr'")) {
+        return null;
+      }
+      return section;
+    }
+  }
+
+  return null;
+}
+
+class HdfcCollector extends BaseCollector {
+  constructor(config = {}) {
+    super({
+      id: 'hdfc-retail-domestic',
+      bankCode: 'HDFC',
+      bankName: 'HDFC Bank',
+      sourceUrl: 'https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate',
+      sourceType: 'HTML',
+      parserId: 'hdfc_retail_html',
+      parserVersion: '1.0.0',
+      enabled: true,
+      ...config,
+    });
+  }
 }
 
 class IciciCollector extends BaseCollector {
