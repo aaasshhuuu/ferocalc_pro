@@ -1,0 +1,159 @@
+name: FeroCalc Rate Update Pipeline Hourly Scheduler
+
+on:
+  schedule:
+    # Trigger hourly at minute 17 (offset from the top of the hour to prevent cloud thundering herds)
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Execute in dry-run mode (no promotions)'
+        required: false
+        type: boolean
+        default: false
+
+# Concurrency control: prevent overlapping runs of the pipeline
+concurrency:
+  group: rate-update-pipeline
+  cancel-in-progress: false
+
+jobs:
+  scheduled-rate-refresh:
+    name: Execute Hourly Rate Refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check Automation Enablement
+        id: check-enablement
+        env:
+          AUTOMATION_ENABLED: ${{ vars.RATE_PIPELINE_AUTOMATION_ENABLED }}
+        run: |
+          echo "Checking repository variable RATE_PIPELINE_AUTOMATION_ENABLED..."
+          if [ "${AUTOMATION_ENABLED}" = "true" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+            echo "Rate pipeline automation is ENABLED."
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "Rate pipeline automation is DISABLED or unset (RATE_PIPELINE_AUTOMATION_ENABLED != 'true')."
+            echo "Zero network requests will be made. Exiting cleanly."
+          fi
+
+      - name: Validate Pipeline Secrets & Target Configuration
+        if: steps.check-enablement.outputs.enabled == 'true'
+        id: validate-config
+        env:
+          PIPELINE_URL: ${{ secrets.FEROCALC_PIPELINE_URL }}
+          CRON_SECRET: ${{ secrets.FEROCALC_CRON_SECRET }}
+        run: |
+          # Fail-closed check: Ensure both required secrets are configured and non-empty
+          if [ -z "${PIPELINE_URL}" ]; then
+            echo "::error::Missing required secret: FEROCALC_PIPELINE_URL is not set or empty."
+            exit 1
+          fi
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::Missing required secret: FEROCALC_CRON_SECRET is not set or empty."
+            exit 1
+          fi
+
+          # Ensure the URL starts with https:// to prevent insecure transmissions
+          case "${PIPELINE_URL}" in
+            https://*)
+              echo "Target endpoint protocol validated (HTTPS)."
+              ;;
+            *)
+              echo "::error::FEROCALC_PIPELINE_URL must use HTTPS protocol."
+              exit 1
+              ;;
+          esac
+
+          # Ensure the URL targets the verified internal cron endpoint path
+          case "${PIPELINE_URL}" in
+            */api/internal/jobs/run-pipeline)
+              echo "Target endpoint path validated (/api/internal/jobs/run-pipeline)."
+              ;;
+            *)
+              echo "::error::FEROCALC_PIPELINE_URL must end with /api/internal/jobs/run-pipeline"
+              exit 1
+              ;;
+          esac
+
+          echo "Configuration validation passed."
+
+      - name: Trigger Authenticated Rate Pipeline
+        if: steps.check-enablement.outputs.enabled == 'true'
+        id: run-pipeline
+        env:
+          PIPELINE_URL: ${{ secrets.FEROCALC_PIPELINE_URL }}
+          CRON_SECRET: ${{ secrets.FEROCALC_CRON_SECRET }}
+          IS_DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          echo "Dispatching authenticated POST request to pipeline endpoint..."
+
+          # Build request payload
+          if [ "${IS_DRY_RUN}" = "true" ]; then
+            PAYLOAD='{"triggerType":"CRON","dryRun":true}'
+          else
+            PAYLOAD='{"triggerType":"CRON","dryRun":false}'
+          fi
+
+          # Execute single-attempt curl request without retries to prevent mutating retries
+          # Secrets are masked by GitHub Actions automatically; we avoid logging Authorization headers
+          RESPONSE_FILE=$(mktemp)
+          HTTP_STATUS=$(curl -s -S -o "${RESPONSE_FILE}" -w "%{http_code}" \
+            -X POST "${PIPELINE_URL}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "User-Agent: FeroCalc-Rate-Pipeline-Cron/1.0" \
+            -d "${PAYLOAD}")
+
+          echo "HTTP response status: ${HTTP_STATUS}"
+
+          # Parse and sanitize response using Python (available on ubuntu-latest)
+          python3 -c "
+          import json, sys
+
+          status = sys.argv[1]
+          resp_path = sys.argv[2]
+
+          try:
+              with open(resp_path, 'r') as f:
+                  data = json.load(f)
+          except Exception as e:
+              print(f'Failed to parse JSON response: {e}')
+              if status not in ('200', '201'):
+                  sys.exit(1)
+              sys.exit(0)
+
+          # Extract only safe, sanitized summary metrics — never output full raw candidate arrays or secrets
+          pipeline_data = data.get('data', {})
+          job_id = pipeline_data.get('jobId', 'N/A')
+          trigger = pipeline_data.get('triggerType', 'CRON')
+          is_dry_run = pipeline_data.get('dryRun', False)
+          status_field = pipeline_data.get('status', data.get('status', 'UNKNOWN'))
+
+          print('======================================================')
+          print('FeroCalc Scheduled Pipeline Execution Summary')
+          print('======================================================')
+          print(f'Job ID:              {job_id}')
+          print(f'HTTP Status:         {status}')
+          print(f'Pipeline Status:     {status_field}')
+          print(f'Dry Run:             {is_dry_run}')
+          print(f'Source Count:        {pipeline_data.get(\"sourceCount\", \"N/A\")}')
+          print(f'Success Count:       {pipeline_data.get(\"successCount\", 0)}')
+          print(f'Failure Count:       {pipeline_data.get(\"failureCount\", 0)}')
+          print(f'Changed Count:       {pipeline_data.get(\"changedCount\", 0)}')
+          print(f'Extracted Count:     {pipeline_data.get(\"extractedCount\", 0)}')
+          print(f'Promoted Count:      {pipeline_data.get(\"promotedCount\", 0)}')
+          print(f'In-Review Count:     {pipeline_data.get(\"reviewCount\", 0)}')
+          print(f'Invalid Count:       {pipeline_data.get(\"invalidCount\", 0)}')
+          print('======================================================')
+
+          if status not in ('200', '201'):
+              err_msg = data.get('message', 'Non-success response from pipeline endpoint')
+              print(f'Pipeline error: {err_msg}')
+              sys.exit(1)
+          " "${HTTP_STATUS}" "${RESPONSE_FILE}"
+
+          rm -f "${RESPONSE_FILE}"
