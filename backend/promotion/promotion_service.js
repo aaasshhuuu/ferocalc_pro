@@ -22,6 +22,7 @@ class PromotionService {
     this.diffEngine = options.diffEngine || new RateDiffEngine();
     this.policyEngine = options.policyEngine || new PromotionPolicyEngine();
     this.logger = options.logger || console;
+    this.supabaseClient = options.supabaseClient || null;
 
     // In-memory stores for mock/offline testing
     this._inMemoryRates = options.inMemoryRates || [];
@@ -473,9 +474,10 @@ class PromotionService {
       return this._bankIdCache.get(upperCode);
     }
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    const db = this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
+    if (db) {
       try {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await db
           .from('banks')
           .select('id, short_name')
           .eq('short_name', upperCode)
@@ -501,10 +503,11 @@ class PromotionService {
     if (!bankCodeOrId) return [];
     const input = String(bankCodeOrId).trim();
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
+    const db = this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
 
-    if (!isSupabaseAvailable() || !supabaseAdmin) {
+    if (!db) {
       const codeOrId = input.toUpperCase();
-      return this._inMemoryRates.filter(r => 
+      const filtered = this._inMemoryRates.filter(r =>
         (
           (r.bankCode && r.bankCode.toUpperCase() === codeOrId) ||
           (r.bank_code && r.bank_code.toUpperCase() === codeOrId) ||
@@ -512,12 +515,20 @@ class PromotionService {
           r.bankId === input
         ) && r.status === 'VERIFIED'
       );
+      filtered.forEach(row => {
+        const canonicalCode = (row.banks && row.banks.short_name)
+          ? row.banks.short_name.toUpperCase().trim()
+          : (row.bankCode || row.bank_code || (!isUuid ? input.toUpperCase().trim() : null));
+        row.bankCode = canonicalCode;
+        row.bank_code = canonicalCode;
+      });
+      return filtered;
     }
 
     try {
       const bankId = isUuid ? input : await this._resolveBankId(input);
 
-      let query = supabaseAdmin
+      let query = db
         .from('fd_rates')
         .select('*, banks!inner(short_name)')
         .eq('status', 'VERIFIED');
@@ -533,7 +544,17 @@ class PromotionService {
         this.logger.warn(`Failed to fetch active verified rates: ${error.message}`);
         return [];
       }
-      return data || [];
+      const canonicalRequested = !isUuid ? input.toUpperCase().trim() : null;
+      return (data || []).map(row => {
+        const canonicalCode = (row.banks && row.banks.short_name)
+          ? row.banks.short_name.toUpperCase().trim()
+          : canonicalRequested;
+        return {
+          ...row,
+          bankCode: canonicalCode,
+          bank_code: canonicalCode,
+        };
+      });
     } catch (err) {
       this.logger.warn(`Error fetching active verified rates: ${err.message}`);
       return [];

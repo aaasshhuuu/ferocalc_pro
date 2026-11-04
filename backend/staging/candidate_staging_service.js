@@ -38,7 +38,7 @@ class CandidateStagingService {
       // 1. Check existing verified rates in fd_rates
       const { data, error } = await db
         .from('fd_rates')
-        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, banks!inner(short_name)')
+        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, tenure_domain, source_tenure_text, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, banks!inner(short_name)')
         .eq('banks.short_name', bankCode)
         .eq('status', 'VERIFIED');
 

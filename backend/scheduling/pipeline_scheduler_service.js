@@ -42,15 +42,18 @@ class PipelineSchedulerService {
     this.collectionService = options.collectionService || new RateCollectionService();
     this.diffEngine = options.diffEngine || new RateDiffEngine();
     this.policyEngine = options.policyEngine || new PromotionPolicyEngine();
+    this.supabaseClient = options.supabaseClient || null;
     this.promotionService = options.promotionService || new PromotionService({
       diffEngine: this.diffEngine,
       policyEngine: this.policyEngine,
       logger: this.logger,
+      supabaseClient: this.supabaseClient,
       inMemoryRates: options.inMemoryRates,
       inMemoryAuditLogs: options.inMemoryAuditLogs,
     });
     this.stagingService = options.stagingService || new CandidateStagingService({
       logger: this.logger,
+      supabaseClient: this.supabaseClient,
     });
 
     // In-memory run log for testing/offline environments
@@ -434,6 +437,31 @@ class PipelineSchedulerService {
           // Escalated to IN_REVIEW
           result.reviewCount++;
           candidate.stagingStatus = 'IN_REVIEW';
+          candidate.staging_status = 'IN_REVIEW';
+
+          // Persist staging_status = 'IN_REVIEW' to staged_rate_candidates if database client is available
+          const candId = candidate.id || candidate.stagedCandidateId || candidate._candidate_id;
+          const db = this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
+          if (candId && db) {
+            try {
+              const { error: updateErr } = await db
+                .from('staged_rate_candidates')
+                .update({ staging_status: 'IN_REVIEW' })
+                .eq('id', candId);
+
+              if (updateErr) {
+                this.logger.error(`[PipelineSchedulerService] Failed to persist IN_REVIEW status for candidate ${candId}: ${updateErr.message}`);
+                result.status = 'ERROR';
+                result.error = `Failed to persist candidate IN_REVIEW status: ${updateErr.message}`;
+                return result;
+              }
+            } catch (dbErr) {
+              this.logger.error(`[PipelineSchedulerService] Exception persisting IN_REVIEW status for candidate ${candId}: ${dbErr.message}`);
+              result.status = 'ERROR';
+              result.error = `Exception persisting candidate IN_REVIEW status: ${dbErr.message}`;
+              return result;
+            }
+          }
 
           await this.notifier.notify({
             severity: SEVERITY_LEVELS.WARNING,
