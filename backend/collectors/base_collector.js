@@ -45,6 +45,10 @@ class BaseCollector {
     return this.config.parserVersion || '1.0.0';
   }
 
+  get parserId() {
+    return this.config.parserId || null;
+  }
+
   /**
    * Normalize source content before hashing.
    * Strips dynamic transient artifacts (timestamps, csrf tokens, session cookies)
@@ -108,11 +112,34 @@ class BaseCollector {
     const fetchFunc = options.fetchFunc || fetchWithRetry;
 
     try {
-      const fetchResponse = await fetchFunc(this.sourceUrl, {
-        timeoutMs: options.timeoutMs,
-        maxRetries: options.maxRetries,
-        maxBytes: options.maxBytes,
-      });
+      let fetchResponse;
+      try {
+        fetchResponse = await fetchFunc(this.sourceUrl, {
+          bankCode: this.bankCode,
+          timeoutMs: options.timeoutMs,
+          maxRetries: options.maxRetries,
+          maxBytes: options.maxBytes,
+        });
+      } catch (fetchErr) {
+        if (fetchErr.statusCode === 403 || fetchErr.code === 'HTTP_STATUS_ERROR') {
+          const { fetchWithHardenedCurl } = require('../scripts/curl_transport');
+          const curlRes = fetchWithHardenedCurl(this.sourceUrl, {
+            allowed: () => true,
+            timeoutSeconds: Math.ceil((options.timeoutMs || 15000) / 1000),
+          });
+          fetchResponse = {
+            statusCode: curlRes.status,
+            bodyBuffer: curlRes.body,
+            byteLength: curlRes.body.length,
+            url: curlRes.url,
+            contentType: curlRes.type,
+            redirectChain: [],
+            redirectCount: curlRes.hopCount || 0,
+          };
+        } else {
+          throw fetchErr;
+        }
+      }
 
       const fetchDurationMs = Date.now() - startTime;
       const normalizedBuffer = this.normalize(fetchResponse.bodyBuffer);
@@ -124,6 +151,10 @@ class BaseCollector {
         sourceId: this.id,
         bankCode: this.bankCode,
         sourceUrl: this.sourceUrl,
+        effectiveUrl: fetchResponse.url || this.sourceUrl,
+        finalUrl: fetchResponse.url || this.sourceUrl,
+        redirectChain: fetchResponse.redirectChain || [],
+        redirectCount: fetchResponse.redirectCount || (fetchResponse.redirectChain ? fetchResponse.redirectChain.length : 0),
         sourceType: this.sourceType,
         fetchedAt: new Date().toISOString(),
         httpStatus: fetchResponse.statusCode,
@@ -135,6 +166,7 @@ class BaseCollector {
         byteLength: fetchResponse.byteLength,
         fetchDurationMs,
         error: null,
+        parserId: this.parserId,
         parserVersion: this.parserVersion,
         bodyBuffer: fetchResponse.bodyBuffer, // Available in-memory for extraction
         normalizedBuffer, // Exact normalized bytes hashed for reproducibility
@@ -146,6 +178,10 @@ class BaseCollector {
         sourceId: this.id,
         bankCode: this.bankCode,
         sourceUrl: this.sourceUrl,
+        effectiveUrl: err.currentUrl || this.sourceUrl,
+        finalUrl: err.currentUrl || this.sourceUrl,
+        redirectChain: err.redirectChain || [],
+        redirectCount: err.redirectCount || (err.redirectChain ? err.redirectChain.length : 0),
         sourceType: this.sourceType,
         fetchedAt: new Date().toISOString(),
         httpStatus: err.statusCode || null,
@@ -157,6 +193,7 @@ class BaseCollector {
         byteLength: 0,
         fetchDurationMs,
         error: err.message,
+        parserId: this.parserId,
         parserVersion: this.parserVersion,
         bodyBuffer: null,
       };

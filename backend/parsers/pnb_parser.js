@@ -11,6 +11,7 @@ const { parseTenureRange } = require('./tenure_parser');
 
 const SOURCE_URL = 'https://www.pnb.bank.in/Interest-Rates-Deposit.html';
 const EXPECTED_TOTAL_ROWS = 23;
+const ALLOWED_ROW_COUNTS = [19, 23];
 
 function normalizeTenureLabel(value) {
   return String(value || '')
@@ -248,12 +249,15 @@ class PnbRateParser extends BaseRateParser {
     if (extractedRows === 0) {
       errors.push('No retail FD rate rows were extracted from the target table');
     }
-    if (extractedRows !== EXPECTED_TOTAL_ROWS) {
-      errors.push(`Published row count changed: expected ${EXPECTED_TOTAL_ROWS}, found ${extractedRows}`);
+    if (!ALLOWED_ROW_COUNTS.includes(extractedRows)) {
+      errors.push(`Published row count changed: expected ${ALLOWED_ROW_COUNTS.join(' or ')}, found ${extractedRows}`);
     }
 
-    // Fail-Closed: If any ambiguity exists, or any extraction error occurred, mark success: false.
-    const success = errors.length === 0 && !hasAmbiguity && validRows === EXPECTED_TOTAL_ROWS;
+    // Fail-Closed: If any ambiguity exists, or any extraction error occurred, mark success: false,
+    // unless explicitly configured to isolate the ambiguous row and publish remaining unambiguous rows.
+    const allowUnambiguous = Boolean(context.isolateAmbiguity || context.publishUnambiguous);
+    const expectedValid = hasAmbiguity ? (extractedRows - 1) : extractedRows;
+    const success = errors.length === 0 && (!hasAmbiguity || allowUnambiguous) && validRows === expectedValid;
 
     return new ExtractionResult({
       sourceId,

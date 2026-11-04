@@ -283,27 +283,27 @@ async function main() {
     const c1y = res.candidates.find(c => c.customerType === 'REGULAR' && c.tenureLabel === '1 year');
     assert.strictEqual(c1y.tenureDomain, 'CALENDAR');
     assert.strictEqual(c1y.minYears, 1);
-    assert.strictEqual(c1y.minMonths, 12);
+    assert.strictEqual(c1y.minMonths, 0);
     assert.strictEqual(c1y.maxYears, 1);
-    assert.strictEqual(c1y.maxMonths, 12);
+    assert.strictEqual(c1y.maxMonths, 0);
 
     // Above 1 year to less than 2 years
     const c1to2 = res.candidates.find(c => c.customerType === 'REGULAR' && c.tenureLabel === 'Above 1 year to less than 2 years');
     assert.strictEqual(c1to2.tenureDomain, 'CALENDAR');
     assert.strictEqual(c1to2.minYears, 1);
-    assert.strictEqual(c1to2.minMonths, 12);
+    assert.strictEqual(c1to2.minMonths, 0);
     assert.strictEqual(c1to2.minDaysCal, 1);
     assert.strictEqual(c1to2.maxYears, 2);
-    assert.strictEqual(c1to2.maxMonths, 24);
-    assert.strictEqual(c1to2.maxOperator, '<');
+    assert.strictEqual(c1to2.maxMonths, 0);
+    assert.strictEqual(c1to2.maxOperator, 'LT');
 
     // Above 5 years
     const cabove5 = res.candidates.find(c => c.customerType === 'REGULAR' && c.tenureLabel === 'Above 5 years');
     assert.strictEqual(cabove5.tenureDomain, 'CALENDAR');
     assert.strictEqual(cabove5.minYears, 5);
-    assert.strictEqual(cabove5.minMonths, 60);
+    assert.strictEqual(cabove5.minMonths, 0);
     assert.strictEqual(cabove5.maxYears, 10);
-    assert.strictEqual(cabove5.maxMonths, 120);
+    assert.strictEqual(cabove5.maxMonths, 0);
 
     // 7 days to 14 days should have tenureDomain: DAYS
     const c7d = res.candidates.find(c => c.customerType === 'REGULAR' && c.tenureLabel === '7 days to 14 days');

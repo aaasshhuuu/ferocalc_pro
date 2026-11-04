@@ -31,6 +31,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'centralbankofindia.co.in',
   'indianbank.bank.in',
   'indianbank.in',
+  'bankofbaroda.bank.in',
+  'bankofbaroda.in',
 ];
 
 function isOfficialDomain(url) {
@@ -68,35 +70,38 @@ class PromotionPolicyEngine {
     const failedReasons = [];
 
     // 1. Source Fetch Check
-    const fetchStatus = context.fetchStatus || candidate.fetchStatus || 'FIRST_SEEN';
+    const fetchStatus = context.fetchStatus || candidate.fetchStatus || candidate.fetch_status || 'FIRST_SEEN';
     checks.sourceFetchSucceeded = fetchStatus !== 'FETCH_FAILED' && context.httpStatus !== 500 && context.httpStatus !== 0;
     if (!checks.sourceFetchSucceeded) {
       failedReasons.push(`Source fetch failed or returned error HTTP status (${context.httpStatus || 'N/A'})`);
     }
 
     // 2. Parser Execution Check
-    checks.parserSucceeded = Boolean(candidate.parserId && candidate.parserVersion && context.parserSuccess !== false);
+    const parserId = candidate.parserId || candidate.parser_id;
+    const parserVersion = candidate.parserVersion || candidate.parser_version;
+    checks.parserSucceeded = Boolean(parserId && parserVersion && context.parserSuccess !== false);
     if (!checks.parserSucceeded) {
       failedReasons.push('Parser execution did not complete successfully or parser ID is missing');
     }
 
     // 3. Data Validation Check
-    const isValidationValid = candidate.validationStatus === 'VALID' &&
-      (!candidate.validationErrors || candidate.validationErrors.length === 0);
+    const valStatus = candidate.validationStatus || candidate.validation_status || 'VALID';
+    const valErrors = candidate.validationErrors || candidate.validation_errors || [];
+    const isValidationValid = valStatus === 'VALID' && (!valErrors || valErrors.length === 0);
     checks.validationPassed = isValidationValid;
     if (!checks.validationPassed) {
-      failedReasons.push(`Candidate failed data validation: ${(candidate.validationErrors || []).join('; ')}`);
+      failedReasons.push(`Candidate failed data validation: ${(valErrors || []).join('; ')}`);
     }
 
     // 4. Source Content Hash Check
-    const hash = candidate.sourceContentHash || context.sourceContentHash;
+    const hash = candidate.sourceContentHash || candidate.source_content_hash || context.sourceContentHash;
     checks.sourceHashValid = Boolean(hash && /^[0-9a-f]{64}$/i.test(hash));
     if (!checks.sourceHashValid) {
       failedReasons.push(`Invalid or missing sourceContentHash: "${hash}"`);
     }
 
     // 5. Official Source Domain Check
-    const url = candidate.sourceUrl || context.sourceUrl;
+    const url = candidate.sourceUrl || candidate.source_url || context.sourceUrl;
     if (this.config.requireOfficialDomain) {
       checks.officialDomain = Boolean(url && isOfficialDomain(url));
       if (!checks.officialDomain) {
@@ -107,7 +112,7 @@ class PromotionPolicyEngine {
     }
 
     // 6. Extraction Count Anomaly Check
-    const anomalyFlags = candidate.anomalyFlags || [];
+    const anomalyFlags = candidate.anomalyFlags || candidate.anomaly_flags || [];
     checks.noCountAnomaly = !anomalyFlags.some(f => f.includes('ANOMALY_COUNT_MISMATCH'));
     if (!checks.noCountAnomaly) {
       failedReasons.push('Batch exhibited dramatic candidate count mismatch anomaly');
@@ -121,7 +126,8 @@ class PromotionPolicyEngine {
 
     // 8. Effective Date Check
     if (this.config.requireExplicitEffectiveDate) {
-      checks.explicitEffectiveDate = Boolean(candidate.effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(candidate.effectiveFrom));
+      const effectiveFrom = candidate.effectiveFrom || candidate.effective_from;
+      checks.explicitEffectiveDate = Boolean(effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom));
       if (!checks.explicitEffectiveDate) {
         failedReasons.push('Candidate does not have a verified, explicitly sourced effectiveFrom date');
       }

@@ -97,7 +97,7 @@ runTest('1. Unmarked standard senior rate (7-45d) populates regular candidate se
 });
 
 runTest('2. Unmarked standard senior rate (1-2y) populates regular candidate seniorCitizenRate', () => {
-  const reg1y = resFixture.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 365);
+  const reg1y = resFixture.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 365 || (c.tenureDomain === 'CALENDAR' && c.minYears === 1)));
   assert.ok(reg1y, 'Regular 1-2y candidate not found');
   assert.strictEqual(reg1y.interestRate, 6.25);
   assert.strictEqual(reg1y.seniorCitizenRate, 6.75);
@@ -105,7 +105,7 @@ runTest('2. Unmarked standard senior rate (1-2y) populates regular candidate sen
 });
 
 runTest('3. Qualified SBI We-Care senior cell (7.05*) does NOT leak into 5-10y regular candidate (seniorCitizenRate === null)', () => {
-  const reg5y = resFixture.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
+  const reg5y = resFixture.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.ok(reg5y, 'Regular 5-10y candidate not found');
   assert.strictEqual(reg5y.interestRate, 6.05, 'Regular interest rate must remain 6.05%');
   assert.strictEqual(reg5y.seniorCitizenRate, null, 'Senior citizen rate must be null (no 7.05% promotional leakage)');
@@ -114,7 +114,7 @@ runTest('3. Qualified SBI We-Care senior cell (7.05*) does NOT leak into 5-10y r
 });
 
 runTest('4. Corresponding 5-10y senior candidate is marked SPECIAL_SCHEME with SBI We-Care identity', () => {
-  const sen5y = resFixture.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 1825);
+  const sen5y = resFixture.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.ok(sen5y, 'Senior 5-10y candidate not found');
   assert.strictEqual(sen5y.interestRate, 7.05);
   assert.strictEqual(sen5y.rateCategory, 'SPECIAL_SCHEME');
@@ -166,7 +166,7 @@ runTest('5. Synthetic fixture produces exactly 16 candidates (8 regular + 8 seni
 
 runTest('6. Synthetic fixture rows 1-7 preserve the co-published standard senior-rate fields', () => {
   const expectedStandardSeniorRates = [3.55, 5.40, 6.15, 6.40, 6.75, 6.90, 6.80];
-  const regularSlabs1to7 = fixtureResult.candidates.filter(c => c.customerType === 'REGULAR' && c.minTenureDays < 1825);
+  const regularSlabs1to7 = fixtureResult.candidates.filter(c => c.customerType === 'REGULAR' && (c.minTenureDays != null ? c.minTenureDays < 1825 : c.minYears < 5));
   assert.strictEqual(regularSlabs1to7.length, 7);
 
   regularSlabs1to7.forEach((c, idx) => {
@@ -177,7 +177,7 @@ runTest('6. Synthetic fixture rows 1-7 preserve the co-published standard senior
 });
 
 runTest('7. Synthetic final regular fixture has interestRate=6.05 and no inferred standard senior rate', () => {
-  const regSlab8 = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
+  const regSlab8 = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.ok(regSlab8);
   assert.strictEqual(regSlab8.interestRate, 6.05);
   assert.strictEqual(regSlab8.seniorCitizenRate, null, 'Must NOT leak 7.05% into regular candidate');
@@ -186,7 +186,7 @@ runTest('7. Synthetic final regular fixture has interestRate=6.05 and no inferre
 });
 
 runTest('8. Synthetic final senior fixture has interestRate=7.05 and SPECIAL_SCHEME classification', () => {
-  const senSlab8 = fixtureResult.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 1825);
+  const senSlab8 = fixtureResult.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.ok(senSlab8);
   assert.strictEqual(senSlab8.interestRate, 7.05);
   assert.strictEqual(senSlab8.rateCategory, 'SPECIAL_SCHEME');
@@ -277,18 +277,25 @@ runTest('12. Alternative qualification marker (#) fails closed without leaking i
 console.log('\nGroup 4: Batch 1A Concordance & Non-Inferrence Guard...');
 
 runTest('13. Parser does NOT infer a standard senior rate when the fixture senior rate is marked qualified', () => {
-  const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
+  const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.strictEqual(reg5y.seniorCitizenRate, null);
   assert.notStrictEqual(reg5y.seniorCitizenRate, 6.55, 'Must not infer 6.55%');
 });
 
 runTest('14. Parsed synthetic 5-10y regular fixture candidate matches expected no-inference behavior', () => {
-  const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
+  const reg5y = fixtureResult.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.strictEqual(reg5y.bankCode, 'SBI');
   assert.strictEqual(reg5y.productType, 'RETAIL_DOMESTIC_TERM_DEPOSIT');
   assert.strictEqual(reg5y.customerType, 'REGULAR');
-  assert.strictEqual(reg5y.minTenureDays, 1825);
-  assert.strictEqual(reg5y.maxTenureDays, 3650);
+  if (reg5y.tenureDomain === 'CALENDAR') {
+    assert.strictEqual(reg5y.minTenureDays, null);
+    assert.strictEqual(reg5y.maxTenureDays, null);
+    assert.strictEqual(reg5y.minYears, 5);
+    assert.strictEqual(reg5y.maxYears, 10);
+  } else {
+    assert.strictEqual(reg5y.minTenureDays, 1825);
+    assert.strictEqual(reg5y.maxTenureDays, 3650);
+  }
   assert.strictEqual(reg5y.interestRate, 6.05);
   assert.strictEqual(reg5y.seniorCitizenRate, null);
   assert.strictEqual(reg5y.rateCategory, 'STANDARD');
@@ -430,8 +437,8 @@ runTest('19. Scenario 5: Unmarked standard senior rate on normal slab populates 
   const res = parser.parse(htmlScen5, { sourceContentHash: '5'.repeat(64) });
 
   // 1. Normal slab (1-2y)
-  const reg1y = res.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 365);
-  const sen1y = res.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 365);
+  const reg1y = res.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 365 || (c.tenureDomain === 'CALENDAR' && c.minYears === 1)));
+  const sen1y = res.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 365 || (c.tenureDomain === 'CALENDAR' && c.minYears === 1)));
   assert.ok(reg1y && sen1y);
   assert.strictEqual(reg1y.interestRate, 6.25);
   assert.strictEqual(reg1y.seniorCitizenRate, 6.75);
@@ -441,8 +448,8 @@ runTest('19. Scenario 5: Unmarked standard senior rate on normal slab populates 
   assert.strictEqual(sen1y.schemeName, null);
 
   // 2. 5-10y slab without qualification marker is treated as standard (not falsely assumed We-Care)
-  const reg5y = res.candidates.find(c => c.customerType === 'REGULAR' && c.minTenureDays === 1825);
-  const sen5y = res.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 1825);
+  const reg5y = res.candidates.find(c => c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
+  const sen5y = res.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5)));
   assert.ok(reg5y && sen5y);
   assert.strictEqual(reg5y.interestRate, 6.05);
   assert.strictEqual(reg5y.seniorCitizenRate, 6.55);

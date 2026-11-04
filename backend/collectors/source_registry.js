@@ -145,7 +145,7 @@ const PILOT_SOURCES = [
     id: 'axis-retail-domestic',
     bankCode: 'AXIS',
     bankName: 'Axis Bank',
-    sourceUrl: 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-08-october-2026.pdf?sfvrsn=15a73678_1',
+    sourceUrl: 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-29-october-2026.pdf?sfvrsn=c1f0331d_1',
     landingPageUrl: 'https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates',
     sourceType: 'PDF',
     parserId: 'axis_retail_pdf',
@@ -165,6 +165,18 @@ const PILOT_SOURCES = [
     enabled: false,
     pollingIntervalHours: 24,
     description: 'Callable retail domestic FD rates below Rs. 3 crore and special schemes (IND Supreme 2.0, Ind Green, Ind Grow, Ind Prosper); disabled pending full live-source parity and human review',
+  },
+  {
+    id: 'bob-retail-domestic',
+    bankCode: 'BOB',
+    bankName: 'Bank of Baroda',
+    sourceUrl: 'https://bankofbaroda.bank.in/interest-rate-and-service-charges/deposits-interest-rates/fixed-deposits-callable-and-non-callable-upto-ten-crores',
+    sourceType: 'HTML',
+    parserId: 'bob_retail_html',
+    parserVersion: '1.0.0',
+    enabled: false,
+    pollingIntervalHours: 24,
+    description: 'Bank of Baroda Domestic Term Deposits below Rs. 3 Crore (Callable)',
   },
 ];
 

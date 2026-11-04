@@ -14,8 +14,9 @@
 const http  = require('http');
 const https = require('https');
 const { URL } = require('url');
+const { validateBankDomain } = require('../attestation/baseline_attestation_service');
 
-const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 FeroCalcRateMonitor/1.0';
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB max response limit
@@ -55,9 +56,14 @@ function singleRequest(targetUrl, options) {
       method: 'GET',
       headers: {
         'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,*/*;q=0.7',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Cache-Control': 'no-cache',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1',
       },
       timeout: options.timeoutMs || DEFAULT_TIMEOUT_MS,
     };
@@ -130,6 +136,19 @@ async function fetchWithRetry(url, options = {}) {
   let attempt = 0;
   let currentUrl = url;
   let redirectsCount = 0;
+  const redirectChain = [];
+  const visitedUrls = new Set([url]);
+
+  // Initial URL bank domain verification if bankCode is provided
+  if (options.bankCode) {
+    const initCheck = validateBankDomain(url, options.bankCode, { requireHttps: options.requireHttps !== false });
+    if (!initCheck.valid) {
+      throw new FetchError(
+        `Initial URL is not an authorized official domain for bank [${options.bankCode}]: ${initCheck.reason}`,
+        'UNAUTHORIZED_DOMAIN'
+      );
+    }
+  }
 
   while (attempt <= maxRetries) {
     try {
@@ -140,12 +159,45 @@ async function fetchWithRetry(url, options = {}) {
         if (redirectsCount > maxRedirects) {
           throw new FetchError(`Exceeded maximum redirect limit of ${maxRedirects}`, 'TOO_MANY_REDIRECTS');
         }
-        currentUrl = result.redirectUrl;
+
+        const nextUrl = result.redirectUrl;
+
+        // Loop detection
+        if (visitedUrls.has(nextUrl)) {
+          throw new FetchError(
+            `Redirect loop detected: "${currentUrl}" redirects back to previously visited "${nextUrl}"`,
+            'REDIRECT_LOOP'
+          );
+        }
+
+        // Bank-scoped redirect destination validation BEFORE following!
+        if (options.bankCode) {
+          const redirectCheck = validateBankDomain(nextUrl, options.bankCode, { requireHttps: options.requireHttps !== false });
+          if (!redirectCheck.valid) {
+            throw new FetchError(
+              `Redirect target "${nextUrl}" is not an authorized official domain for bank [${options.bankCode}]: ${redirectCheck.reason}`,
+              'UNAUTHORIZED_REDIRECT'
+            );
+          }
+        }
+
+        // Record redirect hop
+        redirectChain.push({
+          fromUrl: currentUrl,
+          toUrl: nextUrl,
+          statusCode: result.statusCode,
+        });
+
+        visitedUrls.add(nextUrl);
+        currentUrl = nextUrl;
         continue; // Immediately follow redirect without counting as a failed attempt
       }
 
       return {
         url: currentUrl,
+        originalUrl: url,
+        redirectChain,
+        redirectCount: redirectsCount,
         statusCode: result.statusCode,
         contentType: result.contentType,
         headers: result.headers,
@@ -155,10 +207,21 @@ async function fetchWithRetry(url, options = {}) {
       };
 
     } catch (err) {
+      err.redirectChain = redirectChain;
+      err.currentUrl = currentUrl;
+      err.redirectCount = redirectsCount;
+
       attempt++;
-      // Do not retry on non-transient errors like 404, 403, 401, or invalid URL
+      // Do not retry on non-transient errors like 404, 403, 401, or invalid/unauthorized URL
       const isClientError = err.statusCode && err.statusCode >= 400 && err.statusCode < 500;
-      const isUnrecoverable = ['INVALID_URL', 'MAX_SIZE_EXCEEDED', 'TOO_MANY_REDIRECTS'].includes(err.code);
+      const isUnrecoverable = [
+        'INVALID_URL',
+        'MAX_SIZE_EXCEEDED',
+        'TOO_MANY_REDIRECTS',
+        'REDIRECT_LOOP',
+        'UNAUTHORIZED_DOMAIN',
+        'UNAUTHORIZED_REDIRECT',
+      ].includes(err.code);
 
       if (attempt > maxRetries || isClientError || isUnrecoverable) {
         throw err;

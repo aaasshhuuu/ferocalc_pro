@@ -121,7 +121,7 @@ async function runAll() {
   console.log('\nGroup 2: Candidate Model & Special Scheme Mapping...');
 
   const weCareCandidate = result.candidates.find(c =>
-    c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 1825 && c.maxTenureDays === 3650
+    c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5 && c.maxYears === 10))
   );
 
   runTest('5. SBI 5-10y senior candidate is identified as SPECIAL_SCHEME', () => {
@@ -134,7 +134,7 @@ async function runAll() {
   });
 
   const standardSeniorCandidate = result.candidates.find(c =>
-    c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays === 365 && c.maxTenureDays === 729
+    c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays === 365 || (c.tenureDomain === 'CALENDAR' && c.minYears === 1 && c.maxYears === 2))
   );
 
   runTest('6. SBI 1-2y senior candidate remains STANDARD with null scheme metadata', () => {
@@ -146,7 +146,7 @@ async function runAll() {
   });
 
   const regularCandidate = result.candidates.find(c =>
-    c.customerType === 'REGULAR' && c.minTenureDays === 1825
+    c.customerType === 'REGULAR' && (c.minTenureDays === 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears === 5))
   );
 
   runTest('7. SBI 5-10y regular candidate remains STANDARD', () => {
@@ -234,8 +234,17 @@ async function runAll() {
       productType: 'RETAIL_DOMESTIC_TERM_DEPOSIT',
       customerType: 'SENIOR_CITIZEN',
       isCallable: true,
-      minTenureDays: 1825,
-      maxTenureDays: 3650,
+      tenureDomain: weCareCandidate.tenureDomain,
+      minTenureDays: weCareCandidate.minTenureDays,
+      maxTenureDays: weCareCandidate.maxTenureDays,
+      minYears: weCareCandidate.minYears,
+      minMonths: weCareCandidate.minMonths,
+      minDaysCal: weCareCandidate.minDaysCal,
+      minOperator: weCareCandidate.minOperator,
+      maxYears: weCareCandidate.maxYears,
+      maxMonths: weCareCandidate.maxMonths,
+      maxDaysCal: weCareCandidate.maxDaysCal,
+      maxOperator: weCareCandidate.maxOperator,
       minDeposit: 1000,
       maxDeposit: 29999999,
       interestRate: 6.55,

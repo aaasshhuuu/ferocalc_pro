@@ -252,9 +252,7 @@ async function run() {
   const mockFlakyFetch = async (url, opts) => {
     callCount++;
     if (callCount < 2) {
-      // Test custom retry wrapper behavior
       if (opts && opts.maxRetries > 0) {
-        // simulate retry
         callCount++;
         return {
           statusCode: 200,
@@ -316,7 +314,7 @@ async function run() {
   const testService = new RateCollectionService({
     registry: testRegistry,
     storage: testStorage,
-    logger: { log: () => {}, error: () => {} }, // Silent logger in tests
+    logger: { log: () => {}, error: () => {} },
   });
 
   const mockBatchFetch = async (url) => {
@@ -352,6 +350,39 @@ async function run() {
   assert(snapshotMeta !== null, 'Snapshot metadata stored for successful fetch');
   assert(snapshotMeta.storageUri === null, 'Storage URI is null (no fake remote URLs)');
   assert(snapshotMeta.storageType === 'metadata_only', 'Storage type marked metadata_only');
+
+  // ----------------------------------------------------------
+  console.log('\nGroup 8: Read-Only Collection Safety Guard...');
+  // ----------------------------------------------------------
+  let storageSaved = false;
+  let resultPersisted = false;
+  const mockStorageGuard = {
+    saveSnapshot: async () => { storageSaved = true; },
+    getSnapshotMetadata: async () => null,
+  };
+  const readOnlyService = new RateCollectionService({
+    registry: testRegistry,
+    storage: mockStorageGuard,
+    logger: { log: () => {}, error: () => {} },
+  });
+  readOnlyService._getPreviousHash = async () => { throw new Error('DB read attempted'); };
+  readOnlyService._persistResult = async () => { resultPersisted = true; };
+
+  const roResult = await readOnlyService.collectSource(mockSources[0], {
+    readOnly: true,
+    fetchFunc: async () => ({
+      statusCode: 200,
+      contentType: 'text/html',
+      headers: {},
+      bodyBuffer: Buffer.from('test rates'),
+      byteLength: 10,
+      attemptsMade: 1,
+    }),
+  });
+
+  assert(roResult.status === 'FIRST_SEEN', 'Read-only collection succeeds');
+  assert(storageSaved === false, 'Read-only mode skips snapshot storage');
+  assert(resultPersisted === false, 'Read-only mode skips result persistence');
 
   console.log('\n======================================================');
   console.log(`Results: ${passedTests} passed, ${failedTests} failed (Total: ${totalTests})`);

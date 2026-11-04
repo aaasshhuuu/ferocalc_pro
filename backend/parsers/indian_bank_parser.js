@@ -53,8 +53,8 @@ function extractCalendarTenure(label) {
   if (/^181\s*days\s*to\s*less\s+than\s*9\s*months?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 0, minMonths: 0, minDaysCal: 181, minOperator: '>=',
-      maxYears: 0, maxMonths: 9, maxDaysCal: 0, maxOperator: '<',
+      minYears: 0, minMonths: 0, minDaysCal: 181, minOperator: 'GTE',
+      maxYears: 0, maxMonths: 9, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -62,8 +62,8 @@ function extractCalendarTenure(label) {
   if (/^9\s*months?\s*to\s*less\s+than\s*1\s*year$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 0, minMonths: 9, minDaysCal: 0, minOperator: '>=',
-      maxYears: 1, maxMonths: 12, maxDaysCal: 0, maxOperator: '<',
+      minYears: 0, minMonths: 9, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 1, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -71,8 +71,8 @@ function extractCalendarTenure(label) {
   if (/^1\s*year$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 1, minMonths: 12, minDaysCal: 0, minOperator: '>=',
-      maxYears: 1, maxMonths: 12, maxDaysCal: 0, maxOperator: '<=',
+      minYears: 1, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 1, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -80,8 +80,8 @@ function extractCalendarTenure(label) {
   if (/^Above\s+1\s*year\s*to\s*less\s+than\s*2\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 1, minMonths: 12, minDaysCal: 1, minOperator: '>=',
-      maxYears: 2, maxMonths: 24, maxDaysCal: 0, maxOperator: '<',
+      minYears: 1, minMonths: 0, minDaysCal: 1, minOperator: 'GTE',
+      maxYears: 2, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -89,8 +89,8 @@ function extractCalendarTenure(label) {
   if (/^2\s*years?\s*to\s*less\s+than\s*3\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 2, minMonths: 24, minDaysCal: 0, minOperator: '>=',
-      maxYears: 3, maxMonths: 36, maxDaysCal: 0, maxOperator: '<',
+      minYears: 2, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 3, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -98,8 +98,8 @@ function extractCalendarTenure(label) {
   if (/^3\s*years?\s*to\s*less\s+than\s*5\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 3, minMonths: 36, minDaysCal: 0, minOperator: '>=',
-      maxYears: 5, maxMonths: 60, maxDaysCal: 0, maxOperator: '<',
+      minYears: 3, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 5, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -107,8 +107,8 @@ function extractCalendarTenure(label) {
   if (/^5\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 5, minMonths: 60, minDaysCal: 0, minOperator: '>=',
-      maxYears: 5, maxMonths: 60, maxDaysCal: 0, maxOperator: '<=',
+      minYears: 5, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 5, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -116,8 +116,8 @@ function extractCalendarTenure(label) {
   if (/^Above\s+5\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 5, minMonths: 60, minDaysCal: 1, minOperator: '>=',
-      maxYears: 10, maxMonths: 120, maxDaysCal: 0, maxOperator: '<=',
+      minYears: 5, minMonths: 0, minDaysCal: 1, minOperator: 'GTE',
+      maxYears: 10, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 

@@ -239,25 +239,35 @@ run('extracts structured calendar tenure fields correctly for various tenure for
   // Test 12 Months 1 Day to 15 Months
   const cal3 = extractCalendarTenure('12 Months 1 Day to 15 Months');
   assert.strictEqual(cal3.tenureDomain, 'CALENDAR');
-  assert.strictEqual(cal3.minMonths, 12);
+  assert.strictEqual(cal3.minYears, 1);
+  assert.strictEqual(cal3.minMonths, 0);
   assert.strictEqual(cal3.minDaysCal, 1);
-  assert.strictEqual(cal3.maxMonths, 15);
-  assert.strictEqual(cal3.maxOperator, '<=');
+  assert.strictEqual(cal3.minOperator, 'GTE');
+  assert.strictEqual(cal3.maxYears, 1);
+  assert.strictEqual(cal3.maxMonths, 3);
+  assert.strictEqual(cal3.maxOperator, 'LTE');
 
   // Test 45 Months 1 Day to less than 60 Months
   const cal4 = extractCalendarTenure('45 Months 1 Day to less than 60 Months');
   assert.strictEqual(cal4.tenureDomain, 'CALENDAR');
-  assert.strictEqual(cal4.minMonths, 45);
+  assert.strictEqual(cal4.minYears, 3);
+  assert.strictEqual(cal4.minMonths, 9);
   assert.strictEqual(cal4.minDaysCal, 1);
-  assert.strictEqual(cal4.maxMonths, 60);
-  assert.strictEqual(cal4.maxOperator, '<');
+  assert.strictEqual(cal4.minOperator, 'GTE');
+  assert.strictEqual(cal4.maxYears, 5);
+  assert.strictEqual(cal4.maxMonths, 0);
+  assert.strictEqual(cal4.maxOperator, 'LT');
 
   // Test 60 Months to 120 Months
   const cal5 = extractCalendarTenure('60 Months to 120 Months');
   assert.strictEqual(cal5.tenureDomain, 'CALENDAR');
-  assert.strictEqual(cal5.minMonths, 60);
+  assert.strictEqual(cal5.minYears, 5);
+  assert.strictEqual(cal5.minMonths, 0);
   assert.strictEqual(cal5.minDaysCal, 0);
-  assert.strictEqual(cal5.maxMonths, 120);
+  assert.strictEqual(cal5.minOperator, 'GTE');
+  assert.strictEqual(cal5.maxYears, 10);
+  assert.strictEqual(cal5.maxMonths, 0);
+  assert.strictEqual(cal5.maxOperator, 'LTE');
 });
 
 // 7. Customer eligibility restrictions

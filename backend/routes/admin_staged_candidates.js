@@ -120,13 +120,13 @@ router.get('/staged-candidates', requireAdmin, async (req, res) => {
     const uniqueBanks = [...new Set(filteredCandidates.map(c => c.bank_code))];
     const { data: activeRates } = await supabaseAdmin
       .from('fd_rates')
-      .select('id, bank_id, customer_type, min_tenure_days, max_tenure_days, tenure_domain, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, source_tenure_text, min_deposit, max_deposit, interest_rate, is_callable, rate_category, scheme_name, banks!inner(code)')
+      .select('id, bank_id, customer_type, min_tenure_days, max_tenure_days, tenure_domain, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, source_tenure_text, min_deposit, max_deposit, interest_rate, is_callable, rate_category, scheme_name, banks!inner(short_name)')
       .eq('status', 'VERIFIED')
-      .in('banks.code', uniqueBanks);
+      .in('banks.short_name', uniqueBanks);
 
     const verifiedByBank = new Map();
     (activeRates || []).forEach(r => {
-      const bCode = r.banks ? r.banks.code : r.bank_id;
+      const bCode = r.banks ? r.banks.short_name : r.bank_id;
       if (!verifiedByBank.has(bCode)) verifiedByBank.set(bCode, []);
       verifiedByBank.get(bCode).push(r);
     });
@@ -221,7 +221,8 @@ router.post('/staged-candidates/:id/promote', requireAdmin, async (req, res) => 
       return res.status(404).json({ status: 'error', message: 'Candidate not found' });
     }
 
-    if (candidate.validation_status === 'INVALID') {
+    const valStatus = candidate.validation_status || candidate.validationStatus || 'VALID';
+    if (valStatus === 'INVALID') {
       return res.status(400).json({
         status: 'error',
         message: 'Cannot promote INVALID candidate',

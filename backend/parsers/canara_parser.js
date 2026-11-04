@@ -202,9 +202,10 @@ class CanaraRateParser extends BaseRateParser {
       .replace(/\s+/g, ' ');
 
     const dateMatch = textOnly.match(
-      /(?:For\s*Deposits\s*less\s*than\s*Rs\.?\s*3\s*Crore|Domestic[^\n]{0,80}?less\s*than\s*Rs\.?\s*3\s*Crore)[^\n]{0,100}?w\.?e\.?f\.?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{1,2}(?:\s*(?:st|nd|rd|th))?\s+[a-z]+[,\s]+\d{4})/i
+      /(?:For\s*Deposits\s*less\s*than\s*Rs\.?\s*3\s*Crore|Domestic[^\n]{0,80}?less\s*than\s*Rs\.?\s*3\s*Crore)[^\n]{0,100}?w\.?e\.?f\.?\s*(\d{1,2}\s*[./-]\s*\d{1,2}\s*[./-]\d{4}|\d{1,2}(?:\s*(?:st|nd|rd|th))?\s+[a-z]+[,\s]+\d{4})/i
     );
-    const effectiveFrom = dateMatch ? this.parseEffectiveDate(dateMatch[1].replace(/(\d{1,2})\s*(?:st|nd|rd|th)\b/i, '$1')) : null;
+    const rawDate = dateMatch ? dateMatch[1].replace(/\s*([./-])\s*/g, '$1').trim() : null;
+    const effectiveFrom = rawDate ? this.parseEffectiveDate(rawDate.replace(/(\d{1,2})\s*(?:st|nd|rd|th)\b/i, '$1')) : null;
 
     const errors = [];
     if (!effectiveFrom) {
@@ -312,8 +313,8 @@ class CanaraRateParser extends BaseRateParser {
         tenureUnit: tenure.tenureUnit,
         minTenure: tenure.minTenure,
         maxTenure: tenure.maxTenure,
-        minTenureDays: tenure.minTenureDays,
-        maxTenureDays: tenure.maxTenureDays,
+        minTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.minTenureDays,
+        maxTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.maxTenureDays,
         tenureLabel: rawLabel,
         sourceTenureText: rawLabel,
         minDeposit: null,
@@ -329,7 +330,15 @@ class CanaraRateParser extends BaseRateParser {
         rateCategory,
         schemeName,
         validationStatus: 'PENDING',
-        ...calFields,
+        tenureDomain: calFields.tenureDomain,
+        minYears: calFields.minYears,
+        minMonths: calFields.minMonths !== null ? (calFields.minMonths % 12) : null,
+        minDaysCal: calFields.minDaysCal,
+        minOperator: calFields.minOperator === '>=' ? 'GTE' : calFields.minOperator,
+        maxYears: calFields.maxYears,
+        maxMonths: calFields.maxMonths !== null ? (calFields.maxMonths % 12) : null,
+        maxDaysCal: calFields.maxDaysCal,
+        maxOperator: calFields.maxOperator === '<=' ? 'LTE' : (calFields.maxOperator === '<' ? 'LT' : calFields.maxOperator),
       };
 
       // 1. Regular Customer

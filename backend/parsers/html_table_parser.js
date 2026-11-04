@@ -24,7 +24,8 @@ function decodeHtmlEntities(str) {
  */
 function cleanCellText(rawHtml) {
   if (!rawHtml) return '';
-  const noTags = rawHtml.replace(/<[^>]+>/g, ' ');
+  const noComments = rawHtml.replace(/<!--[\s\S]*?-->/g, '');
+  const noTags = noComments.replace(/<\/?(?![\d\s=])[a-zA-Z][^>]*>/gi, ' ');
   const decoded = decodeHtmlEntities(noTags);
   return decoded.replace(/\s+/g, ' ').trim();
 }

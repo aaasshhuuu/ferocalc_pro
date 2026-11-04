@@ -35,8 +35,8 @@ function extractCalendarTenure(label) {
   if (/^1\s*years?\s*to\s*less\s+than\s*2\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 1, minMonths: 12, minDaysCal: 0, minOperator: '>=',
-      maxYears: 2, maxMonths: 24, maxDaysCal: 0, maxOperator: '<',
+      minYears: 1, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 2, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -44,8 +44,8 @@ function extractCalendarTenure(label) {
   if (/^2\s*years?\s*to\s*less\s+than\s*3\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 2, minMonths: 24, minDaysCal: 0, minOperator: '>=',
-      maxYears: 3, maxMonths: 36, maxDaysCal: 0, maxOperator: '<',
+      minYears: 2, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 3, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -53,8 +53,8 @@ function extractCalendarTenure(label) {
   if (/^3\s*years?\s*to\s*less\s+than\s*5\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 3, minMonths: 36, minDaysCal: 0, minOperator: '>=',
-      maxYears: 5, maxMonths: 60, maxDaysCal: 0, maxOperator: '<',
+      minYears: 3, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 5, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -62,8 +62,8 @@ function extractCalendarTenure(label) {
   if (/^5\s*years?\s*to\s*10\s*years?$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 5, minMonths: 60, minDaysCal: 0, minOperator: '>=',
-      maxYears: 10, maxMonths: 120, maxDaysCal: 0, maxOperator: '<=',
+      minYears: 5, minMonths: 0, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: 10, maxMonths: 0, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -256,8 +256,8 @@ class CentralBankRateParser extends BaseRateParser {
         tenureUnit: tenure.tenureUnit,
         minTenure: tenure.minTenure,
         maxTenure: tenure.maxTenure,
-        minTenureDays: tenure.minTenureDays,
-        maxTenureDays: tenure.maxTenureDays,
+        minTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.minTenureDays,
+        maxTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.maxTenureDays,
         tenureLabel: rawLabel,
         sourceTenureText: rawLabel,
         minDeposit: null,

@@ -216,7 +216,7 @@ async function runTestSuite() {
   });
 
   runTest('SBI cleans asterisk footnote from senior rate', () => {
-    const senior5y = sbiResult.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && c.minTenureDays >= 1825);
+    const senior5y = sbiResult.candidates.find(c => c.customerType === 'SENIOR_CITIZEN' && (c.minTenureDays >= 1825 || (c.tenureDomain === 'CALENDAR' && c.minYears >= 5)));
     assert.ok(senior5y, 'Senior 5y candidate found');
     assert.strictEqual(senior5y.interestRate, 7.05);
   });
@@ -769,6 +769,33 @@ async function runTestSuite() {
     assert.strictEqual(stageRes.totalCandidates, 8);
     assert.strictEqual(stageRes.validCount, 8);
     assert.strictEqual(stageRes.invalidCount, 0);
+  });
+
+  await runTestAsync('15b. skipDbAccess skips baseline DB query during candidate validation', async () => {
+    let baselineQueried = false;
+    const testStagingService = new CandidateStagingService({ skipDbPersist: true });
+    testStagingService._fetchBaselineRates = async () => {
+      baselineQueried = true;
+      throw new Error('Database access must not occur when skipDbAccess is true');
+    };
+
+    const changedResult = {
+      sourceId: 'sbi-retail-domestic',
+      bankCode: 'SBI',
+      status: 'CHANGED',
+      contentHash: '8'.repeat(64),
+      sourceUrl: 'https://sbi.co.in',
+      bodyBuffer: Buffer.from(SBI_FIXTURE_HTML),
+    };
+
+    const stageRes = await testStagingService.processCollectionResult(changedResult, {
+      forceReExtract: true,
+      skipDbAccess: true,
+      skipDbPersist: true,
+    });
+    assert.strictEqual(stageRes.status, 'EXTRACTION_SUCCESS');
+    assert.strictEqual(stageRes.extracted, true);
+    assert.strictEqual(baselineQueried, false, 'Database baseline query was skipped');
   });
 
   // ----------------------------------------------------------------

@@ -11,7 +11,7 @@ const { BaseRateParser, CandidateRate, ExtractionResult } = require('./base_pars
 const { extractPdfTokens } = require('./pdf_text_extractor');
 const { parseTenureRange } = require('./tenure_parser');
 
-const SOURCE_URL = 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-08-october-2026.pdf?sfvrsn=15a73678_1';
+const SOURCE_URL = 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-29-october-2026.pdf?sfvrsn=c1f0331d_1';
 const LANDING_PAGE_URL = 'https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates';
 const EXPECTED_ROWS = 18;
 
@@ -223,8 +223,11 @@ class AxisRateParser extends BaseRateParser {
     }
 
     // 2. Extract Published Effective Date
-    const dateMatch = textJoined.match(/w\.?e\.?f\.?\s*(\d{1,2}\s*(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})/i) ||
-                      textJoined.match(/w\.?e\.?f\.?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})/i);
+    const cleanedText = textJoined
+      .replace(/(\d)\s+(\d)\s+(?:t\s*h|s\s*t|n\s*d|r\s*d)\b/gi, '$1$2th')
+      .replace(/(\d)\s+(?:t\s*h|s\s*t|n\s*d|r\s*d)\b/gi, '$1th');
+    const dateMatch = cleanedText.match(/w\.?e\.?f\.?\s*(\d{1,2}\s*(?:st|nd|rd|th)?\s+[A-Za-z]+\s+\d{4})/i) ||
+                      cleanedText.match(/w\.?e\.?f\.?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})/i);
     if (!dateMatch) {
       errors.push('Missing published effective date in rate card header');
     }
@@ -310,7 +313,19 @@ class AxisRateParser extends BaseRateParser {
             rateCategory: 'STANDARD',
             schemeName: null,
             validationStatus: 'PENDING',
-            ...calFields,
+            tenureDomain: calFields.tenureDomain,
+            minYears: calFields.minYears !== null
+              ? (calFields.minMonths !== null && calFields.minMonths >= 12 ? Math.floor(calFields.minMonths / 12) : calFields.minYears)
+              : (calFields.minMonths !== null ? Math.floor(calFields.minMonths / 12) : null),
+            minMonths: calFields.minMonths !== null ? (calFields.minMonths % 12) : null,
+            minDaysCal: calFields.minDaysCal,
+            minOperator: calFields.minOperator === '>=' ? 'GTE' : calFields.minOperator,
+            maxYears: calFields.maxYears !== null
+              ? (calFields.maxMonths !== null && calFields.maxMonths >= 12 ? Math.floor(calFields.maxMonths / 12) : calFields.maxYears)
+              : (calFields.maxMonths !== null ? Math.floor(calFields.maxMonths / 12) : null),
+            maxMonths: calFields.maxMonths !== null ? (calFields.maxMonths % 12) : null,
+            maxDaysCal: calFields.maxDaysCal,
+            maxOperator: calFields.maxOperator === '<=' ? 'LTE' : (calFields.maxOperator === '<' ? 'LT' : calFields.maxOperator),
           };
 
           // 1. Regular Customer

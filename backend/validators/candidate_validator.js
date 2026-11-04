@@ -204,10 +204,14 @@ class CandidateValidator {
       const c = candidates[i];
       const cat = (c.rateCategory || 'STANDARD').toUpperCase();
       const scheme = (c.schemeName || '').toUpperCase();
-      const key = `${c.bankCode}|${c.productType}|${c.customerType}|${c.isCallable}|${cat}|${scheme}|${c.minTenureDays}|${c.maxTenureDays}|${c.minDeposit}|${c.maxDeposit}`;
+      const tenureKey = (c.tenureDomain || 'DAYS') === 'CALENDAR'
+        ? `CALENDAR|${c.minYears}_${c.minMonths}_${c.minDaysCal}_${c.minOperator}|${c.maxYears}_${c.maxMonths}_${c.maxDaysCal}_${c.maxOperator}`
+        : `DAYS|${c.minTenureDays}|${c.maxTenureDays}`;
+      const key = `${c.bankCode}|${c.productType}|${c.customerType}|${c.isCallable}|${cat}|${scheme}|${tenureKey}|${c.minDeposit}|${c.maxDeposit}`;
       if (seenMap.has(key)) {
         summary.duplicateCount++;
-        const errMsg = `Duplicate candidate detected: identical tenure [${c.minTenureDays}..${c.maxTenureDays}] for ${c.customerType} (${c.tenureLabel})`;
+        const tenureDisplay = (c.tenureDomain || 'DAYS') === 'CALENDAR' ? c.tenureLabel : `${c.minTenureDays}..${c.maxTenureDays}`;
+        const errMsg = `Duplicate candidate detected: identical tenure [${tenureDisplay}] for ${c.customerType} (${c.tenureLabel})`;
         c.validationErrors.push(errMsg);
         c.validationStatus = 'INVALID';
         c.stagingStatus = 'INVALID';
@@ -233,6 +237,11 @@ class CandidateValidator {
         for (let j = i + 1; j < groupList.length; j++) {
           const a = groupList[i];
           const b = groupList[j];
+
+          // Skip day-based overlap check if either candidate is in CALENDAR domain or has null day bounds
+          if (a.tenureDomain === 'CALENDAR' || b.tenureDomain === 'CALENDAR' || a.minTenureDays == null || b.minTenureDays == null) {
+            continue;
+          }
 
           // Check if identical duplicate (already handled)
           if (a.minTenureDays === b.minTenureDays && a.maxTenureDays === b.maxTenureDays) {

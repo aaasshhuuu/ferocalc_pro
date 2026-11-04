@@ -83,7 +83,30 @@ class PipelineSchedulerService {
     const jobId = params.jobId || this.generateJobId(triggerType);
     const dryRun = Boolean(params.dryRun);
     const forceReExtract = Boolean(params.forceReExtract);
-    const sourcesToProcess = params.sources || defaultRegistry.getEnabledSources();
+    let sourcesToProcess = params.sources;
+    if (!sourcesToProcess) {
+      if (isSupabaseAvailable() && supabaseAdmin) {
+        try {
+          const { data: dbSources, error: dbErr } = await supabaseAdmin
+            .from('rate_sources')
+            .select('id, is_enabled')
+            .eq('is_enabled', true);
+          if (!dbErr && Array.isArray(dbSources) && dbSources.length > 0) {
+            const enabledSet = new Set(dbSources.map(d => d.id));
+            sourcesToProcess = defaultRegistry.getAllSources()
+              .filter(s => enabledSet.has(s.id))
+              .map(s => ({ ...s, enabled: true }));
+          }
+        } catch (fetchErr) {
+          this.logger.warn(`[RatePipeline] Failed to load enabled sources from database, falling back to defaultRegistry: ${fetchErr.message}`);
+        }
+      }
+      if (!sourcesToProcess || sourcesToProcess.length === 0) {
+        sourcesToProcess = defaultRegistry.getEnabledSources();
+      }
+    } else {
+      sourcesToProcess = sourcesToProcess.filter(s => s.enabled === true || s.isEnabled === true);
+    }
 
     const startedAt = new Date();
     this.logger.log(`[RatePipeline] Starting execution ${jobId} (Trigger: ${triggerType}, DryRun: ${dryRun}, Sources: ${sourcesToProcess.length})`);

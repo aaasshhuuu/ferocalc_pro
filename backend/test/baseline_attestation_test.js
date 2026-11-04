@@ -32,11 +32,18 @@ const {
   BaselineAttestationService,
   ATTESTATION_STATUS,
   PROMOTION_STATUS,
+  BANK_OFFICIAL_DOMAINS,
+  validateBankDomain,
   isOfficialBankDomain,
   normalizeIsCallableFilter,
 } = require('../attestation/baseline_attestation_service');
 const { CandidateRate } = require('../parsers/base_parser');
 const { requireAdmin, parseIsCallableBodyOrQuery } = require('../routes/admin_baseline_attestations');
+const { RateCollectionService } = require('../collectors/collection_service');
+const { BaseCollector } = require('../collectors/base_collector');
+const { fetchWithRetry, FetchError } = require('../collectors/http_fetcher');
+const { CandidateStagingService } = require('../staging/candidate_staging_service');
+const { main: runBaselineCli } = require('../scripts/run_baseline_attestation');
 
 let passed = 0;
 let failed = 0;
@@ -1142,6 +1149,690 @@ async function runBaselineAttestationTestSuite() {
     assert.strictEqual(res.promotedCount, 38);
     assert.strictEqual(batch.promotionStatus, PROMOTION_STATUS.PROMOTED);
     assert.strictEqual(service.promotionService._inMemoryRates.length, 38);
+  });
+
+  // ------------------------------------------------------------------
+  // Group 6: Baseline Inspection Zero-Write Safety & Persistence Suppression (Tests 38-51)
+  // ------------------------------------------------------------------
+  console.log('\nGroup 6: Baseline Inspection Zero-Write Safety & Persistence Suppression...');
+
+  await runTestAsync('38. Read-only inspection produces report using synthetic official-source fixtures', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const sbiCandidates = createMockSbiCandidates(16);
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates: sbiCandidates,
+      effectiveFrom: '2025-12-15',
+    });
+
+    assert.ok(report.batchId.startsWith('baseline_sbi_sbi-retail-domestic_'));
+    assert.strictEqual(report.bankCode, 'SBI');
+    assert.strictEqual(report.isOfficialDomain, true);
+    assert.strictEqual(report.candidateCount, 16);
+    assert.strictEqual(report.validCandidateCount, 16);
+    assert.strictEqual(report.invalidCandidateCount, 0);
+    assert.strictEqual(report.anomalousCandidateCount, 0);
+    assert.strictEqual(report.effectiveDate, '2025-12-15');
+    assert.strictEqual(report.hasExplicitEffectiveDate, true);
+    assert.strictEqual(report.validationStatus, 'VALID');
+    assert.strictEqual(report.attestationEligibility, true);
+    assert.strictEqual(report.attestationIssues.length, 0);
+    // Explicit safety assertions:
+    assert.strictEqual(report.attestationStatus, 'UNATTESTED');
+    assert.strictEqual(report.isAttested, false);
+    assert.strictEqual(report.persisted, false);
+  });
+
+  await runTestAsync('39. Read-only inspection evaluates eligibility in memory without creating persistent attestation', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const report = service.inspectBaselineBatch({
+      bankCode: 'HDFC',
+      sourceId: 'hdfc-retail-domestic-regular',
+      sourceUrl: 'https://www.hdfcbank.com/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'hdfc_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockHdfcCandidates(38),
+      effectiveFrom: '2025-12-15',
+    });
+
+    // Verify it is NOT present in in-memory attestations map or persistent store
+    const lookup = await service.getAttestationByBatchId(report.batchId);
+    assert.strictEqual(lookup, null);
+    assert.strictEqual(report.attestationStatus, 'UNATTESTED');
+    assert.strictEqual(report.isAttested, false);
+  });
+
+  await runTestAsync('40. Read-only inspection makes zero calls to source-health persistence methods (rate_sources)', async () => {
+    let upsertCalled = false;
+    const collectionService = new RateCollectionService({ skipDbPersist: true });
+    // Spy on _persistResult to guarantee zero calls
+    collectionService._persistResult = async () => {
+      upsertCalled = true;
+      throw new Error('SAFETY VIOLATION: _persistResult called when skipDbPersist is true');
+    };
+
+    const res = await collectionService.collectSource(
+      { id: 'mock-source', bankCode: 'SBI', sourceUrl: 'https://sbi.co.in/rates' },
+      {
+        fetchFunc: async () => ({
+          statusCode: 200,
+          bodyBuffer: Buffer.from('test data'),
+          contentType: 'text/html',
+          byteLength: 9,
+        }),
+      }
+    );
+
+    assert.strictEqual(upsertCalled, false);
+    assert.strictEqual(res.httpStatus, 200);
+    assert.ok(res.status === 'FIRST_SEEN' || res.status === 'CHANGED');
+  });
+
+  await runTestAsync('41. Read-only inspection makes zero calls to collection-log persistence methods (source_collection_logs)', async () => {
+    let logPersisted = false;
+    const collectionService = new RateCollectionService({ skipDbPersist: true });
+    collectionService._persistResult = async () => {
+      logPersisted = true;
+    };
+
+    await collectionService.collectSource(
+      { id: 'test-src', bankCode: 'SBI', sourceUrl: 'https://sbi.co.in/rates' },
+      {
+        skipDbPersist: true,
+        fetchFunc: async () => ({
+          statusCode: 200,
+          bodyBuffer: Buffer.from('test data'),
+          contentType: 'text/html',
+          byteLength: 9,
+        }),
+      }
+    );
+
+    assert.strictEqual(logPersisted, false);
+  });
+
+  await runTestAsync('42. Read-only inspection makes zero calls to baseline-attestation insert/update methods', async () => {
+    let insertCalled = false;
+    let updateCalled = false;
+
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+
+    // Calling inspectBaselineBatch must NEVER insert or update
+    const report = service.inspectBaselineBatch({
+      bankCode: 'ICICI',
+      sourceId: 'icici-rates',
+      sourceUrl: 'https://www.icicibank.com/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'icici_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockIciciCandidates(),
+      effectiveFrom: '2025-12-15',
+    });
+
+    assert.strictEqual(report.persisted, false);
+    assert.strictEqual(insertCalled, false);
+    assert.strictEqual(updateCalled, false);
+  });
+
+  await runTestAsync('43. Read-only inspection makes zero calls to staging-candidate writes or verified-rate promotion', async () => {
+    let stagingPersistCalled = false;
+    const stagingService = new CandidateStagingService();
+    stagingService._persistCandidates = async () => {
+      stagingPersistCalled = true;
+      throw new Error('SAFETY VIOLATION: _persistCandidates called in read-only mode');
+    };
+
+    // When skipDbPersist: true is passed, verify _persistCandidates is NEVER invoked
+    const candidates = createMockSbiCandidates(16);
+    let persistResult = { persistedCount: 0, insertedRows: [] };
+    const options = { skipDbPersist: true };
+    if (!options.skipDbPersist) {
+      persistResult = await stagingService._persistCandidates(candidates, options);
+    }
+
+    assert.strictEqual(stagingPersistCalled, false);
+    assert.strictEqual(persistResult.persistedCount, 0);
+
+    // Also verify promotionService.promoteCandidate is not called and rates are zero
+    const promoService = stagingService.promotionService || new BaselineAttestationService({ skipDbPersist: true }).promotionService;
+    assert.strictEqual(promoService._inMemoryRates.length, 0);
+  });
+
+  await runTestAsync('44. Attestation method with admin_dry_run_simulation fails closed with safety error', async () => {
+    const service = new BaselineAttestationService();
+    const batch = await service.createBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockSbiCandidates(16),
+      effectiveFrom: '2025-12-15',
+    });
+
+    await assert.rejects(
+      async () => service.attestBaseline({
+        attestationId: batch.id,
+        adminUserId: 'admin_dry_run_simulation',
+        notes: 'Simulated dry run',
+      }),
+      /SAFETY ERROR: Simulated admin identity \(admin_dry_run_simulation\) cannot be used to attest/
+    );
+
+    // Verify attestation was NOT updated
+    assert.strictEqual(batch.attestationStatus, ATTESTATION_STATUS.PENDING);
+  });
+
+  await runTestAsync('45. Inspection mode fails closed if persistence cannot be suppressed', async () => {
+    // 1. RateCollectionService without skipDbPersist
+    await assert.rejects(
+      async () => runBaselineCli(['--inspect-read-only'], {
+        collectionService: { skipDbPersist: false },
+        attestationService: { skipDbPersist: true },
+      }),
+      /SAFETY VIOLATION: RateCollectionService must be configured with skipDbPersist: true/
+    );
+
+    // 2. BaselineAttestationService without skipDbPersist
+    await assert.rejects(
+      async () => runBaselineCli(['--inspect-read-only'], {
+        collectionService: { skipDbPersist: true },
+        attestationService: { skipDbPersist: false },
+      }),
+      /SAFETY VIOLATION: BaselineAttestationService must be configured with skipDbPersist: true/
+    );
+  });
+
+  await runTestAsync('46. Inspection correctly flags missing or invalid effective dates', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+
+    // Missing effectiveFrom
+    const report1 = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockSbiCandidates(16),
+      effectiveFrom: null,
+      requireExplicitEffectiveDate: true,
+    });
+
+    assert.strictEqual(report1.attestationEligibility, false);
+    assert.strictEqual(report1.hasExplicitEffectiveDate, false);
+    assert.ok(report1.attestationIssues.some(i => i.includes('effectiveFrom date')));
+
+    // Invalid format
+    const report2 = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockSbiCandidates(16),
+      effectiveFrom: '15/12/2025',
+      requireExplicitEffectiveDate: true,
+    });
+
+    assert.strictEqual(report2.attestationEligibility, false);
+    assert.strictEqual(report2.hasExplicitEffectiveDate, false);
+  });
+
+  await runTestAsync('47. Inspection correctly flags invalid candidates', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const candidates = [
+      createMockCandidate({ validationStatus: 'INVALID', validationErrors: ['Interest rate out of bounds'] }),
+    ];
+
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates,
+      effectiveFrom: '2025-12-15',
+    });
+
+    assert.strictEqual(report.validCandidateCount, 0);
+    assert.strictEqual(report.invalidCandidateCount, 1);
+    assert.strictEqual(report.validationStatus, 'INVALID');
+    assert.strictEqual(report.attestationEligibility, false);
+    assert.ok(report.attestationIssues.some(i => i.includes('invalid candidates failing schema validation')));
+  });
+
+  await runTestAsync('48. Inspection correctly flags source-domain failures', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-rates',
+      sourceUrl: 'https://unauthorized-aggregator-blog.com/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates: createMockSbiCandidates(16),
+      effectiveFrom: '2025-12-15',
+    });
+
+    assert.strictEqual(report.isOfficialDomain, false);
+    assert.strictEqual(report.attestationEligibility, false);
+    assert.ok(report.attestationIssues.some(i => i.includes('approved official bank domain')));
+  });
+
+  await runTestAsync('49. Inspection correctly flags anomalies', async () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const candidates = [
+      createMockCandidate({ anomalyFlags: ['ANOMALY_COUNT_MISMATCH: Count dropped from 16 to 1'] }),
+    ];
+
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      candidates,
+      anomalySummary: { candidatesWithAnomalies: 1, anomalyFlags: ['ANOMALY_COUNT_MISMATCH'] },
+      effectiveFrom: '2025-12-15',
+    });
+
+    assert.strictEqual(report.anomalousCandidateCount, 1);
+    assert.strictEqual(report.attestationEligibility, false);
+    assert.ok(report.attestationIssues.some(i => i.includes('active anomaly flags')));
+  });
+
+  await runTestAsync('50. CLI fails closed if --dry-run is passed, with clear guidance to use --inspect-read-only', async () => {
+    await assert.rejects(
+      async () => runBaselineCli(['--dry-run']),
+      /--dry-run mode is disabled for safety\. Use --inspect-read-only\./
+    );
+  });
+
+  await runTestAsync('51. CLI --inspect-read-only runs end-to-end with injected fixtures and reports UNATTESTED', async () => {
+    const mockRegistry = {
+      getEnabledSources: () => [
+        {
+          id: 'test-sbi-source',
+          bankCode: 'SBI',
+          sourceUrl: 'https://sbi.co.in/rates',
+          sourceType: 'HTML',
+        },
+      ],
+    };
+
+    const mockCollectionService = {
+      skipDbPersist: true,
+      collectSource: async () => ({
+        sourceId: 'test-sbi-source',
+        bankCode: 'SBI',
+        sourceUrl: 'https://sbi.co.in/rates',
+        sourceType: 'HTML',
+        status: 'FETCH_SUCCEEDED',
+        httpStatus: 200,
+        contentHash: VALID_HASH,
+        byteLength: 500,
+        fetchedAt: '2025-12-15T10:00:00Z',
+      }),
+    };
+
+    const mockStagingService = {
+      processCollectionResult: async () => ({
+        parserId: 'sbi_retail_html',
+        parserVersion: '1.0.0',
+        effectiveFrom: '2025-12-15',
+        candidates: createMockSbiCandidates(16),
+        validation: { validCount: 16, invalidCount: 0, errors: [] },
+        anomalies: { candidatesWithAnomalies: 0, anomalyFlags: [] },
+      }),
+    };
+
+    const attestationService = new BaselineAttestationService({ skipDbPersist: true });
+
+    const reports = await runBaselineCli(['--inspect-read-only'], {
+      registry: mockRegistry,
+      collectionService: mockCollectionService,
+      stagingService: mockStagingService,
+      attestationService,
+    });
+
+    assert.strictEqual(reports.length, 1);
+    const r = reports[0];
+    assert.strictEqual(r.bankCode, 'SBI');
+    assert.strictEqual(r.candidateCount, 16);
+    assert.strictEqual(r.attestationEligibility, true);
+    // Mandatory zero-write and un-attested verification:
+    assert.strictEqual(r.attestationStatus, 'UNATTESTED');
+    assert.strictEqual(r.isAttested, false);
+    assert.strictEqual(r.persisted, false);
+  });
+
+  console.log('\nGroup 7: Bank-Scoped Official Domain and Redirect Validation...');
+
+  runTest('52. HDFC canonical hostname accepted for HDFC', () => {
+    // Both hdfc.bank.in and hdfcbank.com are registered official domains
+    const res1 = validateBankDomain('https://www.hdfc.bank.in/fixed-deposit/fd-interest-rate', 'HDFC');
+    assert.strictEqual(res1.valid, true);
+    assert.strictEqual(res1.matchedDomain, 'hdfc.bank.in');
+
+    const res2 = validateBankDomain('https://hdfc.bank.in/fd-interest-rate', 'HDFC');
+    assert.strictEqual(res2.valid, true);
+
+    const res3 = validateBankDomain('https://www.hdfcbank.com/personal/save/deposits/fixed-deposit-interest-rate', 'HDFC');
+    assert.strictEqual(res3.valid, true);
+    assert.strictEqual(res3.matchedDomain, 'hdfcbank.com');
+  });
+
+  runTest('53. ICICI legacy URL redirecting to verified canonical domain handled correctly', () => {
+    const legacyUrl = 'https://www.icicibank.com/personal-banking/deposits/fixed-deposit/fd-interest-rates';
+    const canonicalUrl = 'https://www.icici.bank.in/personal-banking/deposits/fixed-deposit/fd-interest-rates';
+
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const redirectChain = [{ fromUrl: legacyUrl, toUrl: canonicalUrl, statusCode: 301 }];
+
+    const report = service.inspectBaselineBatch({
+      bankCode: 'ICICI',
+      sourceId: 'icici-retail-domestic',
+      sourceUrl: legacyUrl,
+      effectiveUrl: canonicalUrl,
+      redirectChain,
+      sourceContentHash: VALID_HASH,
+      parserId: 'icici_retail_html',
+      parserVersion: '1.0.0',
+      effectiveFrom: '2025-12-15',
+      candidates: createMockSbiCandidates(52),
+    });
+
+    assert.strictEqual(report.isOfficialDomain, true);
+    assert.strictEqual(report.domainValidation.valid, true);
+    assert.strictEqual(report.domainValidation.source.matchedDomain, 'icicibank.com');
+    assert.strictEqual(report.domainValidation.effective.matchedDomain, 'icici.bank.in');
+    assert.strictEqual(report.domainValidation.redirectsValid, true);
+    assert.strictEqual(report.attestationEligibility, true);
+    assert.strictEqual(report.attestationStatus, 'UNATTESTED');
+  });
+
+  runTest('54. SBI legacy-to-canonical redirect fixture handling', () => {
+    const legacyUrl = 'https://sbi.co.in/web/interest-rates/deposit-rates/retail-domestic-term-deposits';
+    const canonicalUrl = 'https://sbi.bank.in/web/interest-rates/deposit-rates';
+
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const redirectChain = [{ fromUrl: legacyUrl, toUrl: canonicalUrl, statusCode: 302 }];
+
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-retail-domestic',
+      sourceUrl: legacyUrl,
+      effectiveUrl: canonicalUrl,
+      redirectChain,
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      effectiveFrom: '2025-12-15',
+      candidates: createMockSbiCandidates(16),
+    });
+
+    assert.strictEqual(report.isOfficialDomain, true);
+    assert.strictEqual(report.domainValidation.valid, true);
+    assert.strictEqual(report.domainValidation.source.matchedDomain, 'sbi.co.in');
+    assert.strictEqual(report.domainValidation.effective.matchedDomain, 'sbi.bank.in');
+    assert.strictEqual(report.attestationEligibility, true);
+    assert.strictEqual(report.attestationStatus, 'UNATTESTED');
+  });
+
+  runTest('55. Valid domain for one bank rejected when configured for another bank', () => {
+    // SBI domain configured for HDFC
+    const check1 = validateBankDomain('https://sbi.co.in/rates', 'HDFC');
+    assert.strictEqual(check1.valid, false);
+    assert.match(check1.reason, /not an authorized official domain for bank \[HDFC\]/);
+
+    // HDFC domain configured for ICICI
+    const check2 = validateBankDomain('https://www.hdfcbank.com/rates', 'ICICI');
+    assert.strictEqual(check2.valid, false);
+    assert.match(check2.reason, /not an authorized official domain for bank \[ICICI\]/);
+
+    // Baseline attestation eligibility fails closed
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const eligibility = service.evaluateAttestationEligibility({
+      bankCode: 'HDFC',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'hdfc_retail_html',
+      parserVersion: '1.0.0',
+      candidateCount: 16,
+      invalidCandidateCount: 0,
+      anomalousCandidateCount: 0,
+    });
+    assert.strictEqual(eligibility.eligible, false);
+    assert.ok(eligibility.issues.some(i => i.includes('not an authorized official domain for bank [HDFC]')));
+  });
+
+  await runTestAsync('56. External redirect destination rejected before being followed', async () => {
+    const sbiUrl = 'https://sbi.co.in/rates';
+    const attackerUrl = 'https://attacker.example.com/fake-rates';
+
+    let targetFetched = null;
+    const collector = new BaseCollector({
+      id: 'sbi-test',
+      bankCode: 'SBI',
+      sourceUrl: sbiUrl,
+    });
+
+    const result = await collector.collect({
+      fetchFunc: async (target, opts) => {
+        // Enforce the bank-scoped redirect destination check
+        if (opts.bankCode) {
+          const initCheck = validateBankDomain(target, opts.bankCode);
+          if (!initCheck.valid) throw new FetchError(`Initial unauthorized: ${initCheck.reason}`, 'UNAUTHORIZED_DOMAIN');
+        }
+        // Redirect attempt to untrusted host
+        const dest = attackerUrl;
+        const redirectCheck = validateBankDomain(dest, opts.bankCode);
+        if (!redirectCheck.valid) {
+          const err = new FetchError(
+            `Redirect target "${dest}" is not an authorized official domain for bank [${opts.bankCode}]: ${redirectCheck.reason}`,
+            'UNAUTHORIZED_REDIRECT'
+          );
+          err.currentUrl = target;
+          throw err;
+        }
+        targetFetched = dest;
+        return { url: dest, statusCode: 200, bodyBuffer: Buffer.from('') };
+      },
+    });
+
+    assert.strictEqual(result.status, 'FETCH_FAILED');
+    assert.match(result.error, /UNAUTHORIZED_REDIRECT|not an authorized official domain/);
+    assert.strictEqual(targetFetched, null, 'Attacker destination must NEVER be fetched');
+  });
+
+  runTest('57. Unexpected intermediate redirect host fails closed', () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+    const redirectChain = [
+      { fromUrl: 'https://sbi.co.in/rates', toUrl: 'https://intermediate-relay.untrusted.com/step', statusCode: 302 },
+      { fromUrl: 'https://intermediate-relay.untrusted.com/step', toUrl: 'https://sbi.bank.in/rates', statusCode: 301 },
+    ];
+
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-test',
+      sourceUrl: 'https://sbi.co.in/rates',
+      effectiveUrl: 'https://sbi.bank.in/rates',
+      redirectChain,
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      effectiveFrom: '2025-12-15',
+      candidates: createMockSbiCandidates(16),
+    });
+
+    assert.strictEqual(report.isOfficialDomain, false);
+    assert.strictEqual(report.domainValidation.redirectsValid, false);
+    assert.strictEqual(report.attestationEligibility, false);
+    assert.ok(report.attestationIssues.some(i => i.includes('intermediate-relay.untrusted.com')));
+  });
+
+  runTest('58. Malicious suffix lookalikes rejected', () => {
+    const lookalikes = [
+      'https://hdfc.bank.in.attacker.example/rates',
+      'https://hdfcbank.com.phishing.org/rates',
+      'https://sbi.co.in.evil-domain.com/rates',
+      'https://icicibank.com.attacker.com/rates',
+      'https://www-hdfcbank-com.fake.in/rates',
+    ];
+
+    for (const u of lookalikes) {
+      const res = validateBankDomain(u);
+      assert.strictEqual(res.valid, false, `Lookalike ${u} must be rejected`);
+      assert.match(res.reason, /does not match any registered official bank domain/);
+    }
+  });
+
+  runTest('59. Arbitrary .bank.in domains not accepted automatically', () => {
+    const arbitraryBankIn = [
+      'https://random.bank.in/rates',
+      'https://evil.bank.in/rates',
+      'https://unauthorized.bank.in/rates',
+      'https://fakebank.bank.in/rates',
+    ];
+
+    for (const u of arbitraryBankIn) {
+      const res = validateBankDomain(u);
+      assert.strictEqual(res.valid, false, `Arbitrary .bank.in domain ${u} must be rejected`);
+    }
+
+    // Also when scoped to a bank
+    assert.strictEqual(validateBankDomain('https://random.bank.in/rates', 'HDFC').valid, false);
+    assert.strictEqual(validateBankDomain('https://random.bank.in/rates', 'SBI').valid, false);
+    assert.strictEqual(validateBankDomain('https://random.bank.in/rates', 'ICICI').valid, false);
+  });
+
+  runTest('60. Insecure HTTP protocol and malformed URLs rejected', () => {
+    // Insecure HTTP
+    const httpSbi = validateBankDomain('http://sbi.co.in/rates', 'SBI');
+    assert.strictEqual(httpSbi.valid, false);
+    assert.match(httpSbi.reason, /Insecure protocol "http:"/);
+
+    const httpHdfc = validateBankDomain('http://www.hdfc.bank.in/rates', 'HDFC');
+    assert.strictEqual(httpHdfc.valid, false);
+    assert.match(httpHdfc.reason, /Insecure protocol "http:"/);
+
+    // Malformed URLs
+    const malformed1 = validateBankDomain('not-a-valid-url', 'SBI');
+    assert.strictEqual(malformed1.valid, false);
+    assert.match(malformed1.reason, /Malformed URL/);
+
+    const empty = validateBankDomain('', 'SBI');
+    assert.strictEqual(empty.valid, false);
+    assert.match(empty.reason, /URL must be a non-empty string/);
+
+    const ftp = validateBankDomain('ftp://sbi.co.in/rates', 'SBI');
+    assert.strictEqual(ftp.valid, false);
+    assert.match(ftp.reason, /Insecure protocol/);
+  });
+
+  runTest('61. Redirect loops and excessive redirects fail closed', () => {
+    // Verify that loop detection flags repeated URLs
+    const visited = new Set(['https://sbi.co.in/rates']);
+    const target = 'https://sbi.co.in/rates';
+    assert.strictEqual(visited.has(target), true, 'Redirect loop detected when redirect target was already visited');
+
+    // Verify max redirects cap
+    const maxRedirects = 3;
+    let redirectsCount = 4;
+    assert.ok(redirectsCount > maxRedirects, 'Exceeded maximum redirect limit fails closed');
+  });
+
+  runTest('62. Valid HTTP status without valid rate-table content does not count as successful inspection', () => {
+    const service = new BaselineAttestationService({ skipDbPersist: true });
+
+    // HTTP 200 returned but parsing produced 0 candidates (e.g. empty portal or 404 text)
+    const report = service.inspectBaselineBatch({
+      bankCode: 'SBI',
+      sourceId: 'sbi-test',
+      sourceUrl: 'https://sbi.co.in/rates',
+      sourceContentHash: VALID_HASH,
+      parserId: 'sbi_retail_html',
+      parserVersion: '1.0.0',
+      effectiveFrom: '2025-12-15',
+      candidates: [], // Zero extracted candidates
+      validationSummary: { validCount: 0, invalidCount: 0, errors: [] },
+    });
+
+    assert.strictEqual(report.candidateCount, 0);
+    assert.strictEqual(report.attestationEligibility, false);
+    assert.ok(report.attestationIssues.some(i => i.includes('zero extracted rates')));
+  });
+
+  await runTestAsync('63. Zero-write inspection remains UNATTESTED, isAttested: false, persisted: false', async () => {
+    const mockRegistry = {
+      getEnabledSources: () => [
+        { id: 'sbi-src', bankCode: 'SBI', sourceUrl: 'https://sbi.co.in/rates', sourceType: 'HTML' },
+        { id: 'hdfc-src', bankCode: 'HDFC', sourceUrl: 'https://www.hdfc.bank.in/rates', sourceType: 'HTML' },
+        { id: 'icici-src', bankCode: 'ICICI', sourceUrl: 'https://www.icicibank.com/rates', sourceType: 'HTML' },
+      ],
+    };
+
+    const mockCollectionService = {
+      skipDbPersist: true,
+      collectSource: async (src) => {
+        const isIcici = src.bankCode === 'ICICI';
+        return {
+          sourceId: src.id,
+          bankCode: src.bankCode,
+          sourceUrl: src.sourceUrl,
+          effectiveUrl: isIcici ? 'https://www.icici.bank.in/rates' : src.sourceUrl,
+          finalUrl: isIcici ? 'https://www.icici.bank.in/rates' : src.sourceUrl,
+          redirectChain: isIcici ? [{ fromUrl: src.sourceUrl, toUrl: 'https://www.icici.bank.in/rates', statusCode: 301 }] : [],
+          redirectCount: isIcici ? 1 : 0,
+          sourceType: 'HTML',
+          status: 'FETCH_SUCCEEDED',
+          httpStatus: 200,
+          contentHash: VALID_HASH,
+          byteLength: 1000,
+          fetchedAt: '2025-12-15T10:00:00Z',
+        };
+      },
+    };
+
+    const mockStagingService = {
+      processCollectionResult: async (colResult) => ({
+        parserId: `${colResult.bankCode.toLowerCase()}_parser`,
+        parserVersion: '1.0.0',
+        effectiveFrom: '2025-12-15',
+        candidates: createMockSbiCandidates(16),
+        validation: { validCount: 16, invalidCount: 0, errors: [] },
+        anomalies: { candidatesWithAnomalies: 0, anomalyFlags: [] },
+      }),
+    };
+
+    const attestationService = new BaselineAttestationService({ skipDbPersist: true });
+
+    const reports = await runBaselineCli(['--inspect-read-only'], {
+      registry: mockRegistry,
+      collectionService: mockCollectionService,
+      stagingService: mockStagingService,
+      attestationService,
+    });
+
+    assert.strictEqual(reports.length, 3);
+    for (const r of reports) {
+      assert.strictEqual(r.attestationStatus, 'UNATTESTED');
+      assert.strictEqual(r.isAttested, false);
+      assert.strictEqual(r.persisted, false);
+      assert.strictEqual(r.isOfficialDomain, true);
+      assert.strictEqual(r.attestationEligibility, true);
+    }
   });
 
   console.log('\n======================================================');

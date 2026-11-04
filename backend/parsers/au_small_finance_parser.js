@@ -33,8 +33,8 @@ function extractCalendarTenure(label) {
   if (/^7\s*days\s*to\s*1\s*month\s*15\s*days$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 0, minMonths: 0, minDaysCal: 7, minOperator: '>=',
-      maxYears: 0, maxMonths: 1, maxDaysCal: 15, maxOperator: '<=',
+      minYears: 0, minMonths: 0, minDaysCal: 7, minOperator: 'GTE',
+      maxYears: 0, maxMonths: 1, maxDaysCal: 15, maxOperator: 'LTE',
     };
   }
 
@@ -42,8 +42,8 @@ function extractCalendarTenure(label) {
   if (/^1\s*month\s*16\s*days\s*to\s*3\s*months$/i.test(norm)) {
     return {
       tenureDomain: 'CALENDAR',
-      minYears: 0, minMonths: 1, minDaysCal: 16, minOperator: '>=',
-      maxYears: 0, maxMonths: 3, maxDaysCal: 0, maxOperator: '<=',
+      minYears: 0, minMonths: 1, minDaysCal: 16, minOperator: 'GTE',
+      maxYears: 0, maxMonths: 3, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -54,8 +54,8 @@ function extractCalendarTenure(label) {
     const maxMo = parseInt(m1Match[2], 10);
     return {
       tenureDomain: 'CALENDAR',
-      minYears: Math.floor(minMo / 12), minMonths: minMo, minDaysCal: 1, minOperator: '>=',
-      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo, maxDaysCal: 0, maxOperator: '<=',
+      minYears: Math.floor(minMo / 12), minMonths: minMo % 12, minDaysCal: 1, minOperator: 'GTE',
+      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo % 12, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -66,8 +66,8 @@ function extractCalendarTenure(label) {
     const maxMo = parseInt(ltMatch[2], 10);
     return {
       tenureDomain: 'CALENDAR',
-      minYears: Math.floor(minMo / 12), minMonths: minMo, minDaysCal: 1, minOperator: '>=',
-      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo, maxDaysCal: 0, maxOperator: '<',
+      minYears: Math.floor(minMo / 12), minMonths: minMo % 12, minDaysCal: 1, minOperator: 'GTE',
+      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo % 12, maxDaysCal: 0, maxOperator: 'LT',
     };
   }
 
@@ -78,8 +78,8 @@ function extractCalendarTenure(label) {
     const maxMo = parseInt(m2Match[2], 10);
     return {
       tenureDomain: 'CALENDAR',
-      minYears: Math.floor(minMo / 12), minMonths: minMo, minDaysCal: 0, minOperator: '>=',
-      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo, maxDaysCal: 0, maxOperator: '<=',
+      minYears: Math.floor(minMo / 12), minMonths: minMo % 12, minDaysCal: 0, minOperator: 'GTE',
+      maxYears: Math.floor(maxMo / 12), maxMonths: maxMo % 12, maxDaysCal: 0, maxOperator: 'LTE',
     };
   }
 
@@ -284,8 +284,8 @@ class AuSmallFinanceRateParser extends BaseRateParser {
         tenureUnit: tenure.tenureUnit,
         minTenure: tenure.minTenure,
         maxTenure: tenure.maxTenure,
-        minTenureDays: tenure.minTenureDays,
-        maxTenureDays: tenure.maxTenureDays,
+        minTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.minTenureDays,
+        maxTenureDays: calFields.tenureDomain === 'CALENDAR' ? null : tenure.maxTenureDays,
         tenureLabel: rawLabelReg,
         sourceTenureText: rawLabelReg,
         minDeposit: null,

@@ -34,24 +34,133 @@ const PROMOTION_STATUS = {
   PARTIALLY_PROMOTED: 'PARTIALLY_PROMOTED',
 };
 
-const ALLOWED_OFFICIAL_DOMAINS = [
-  'sbi.co.in',
-  'hdfcbank.com',
-  'hdfc.bank.in',
-  'icicibank.com',
-  'axisbank.com',
-  'theunitybank.com',
-];
+const BANK_OFFICIAL_DOMAINS = Object.freeze({
+  SBI: Object.freeze(['sbi.co.in', 'sbi.bank.in']),
+  HDFC: Object.freeze(['hdfcbank.com', 'hdfc.bank.in']),
+  ICICI: Object.freeze(['icicibank.com', 'icici.bank.in']),
+  AXIS: Object.freeze(['axisbank.com', 'axis.bank.in']),
+  IDFC_FIRST: Object.freeze(['idfcfirst.bank.in', 'idfcfirstbank.com']),
+  UNION_BANK: Object.freeze(['unionbankofindia.bank.in', 'unionbankofindia.co.in']),
+  PNB: Object.freeze(['pnb.bank.in', 'pnbindia.in']),
+  INDUSIND: Object.freeze(['indusind.bank.in', 'indusind.com']),
+  UCO: Object.freeze(['uco.bank.in', 'ucobank.com']),
+  AU_SMALL_FINANCE: Object.freeze(['au.bank.in', 'aubank.in']),
+  CANARA: Object.freeze(['canarabank.bank.in', 'canarabank.com']),
+  CENTRAL_BANK: Object.freeze(['centralbank.bank.in', 'centralbankofindia.co.in']),
+  INDIAN_BANK: Object.freeze(['indianbank.bank.in', 'indianbank.in']),
+  BOB: Object.freeze(['bankofbaroda.bank.in', 'bankofbaroda.in']),
+  THE_UNITY_BANK: Object.freeze(['theunitybank.com']),
+});
 
-function isOfficialBankDomain(url) {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-    return ALLOWED_OFFICIAL_DOMAINS.some(d => host === d || host.endsWith('.' + d));
-  } catch {
-    return false;
+const ALLOWED_OFFICIAL_DOMAINS = Object.freeze(
+  Array.from(new Set(Object.values(BANK_OFFICIAL_DOMAINS).flat()))
+);
+
+/**
+ * Validates a URL against authorized bank official domains with strict label-boundary matching.
+ *
+ * @param {string} url - Target URL to validate
+ * @param {string} [bankCode] - Bank code (e.g. 'SBI', 'HDFC', 'ICICI') for bank-scoped validation
+ * @param {Object} [options]
+ * @param {boolean} [options.requireHttps=true] - Mandate HTTPS protocol
+ * @returns {{ valid: boolean, reason?: string, hostname?: string, bankCode?: string, matchedDomain?: string }}
+ */
+function validateBankDomain(url, bankCode = null, options = {}) {
+  const requireHttps = options.requireHttps !== undefined ? options.requireHttps : true;
+  if (!url || typeof url !== 'string') {
+    return { valid: false, reason: 'URL must be a non-empty string' };
   }
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (err) {
+    return { valid: false, reason: `Malformed URL: "${url}" (${err.message})` };
+  }
+
+  if (requireHttps && parsed.protocol !== 'https:') {
+    return { valid: false, reason: `Insecure protocol "${parsed.protocol}" (HTTPS is mandatory for official bank sources)` };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (!hostname || hostname.length === 0) {
+    return { valid: false, reason: 'Missing or empty hostname in URL' };
+  }
+
+  // Reject raw IP addresses
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':')) {
+    return { valid: false, reason: `Raw IP addresses not permitted as official bank domains: "${hostname}"` };
+  }
+
+  // Reject non-standard ports
+  if (parsed.port && parsed.port !== '443' && parsed.port !== '80') {
+    return { valid: false, reason: `Disallowed port: "${parsed.port}"` };
+  }
+
+  // Label-boundary-safe matching: exact match OR proper subdomain (dot-prefixed)
+  const isLabelBoundaryMatch = (host, domain) => {
+    const d = domain.toLowerCase().trim();
+    return host === d || host.endsWith('.' + d);
+  };
+
+  if (bankCode) {
+    const normalizedBank = bankCode.toUpperCase().trim();
+    const allowedDomains = BANK_OFFICIAL_DOMAINS[normalizedBank];
+    if (!allowedDomains || allowedDomains.length === 0) {
+      return { valid: false, hostname, reason: `No approved official domains registered for bank: "${bankCode}"` };
+    }
+
+    const matchedDomain = allowedDomains.find(d => isLabelBoundaryMatch(hostname, d));
+    if (!matchedDomain) {
+      return {
+        valid: false,
+        hostname,
+        bankCode: normalizedBank,
+        reason: `Hostname "${hostname}" is not an authorized official domain for bank [${normalizedBank}]. Approved: [${allowedDomains.join(', ')}]`,
+      };
+    }
+
+    return {
+      valid: true,
+      bankCode: normalizedBank,
+      hostname,
+      matchedDomain,
+      url: parsed.href,
+    };
+  }
+
+  // Fallback when bankCode is omitted: check against all known banks with label-boundary matching
+  let matchedBank = null;
+  let matchedDomain = null;
+  for (const [bank, domains] of Object.entries(BANK_OFFICIAL_DOMAINS)) {
+    const match = domains.find(d => isLabelBoundaryMatch(hostname, d));
+    if (match) {
+      matchedBank = bank;
+      matchedDomain = match;
+      break;
+    }
+  }
+
+  if (!matchedDomain) {
+    return {
+      valid: false,
+      hostname,
+      reason: `Hostname "${hostname}" does not match any registered official bank domain`,
+    };
+  }
+
+  return {
+    valid: true,
+    bankCode: matchedBank,
+    hostname,
+    matchedDomain,
+    url: parsed.href,
+  };
+}
+
+function isOfficialBankDomain(url, bankCode = null) {
+  const result = validateBankDomain(url, bankCode, { requireHttps: true });
+  return result.valid;
 }
 
 function normalizeIsCallableFilter(val) {
@@ -85,6 +194,8 @@ class BaselineAttestationService {
       inMemoryAuditLogs: options.inMemoryAuditLogs,
     });
     this.logger = options.logger || console;
+    this.skipDbPersist = options.skipDbPersist !== undefined ? Boolean(options.skipDbPersist) : false;
+    this.supabaseAdmin = options.supabaseAdmin || options.supabaseClient || null;
 
     // In-memory registry for mock tests and offline environments
     this._inMemoryAttestations = options.inMemoryAttestations || new Map();
@@ -106,33 +217,71 @@ class BaselineAttestationService {
    */
   evaluateAttestationEligibility(attestationData) {
     const issues = [];
+    const bankCode = attestationData.bankCode || attestationData.bank_code || null;
+    const sourceUrl = attestationData.sourceUrl || attestationData.source_url;
+    const effectiveUrl = attestationData.effectiveUrl || attestationData.finalUrl || attestationData.effective_url;
+    const redirectChain = attestationData.redirectChain || attestationData.redirect_chain || [];
 
-    // 1. Official bank domain validation
-    if (!attestationData.sourceUrl || !isOfficialBankDomain(attestationData.sourceUrl)) {
-      issues.push(`Source URL is not on an approved official bank domain: "${attestationData.sourceUrl}"`);
+    // 1. Official bank domain validation on configured source URL
+    if (!sourceUrl) {
+      issues.push('Missing source URL');
+    } else {
+      const sourceDomainCheck = validateBankDomain(sourceUrl, bankCode, { requireHttps: true });
+      if (!sourceDomainCheck.valid) {
+        issues.push(`Source URL is not on an approved official bank domain: "${sourceUrl}" (${sourceDomainCheck.reason})`);
+      }
     }
 
-    // 2. Hash integrity
+    // 2. Official bank domain validation on effective / final URL (if present)
+    if (effectiveUrl && effectiveUrl !== sourceUrl) {
+      const effectiveDomainCheck = validateBankDomain(effectiveUrl, bankCode, { requireHttps: true });
+      if (!effectiveDomainCheck.valid) {
+        issues.push(`Effective final URL is not on an approved official bank domain: "${effectiveUrl}" (${effectiveDomainCheck.reason})`);
+      }
+    }
+
+    // 3. Official bank domain validation on redirect chain hops
+    if (Array.isArray(redirectChain) && redirectChain.length > 0) {
+      for (let i = 0; i < redirectChain.length; i++) {
+        const hop = redirectChain[i];
+        const from = hop.fromUrl || hop.from || hop.source;
+        const to = hop.toUrl || hop.to || hop.destination;
+        if (from) {
+          const fromCheck = validateBankDomain(from, bankCode, { requireHttps: true });
+          if (!fromCheck.valid) {
+            issues.push(`Redirect hop ${i + 1} source is not authorized for bank [${bankCode || 'ANY'}]: ${fromCheck.reason}`);
+          }
+        }
+        if (to) {
+          const toCheck = validateBankDomain(to, bankCode, { requireHttps: true });
+          if (!toCheck.valid) {
+            issues.push(`Redirect hop ${i + 1} destination is not authorized for bank [${bankCode || 'ANY'}]: ${toCheck.reason}`);
+          }
+        }
+      }
+    }
+
+    // 4. Hash integrity
     if (!attestationData.sourceContentHash || !/^[0-9a-f]{64}$/i.test(attestationData.sourceContentHash)) {
       issues.push(`Invalid or missing SHA-256 source content hash: "${attestationData.sourceContentHash}"`);
     }
 
-    // 3. Parser integrity
+    // 5. Parser integrity
     if (!attestationData.parserId || !attestationData.parserVersion) {
       issues.push('Missing parser identifier or parser version');
     }
 
-    // 4. Non-zero candidates
+    // 6. Non-zero candidates
     if (!attestationData.candidateCount || attestationData.candidateCount <= 0) {
       issues.push('Candidate batch contains zero extracted rates (cannot attest empty table)');
     }
 
-    // 5. Validation failures
+    // 7. Validation failures
     if (attestationData.invalidCandidateCount > 0) {
       issues.push(`Batch contains ${attestationData.invalidCandidateCount} invalid candidates failing schema validation`);
     }
 
-    // 6. Critical anomalies
+    // 8. Critical anomalies
     if (attestationData.anomalousCandidateCount > 0) {
       issues.push(`Batch contains ${attestationData.anomalousCandidateCount} candidates with active anomaly flags`);
     }
@@ -147,9 +296,14 @@ class BaselineAttestationService {
    * Creates or registers a baseline attestation batch from an extraction run.
    */
   async createBaselineBatch({
+    batchId: customBatchId = null,
     bankCode,
     sourceId,
     sourceUrl,
+    effectiveUrl = null,
+    finalUrl = null,
+    redirectChain = [],
+    redirectCount = 0,
     sourceType = 'HTML',
     sourceContentHash,
     fetchedAt = new Date().toISOString(),
@@ -160,14 +314,16 @@ class BaselineAttestationService {
     anomalySummary = {},
     effectiveFrom = null,
     notes = '',
+    skipDbPersist = false,
+    persist = true,
   }) {
     if (!bankCode) throw new Error('bankCode is required');
     if (!sourceId) throw new Error('sourceId is required');
     if (!sourceContentHash) throw new Error('sourceContentHash is required');
 
-    const batchId = this.generateBatchId(bankCode, sourceId, sourceContentHash);
+    const batchId = customBatchId || this.generateBatchId(bankCode, sourceId, sourceContentHash);
     const existing = await this.getAttestationByBatchId(batchId);
-    if (existing) {
+    if (existing && existing.attestationStatus !== ATTESTATION_STATUS.PENDING) {
       return existing;
     }
 
@@ -180,8 +336,15 @@ class BaselineAttestationService {
       ? anomalySummary.candidatesWithAnomalies
       : candidates.filter(c => c.anomalyFlags && c.anomalyFlags.length > 0).length;
 
+    const resolvedEffectiveUrl = effectiveUrl || finalUrl || sourceUrl;
+    const resolvedRedirectChain = redirectChain || [];
+    const resolvedRedirectCount = redirectCount || resolvedRedirectChain.length;
+
     const eligibility = this.evaluateAttestationEligibility({
+      bankCode,
       sourceUrl,
+      effectiveUrl: resolvedEffectiveUrl,
+      redirectChain: resolvedRedirectChain,
       sourceContentHash,
       parserId,
       parserVersion,
@@ -200,6 +363,11 @@ class BaselineAttestationService {
       source_id: sourceId,
       sourceUrl,
       source_url: sourceUrl,
+      effectiveUrl: resolvedEffectiveUrl,
+      effective_url: resolvedEffectiveUrl,
+      redirectChain: resolvedRedirectChain,
+      redirect_chain: resolvedRedirectChain,
+      redirectCount: resolvedRedirectCount,
       sourceType,
       source_type: sourceType,
       sourceContentHash,
@@ -241,6 +409,9 @@ class BaselineAttestationService {
         eligibility,
         validationSummary,
         anomalySummary,
+        effectiveUrl: resolvedEffectiveUrl,
+        redirectChain: resolvedRedirectChain,
+        candidateIds: candidates.map(c => c.id || c.candidateId).filter(Boolean),
       },
       createdAt: new Date().toISOString(),
       created_at: new Date().toISOString(),
@@ -248,11 +419,54 @@ class BaselineAttestationService {
       updated_at: new Date().toISOString(),
     };
 
+    if (existing && (existing.attestationStatus === ATTESTATION_STATUS.PENDING || existing.attestation_status === ATTESTATION_STATUS.PENDING)) {
+      existing.candidateCount = candidateCount;
+      existing.candidate_count = candidateCount;
+      existing.validCandidateCount = validCandidateCount;
+      existing.valid_candidate_count = validCandidateCount;
+      existing.invalidCandidateCount = invalidCandidateCount;
+      existing.invalid_candidate_count = invalidCandidateCount;
+      existing.anomalousCandidateCount = anomalousCandidateCount;
+      existing.anomalous_candidate_count = anomalousCandidateCount;
+      existing.metadata = {
+        eligibility,
+        validationSummary,
+        anomalySummary,
+        effectiveUrl: resolvedEffectiveUrl,
+        redirectChain: resolvedRedirectChain,
+        candidateIds: candidates.map(c => c.id || c.candidateId).filter(Boolean),
+      };
+      existing.updatedAt = new Date().toISOString();
+      existing.updated_at = existing.updatedAt;
+
+      this._inMemoryCandidates.set(batchId, candidates);
+      this._inMemoryAttestations.set(existing.id, existing);
+
+      const shouldSkipDb = this.skipDbPersist || Boolean(skipDbPersist) || (persist === false);
+      if (!shouldSkipDb && isSupabaseAvailable() && supabaseAdmin) {
+        try {
+          await supabaseAdmin.from('baseline_source_attestations').update({
+            candidate_count: candidateCount,
+            valid_candidate_count: validCandidateCount,
+            invalid_candidate_count: invalidCandidateCount,
+            anomalous_candidate_count: anomalousCandidateCount,
+            metadata: existing.metadata,
+            updated_at: existing.updatedAt,
+          }).eq('id', existing.id);
+        } catch (err) {
+          this.logger.warn(`Failed to update pending baseline attestation in Supabase: ${err.message}`);
+        }
+      }
+
+      return existing;
+    }
+
     // Store candidates in registry
     this._inMemoryCandidates.set(batchId, candidates);
     this._inMemoryAttestations.set(record.id, record);
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    const shouldSkipDb = this.skipDbPersist || Boolean(skipDbPersist) || (persist === false);
+    if (!shouldSkipDb && isSupabaseAvailable() && supabaseAdmin) {
       try {
         await supabaseAdmin.from('baseline_source_attestations').insert([{
           id: record.id,
@@ -283,11 +497,142 @@ class BaselineAttestationService {
   }
 
   /**
+   * Pure read-only inspection of a baseline batch with ZERO database writes guaranteed.
+   *
+   * Evaluates domain validity, parser integrity, validation summary, anomaly flags,
+   * effective date evidence, and attestation eligibility purely in memory.
+   *
+   * GUARANTEES:
+   * - Zero database queries or writes to baseline_source_attestations, rate_sources,
+   *   source_collection_logs, staged_rate_candidates, or fd_rates.
+   * - Never sets attestationStatus to ATTESTED (returns UNATTESTED).
+   * - Does not call attestBaseline, rejectBaseline, or promoteBaseline.
+   * - Fails closed if parameters are invalid.
+   */
+  inspectBaselineBatch({
+    batchId: customBatchId = null,
+    bankCode,
+    sourceId,
+    sourceUrl,
+    effectiveUrl = null,
+    finalUrl = null,
+    redirectChain = [],
+    redirectCount = 0,
+    sourceType = 'HTML',
+    sourceContentHash,
+    fetchedAt = new Date().toISOString(),
+    parserId,
+    parserVersion = '1.0.0',
+    candidates = [],
+    validationSummary = {},
+    anomalySummary = {},
+    effectiveFrom = null,
+    notes = '',
+    requireExplicitEffectiveDate = true,
+  }) {
+    if (!bankCode) throw new Error('bankCode is required');
+    if (!sourceId) throw new Error('sourceId is required');
+    if (!sourceContentHash) throw new Error('sourceContentHash is required');
+
+    const batchId = customBatchId || this.generateBatchId(bankCode, sourceId, sourceContentHash);
+    const candidateCount = candidates.length;
+    const invalidCandidateCount = validationSummary.invalidCount !== undefined
+      ? validationSummary.invalidCount
+      : candidates.filter(c => c.validationStatus === 'INVALID').length;
+    const validCandidateCount = candidateCount - invalidCandidateCount;
+    const anomalousCandidateCount = anomalySummary.candidatesWithAnomalies !== undefined
+      ? anomalySummary.candidatesWithAnomalies
+      : candidates.filter(c => c.anomalyFlags && c.anomalyFlags.length > 0).length;
+
+    const resolvedEffectiveUrl = effectiveUrl || finalUrl || sourceUrl;
+    const resolvedRedirectChain = redirectChain || [];
+    const resolvedRedirectCount = redirectCount || resolvedRedirectChain.length;
+
+    // Evaluate core attestation eligibility
+    const eligibility = this.evaluateAttestationEligibility({
+      bankCode,
+      sourceUrl,
+      effectiveUrl: resolvedEffectiveUrl,
+      redirectChain: resolvedRedirectChain,
+      sourceContentHash,
+      parserId,
+      parserVersion,
+      candidateCount,
+      invalidCandidateCount,
+      anomalousCandidateCount,
+    });
+
+    // Check explicit effective date evidence
+    const hasExplicitEffectiveDate = Boolean(effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom));
+    if (requireExplicitEffectiveDate && !hasExplicitEffectiveDate) {
+      eligibility.issues.push('Missing verified explicit effectiveFrom date in source extraction');
+      eligibility.eligible = false;
+    }
+
+    const sourceDomainVal = validateBankDomain(sourceUrl, bankCode, { requireHttps: true });
+    const effectiveDomainVal = validateBankDomain(resolvedEffectiveUrl, bankCode, { requireHttps: true });
+    const redirectsValid = resolvedRedirectChain.every(hop => {
+      const from = hop.fromUrl || hop.from;
+      const to = hop.toUrl || hop.to;
+      return (!from || validateBankDomain(from, bankCode, { requireHttps: true }).valid) &&
+             (!to || validateBankDomain(to, bankCode, { requireHttps: true }).valid);
+    });
+    const isOfficial = sourceDomainVal.valid && effectiveDomainVal.valid && redirectsValid;
+    const anomalyFlags = anomalySummary.anomalyFlags || [];
+
+    const report = {
+      batchId,
+      bankCode,
+      sourceId,
+      sourceUrl,
+      effectiveUrl: resolvedEffectiveUrl,
+      finalUrl: resolvedEffectiveUrl,
+      redirectChain: resolvedRedirectChain,
+      redirectCount: resolvedRedirectCount,
+      sourceType,
+      isOfficialDomain: isOfficial,
+      domainValidation: {
+        valid: isOfficial,
+        source: sourceDomainVal,
+        effective: effectiveDomainVal,
+        redirectsValid,
+      },
+      sourceContentHash,
+      fetchedAt,
+      parserId,
+      parserVersion,
+      effectiveDate: effectiveFrom || null,
+      hasExplicitEffectiveDate,
+      candidateCount,
+      validCandidateCount,
+      invalidCandidateCount,
+      anomalousCandidateCount,
+      anomalyFlags,
+      validationStatus: invalidCandidateCount === 0 ? 'VALID' : 'INVALID',
+      // Explicitly UNATTESTED (never ATTESTED):
+      attestationStatus: 'UNATTESTED',
+      isAttested: false,
+      attestationEligibility: eligibility.eligible,
+      attestationIssues: eligibility.issues,
+      persisted: false,
+      notes: notes || 'Read-only zero-write baseline inspection',
+      inspectedAt: new Date().toISOString(),
+    };
+
+    return report;
+  }
+
+  /**
    * Attests a baseline batch by an authorized administrator.
    */
   async attestBaseline({ attestationId, adminUserId, notes = '' }) {
     if (!attestationId) throw new Error('attestationId is required');
     if (!adminUserId) throw new Error('adminUserId is required');
+
+    // Fail-closed guard: simulated admin identities are prohibited from attesting
+    if (adminUserId === 'admin_dry_run_simulation' || adminUserId.startsWith('admin_dry_run')) {
+      throw new Error('SAFETY ERROR: Simulated admin identity (admin_dry_run_simulation) cannot be used to attest a baseline. Attestation requires an authentic authorized administrator.');
+    }
 
     const attestation = await this.getAttestationById(attestationId);
     if (!attestation) {
@@ -307,6 +652,35 @@ class BaselineAttestationService {
       throw new Error(`Baseline attestation failed integrity requirements: ${eligibility.issues.join('; ')}`);
     }
 
+    // Fail-closed provenance check: verify matching authentic source_collection_logs entry exists
+    const db = this.supabaseAdmin || supabaseAdmin;
+    if (!this.skipDbPersist && (this.supabaseAdmin || isSupabaseAvailable()) && db) {
+      try {
+        const sourceId = attestation.sourceId || attestation.source_id;
+        const sourceHash = attestation.sourceContentHash || attestation.source_content_hash;
+        if (typeof db.from === 'function') {
+          const { data: logs, error: logCheckError } = await db
+            .from('source_collection_logs')
+            .select('id')
+            .eq('source_id', sourceId)
+            .eq('content_hash', sourceHash)
+            .limit(1);
+
+          if (logCheckError) {
+            throw new Error(`Provenance verification query failed for baseline [${attestationId}]: ${logCheckError.message}`);
+          }
+
+          if (!logs || logs.length === 0) {
+            throw new Error(`Provenance assertion failed: Cannot attest baseline [${attestationId}] without verified source_collection_log for source [${sourceId}] and content hash [${sourceHash}]`);
+          }
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('Provenance assertion failed') || err.message.includes('Provenance verification query failed'))) {
+          throw err;
+        }
+      }
+    }
+
     const now = new Date().toISOString();
     attestation.attestationStatus = ATTESTATION_STATUS.ATTESTED;
     attestation.attestation_status = ATTESTATION_STATUS.ATTESTED;
@@ -318,9 +692,10 @@ class BaselineAttestationService {
     attestation.updatedAt = now;
     attestation.updated_at = now;
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    const isDbAvailable = this.supabaseAdmin ? true : isSupabaseAvailable();
+    if (!this.skipDbPersist && isDbAvailable && db) {
       try {
-        await supabaseAdmin
+        await db
           .from('baseline_source_attestations')
           .update({
             attestation_status: ATTESTATION_STATUS.ATTESTED,
@@ -359,7 +734,7 @@ class BaselineAttestationService {
     attestation.updatedAt = now;
     attestation.updated_at = now;
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin) {
       try {
         await supabaseAdmin
           .from('baseline_source_attestations')
@@ -419,11 +794,13 @@ class BaselineAttestationService {
 
     // 4. Verify hash and parser binding
     for (const c of allBatchCandidates) {
-      if (c.sourceContentHash !== attestation.sourceContentHash) {
-        throw new Error(`Candidate hash mismatch: expected "${attestation.sourceContentHash}", found "${c.sourceContentHash}"`);
+      const cHash = c.sourceContentHash || c.source_content_hash;
+      const cVersion = c.parserVersion || c.parser_version;
+      if (cHash !== attestation.sourceContentHash) {
+        throw new Error(`Candidate hash mismatch: expected "${attestation.sourceContentHash}", found "${cHash}"`);
       }
-      if (c.parserVersion !== attestation.parserVersion) {
-        throw new Error(`Candidate parser version mismatch: expected "${attestation.parserVersion}", found "${c.parserVersion}"`);
+      if (cVersion !== attestation.parserVersion) {
+        throw new Error(`Candidate parser version mismatch: expected "${attestation.parserVersion}", found "${cVersion}"`);
       }
     }
 
@@ -457,7 +834,8 @@ class BaselineAttestationService {
       }
 
       // Direct validation check
-      if (candidate.validationStatus === 'INVALID') {
+      const valStatus = candidate.validationStatus || candidate.validation_status || 'VALID';
+      if (valStatus === 'INVALID') {
         candidate.stagingStatus = 'INVALID';
         candidate.staging_status = 'INVALID';
         results.invalidCount++;
@@ -494,8 +872,8 @@ class BaselineAttestationService {
         results.promotedCount++;
         results.promotedRates.push({
           candidateId: candidate.id || candidate.candidateId,
-          tenure: candidate.tenureLabel,
-          rate: candidate.interestRate,
+          tenure: candidate.tenureLabel || candidate.tenure_label || candidate.sourceTenureText || candidate.source_tenure_text,
+          rate: candidate.interestRate !== undefined ? candidate.interestRate : candidate.interest_rate,
           simulated: true,
         });
         continue;
@@ -519,7 +897,7 @@ class BaselineAttestationService {
         // Keep activeRates updated for sequential candidate diffs
         activeRates.push(promoRes.newVerifiedRate);
 
-        if (isSupabaseAvailable() && supabaseAdmin && candidate.id) {
+        if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin && candidate.id) {
           try {
             await supabaseAdmin
               .from('staged_rate_candidates')
@@ -572,7 +950,7 @@ class BaselineAttestationService {
       results.totalPromotedInBatch = totalPromotedInBatch;
       results.promotionStatus = newPromotionStatus;
 
-      if (isSupabaseAvailable() && supabaseAdmin) {
+      if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin) {
         try {
           await supabaseAdmin
             .from('baseline_source_attestations')
@@ -603,7 +981,7 @@ class BaselineAttestationService {
       return this._inMemoryAttestations.get(id);
     }
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin) {
       try {
         const { data } = await supabaseAdmin
           .from('baseline_source_attestations')
@@ -660,7 +1038,7 @@ class BaselineAttestationService {
       }
     }
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin) {
       try {
         const { data } = await supabaseAdmin
           .from('baseline_source_attestations')
@@ -704,16 +1082,25 @@ class BaselineAttestationService {
       return this._inMemoryCandidates.get(batchId);
     }
 
-    if (isSupabaseAvailable() && supabaseAdmin) {
+    if (!this.skipDbPersist && isSupabaseAvailable() && supabaseAdmin) {
       try {
-        const { data } = await supabaseAdmin
+        const attestation = batchId ? await this.getAttestationByBatchId(batchId) : null;
+        const candidateIds = attestation?.metadata?.candidateIds;
+
+        let query = supabaseAdmin
           .from('staged_rate_candidates')
           .select('*')
           .eq('bank_code', bankCode)
           .eq('source_content_hash', sourceContentHash);
 
+        if (Array.isArray(candidateIds) && candidateIds.length > 0) {
+          query = query.in('id', candidateIds);
+        }
+
+        const { data } = await query;
+
         if (Array.isArray(data) && data.length > 0) {
-          return data;
+          return data.map(c => this.promotionService.normalizeCandidate(c));
         }
       } catch {
         return [];
@@ -729,6 +1116,8 @@ module.exports = {
   ATTESTATION_STATUS,
   PROMOTION_STATUS,
   ALLOWED_OFFICIAL_DOMAINS,
+  BANK_OFFICIAL_DOMAINS,
+  validateBankDomain,
   isOfficialBankDomain,
   normalizeIsCallableFilter,
   isCandidateCallable,

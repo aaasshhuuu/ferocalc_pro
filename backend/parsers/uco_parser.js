@@ -176,7 +176,9 @@ class UcoRateParser extends BaseRateParser {
 
       if (is333) {
         const msg = 'Special scheme validity conflict: UCO 333 scheme expired on 30.06.2026 but is still published in Table 1 @ 6.30% without official renewal; blocked from activation pending official clarification.';
-        errors.push(msg);
+        if (!context.excludeExpiredSchemes && !context.allowValidSchemes) {
+          errors.push(msg);
+        }
         blockedSchemes.push({ label: rawLabel, reason: msg, expiredDate: '2026-06-30' });
         hasExpiredSchemeDiscrepancy = true;
         continue;
@@ -184,7 +186,9 @@ class UcoRateParser extends BaseRateParser {
 
       if (is444) {
         const msg = 'Special scheme validity conflict: UCO 444 scheme expired on 30.06.2026 but is still published in Table 1 @ 6.45% without official renewal; blocked from activation pending official clarification.';
-        errors.push(msg);
+        if (!context.excludeExpiredSchemes && !context.allowValidSchemes) {
+          errors.push(msg);
+        }
         blockedSchemes.push({ label: rawLabel, reason: msg, expiredDate: '2026-06-30' });
         hasExpiredSchemeDiscrepancy = true;
         continue;
@@ -294,8 +298,11 @@ class UcoRateParser extends BaseRateParser {
       errors.push(`Published row count changed: expected ${EXPECTED_TOTAL_ROWS}, found ${extractedRows}`);
     }
 
-    // Fail-Closed: If any expired-scheme discrepancy exists, or any extraction error occurred, mark success: false.
-    const success = errors.length === 0 && !hasExpiredSchemeDiscrepancy && validRows === EXPECTED_TOTAL_ROWS;
+    // Fail-Closed: If any expired-scheme discrepancy exists, or any extraction error occurred, mark success: false,
+    // unless explicitly configured to exclude expired schemes and publish only valid active schemes.
+    const allowValid = Boolean(context.excludeExpiredSchemes || context.allowValidSchemes);
+    const expectedValid = hasExpiredSchemeDiscrepancy ? (EXPECTED_TOTAL_ROWS - blockedSchemes.length) : EXPECTED_TOTAL_ROWS;
+    const success = errors.length === 0 && (!hasExpiredSchemeDiscrepancy || allowValid) && validRows === expectedValid;
 
     return new ExtractionResult({
       sourceId,

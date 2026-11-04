@@ -38,22 +38,27 @@ class CandidateStagingService {
       // 1. Check existing verified rates in fd_rates
       const { data, error } = await db
         .from('fd_rates')
-        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable')
-        .eq('banks.code', bankCode)
+        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, banks!inner(short_name)')
+        .eq('banks.short_name', bankCode)
         .eq('status', 'VERIFIED');
+
+      // 2. Check most recent staged candidates
+      const { data: stagedData } = await db
+        .from('staged_rate_candidates')
+        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, tenure_domain, tenure_label, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator')
+        .eq('bank_code', bankCode)
+        .eq('validation_status', 'VALID')
+        .order('extracted_at', { ascending: false })
+        .limit(60);
+
+      // Prefer the more complete baseline: if stagedData has broader coverage than a partial pilot in fd_rates
+      if (stagedData && stagedData.length > (data?.length || 0)) {
+        return stagedData;
+      }
 
       if (!error && Array.isArray(data) && data.length > 0) {
         return data;
       }
-
-      // 2. Fallback: Check most recent staged candidates
-      const { data: stagedData } = await db
-        .from('staged_rate_candidates')
-        .select('customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable')
-        .eq('bank_code', bankCode)
-        .eq('validation_status', 'VALID')
-        .order('extracted_at', { ascending: false })
-        .limit(40);
 
       return stagedData || [];
     } catch {
@@ -340,19 +345,204 @@ class CandidateStagingService {
         };
       });
 
-      const { data, error } = await db
-        .from('staged_rate_candidates')
-        .insert(records)
-        .select('id, bank_code, product_type, customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, source_content_hash, staging_status');
+      // Deduplication & Active Constraint Management: Check existing active candidates
+      const bankCodes = [...new Set(records.map(r => r.bank_code).filter(Boolean))];
 
-      if (error) {
-        this.logger.warn(`Failed to persist staged candidates to DB: ${error.message}`);
-        return { persistedCount: 0, insertedRows: [], error: error.message };
+      let existingRows = [];
+      if (bankCodes.length > 0) {
+        try {
+          const query = db.from('staged_rate_candidates');
+          if (query && typeof query.select === 'function') {
+            const selectQuery = query.select('id, bank_code, product_type, customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, source_content_hash, staging_status, tenure_label, tenure_domain, tenure_unit, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, rate_category, scheme_name');
+            if (selectQuery && typeof selectQuery.in === 'function') {
+              const { data: existing, error: existErr } = await selectQuery
+                .in('bank_code', bankCodes)
+                .in('staging_status', ['DRAFT', 'IN_REVIEW']);
+
+              if (!existErr && Array.isArray(existing) && existing.length > 0) {
+                existingRows = existing;
+              }
+            }
+          }
+        } catch {
+          existingRows = [];
+        }
+      }
+
+      const recordsToInsert = [];
+      const reusedRows = [];
+
+      for (const rec of records) {
+        let matched = existingRows.find(ex =>
+          ex.bank_code === rec.bank_code &&
+          ex.customer_type === rec.customer_type &&
+          ex.tenure_domain === rec.tenure_domain &&
+          (rec.rate_category || 'STANDARD') === (ex.rate_category || 'STANDARD') &&
+          (rec.scheme_name || null) === (ex.scheme_name || null) &&
+          (
+            ex.tenure_domain === 'DAYS'
+              ? (Number(ex.min_tenure_days) === Number(rec.min_tenure_days) && Number(ex.max_tenure_days) === Number(rec.max_tenure_days))
+              : (
+                  Number(ex.min_years || 0) === Number(rec.min_years || 0) &&
+                  Number(ex.min_months || 0) === Number(rec.min_months || 0) &&
+                  Number(ex.min_days_cal || 0) === Number(rec.min_days_cal || 0) &&
+                  (ex.min_operator || null) === (rec.min_operator || null) &&
+                  Number(ex.max_years || 0) === Number(rec.max_years || 0) &&
+                  Number(ex.max_months || 0) === Number(rec.max_months || 0) &&
+                  Number(ex.max_days_cal || 0) === Number(rec.max_days_cal || 0) &&
+                  (ex.max_operator || null) === (rec.max_operator || null)
+                )
+          )
+        );
+
+        // Fallback for active DRAFT candidates undergoing domain refinement:
+        // match by tenure_label if not already matched by domain & bounds
+        if (!matched) {
+          matched = existingRows.find(ex =>
+            ex.bank_code === rec.bank_code &&
+            ex.customer_type === rec.customer_type &&
+            ex.staging_status === 'DRAFT' &&
+            (rec.rate_category || 'STANDARD') === (ex.rate_category || 'STANDARD') &&
+            (rec.scheme_name || null) === (ex.scheme_name || null) &&
+            ex.tenure_label && rec.tenure_label &&
+            ex.tenure_label.trim().toLowerCase() === rec.tenure_label.trim().toLowerCase()
+          );
+        }
+
+        if (matched) {
+          // If hash, rates, domain, tenure fields, or anomaly flags differ, update the existing active record in place
+          const isDifferent = Boolean(options.forceUpdate) ||
+            matched.source_content_hash !== rec.source_content_hash ||
+            Number(matched.interest_rate) !== Number(rec.interest_rate) ||
+            matched.tenure_domain !== rec.tenure_domain ||
+            matched.tenure_unit !== rec.tenure_unit ||
+            matched.min_tenure_days !== rec.min_tenure_days ||
+            matched.max_tenure_days !== rec.max_tenure_days ||
+            matched.min_years !== rec.min_years ||
+            matched.min_months !== rec.min_months ||
+            matched.min_days_cal !== rec.min_days_cal ||
+            matched.min_operator !== rec.min_operator ||
+            matched.max_years !== rec.max_years ||
+            matched.max_months !== rec.max_months ||
+            matched.max_days_cal !== rec.max_days_cal ||
+            matched.max_operator !== rec.max_operator ||
+            JSON.stringify(matched.anomaly_flags || []) !== JSON.stringify(rec.anomaly_flags || []);
+
+          if (isDifferent) {
+            try {
+              const updateQuery = db.from('staged_rate_candidates');
+              if (updateQuery && typeof updateQuery.update === 'function') {
+                const { error: upErr } = await updateQuery
+                  .update({
+                    source_content_hash: rec.source_content_hash,
+                    tenure_label: rec.tenure_label,
+                    tenure_domain: rec.tenure_domain,
+                    tenure_unit: rec.tenure_unit,
+                    min_tenure_days: rec.min_tenure_days,
+                    max_tenure_days: rec.max_tenure_days,
+                    min_years: rec.min_years,
+                    min_months: rec.min_months,
+                    min_days_cal: rec.min_days_cal,
+                    min_operator: rec.min_operator,
+                    max_years: rec.max_years,
+                    max_months: rec.max_months,
+                    max_days_cal: rec.max_days_cal,
+                    max_operator: rec.max_operator,
+                    interest_rate: rec.interest_rate,
+                    senior_citizen_rate: rec.senior_citizen_rate,
+                    super_senior_rate: rec.super_senior_rate,
+                    min_deposit: rec.min_deposit,
+                    max_deposit: rec.max_deposit,
+                    is_callable: rec.is_callable,
+                    compounding_frequency: rec.compounding_frequency,
+                    effective_from: rec.effective_from,
+                    effective_until: rec.effective_until,
+                    source_url: rec.source_url,
+                    source_document_url: rec.source_document_url,
+                    extracted_at: rec.extracted_at,
+                    parser_id: rec.parser_id,
+                    parser_version: rec.parser_version,
+                    validation_status: rec.validation_status,
+                    validation_errors: rec.validation_errors,
+                    anomaly_flags: rec.anomaly_flags,
+                    staging_status: (matched.staging_status === 'IN_REVIEW' && rec.staging_status === 'DRAFT') ? 'IN_REVIEW' : rec.staging_status,
+                    notes: rec.notes,
+                    rate_category: rec.rate_category,
+                    scheme_name: rec.scheme_name,
+                  })
+                  .eq('id', matched.id);
+                if (upErr) throw upErr;
+              }
+            } catch (updateErr) {
+              this.logger.warn(`Failed to update existing staged candidate ${matched.id}: ${updateErr.message}`);
+            }
+            matched.source_content_hash = rec.source_content_hash;
+            matched.interest_rate = rec.interest_rate;
+            matched.tenure_domain = rec.tenure_domain;
+            matched.tenure_unit = rec.tenure_unit;
+            matched.min_tenure_days = rec.min_tenure_days;
+            matched.max_tenure_days = rec.max_tenure_days;
+            matched.min_years = rec.min_years;
+            matched.min_months = rec.min_months;
+            matched.min_days_cal = rec.min_days_cal;
+            matched.min_operator = rec.min_operator;
+            matched.max_years = rec.max_years;
+            matched.max_months = rec.max_months;
+            matched.max_days_cal = rec.max_days_cal;
+            matched.max_operator = rec.max_operator;
+          }
+          reusedRows.push(matched);
+        } else {
+          recordsToInsert.push(rec);
+        }
+      }
+
+      let insertedRows = [];
+      if (recordsToInsert.length > 0) {
+        const { data, error } = await db
+          .from('staged_rate_candidates')
+          .insert(recordsToInsert)
+          .select('id, bank_code, product_type, customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, source_content_hash, staging_status, tenure_label');
+
+        if (error) {
+          this.logger.warn(`Failed to persist staged candidates to DB: ${error.message}`);
+          return { persistedCount: 0, insertedRows: [], error: error.message };
+        }
+        insertedRows = data || [];
+      }
+
+      const allActiveRows = [...reusedRows, ...insertedRows];
+
+      // Attach resolved DB IDs back to in-memory candidates
+      for (const c of candidates) {
+        const cBankCode = c.bankCode !== undefined ? c.bankCode : c.bank_code;
+        const cCustomerType = c.customerType !== undefined ? c.customerType : c.customer_type;
+        const cTenureDomain = (c.tenureDomain || c.tenure_domain || 'DAYS').toUpperCase().trim();
+        const cMinDays = c.minTenureDays !== undefined ? c.minTenureDays : c.min_tenure_days;
+        const cMaxDays = c.maxTenureDays !== undefined ? c.maxTenureDays : c.max_tenure_days;
+        const cLabel = c.tenureLabel !== undefined ? c.tenureLabel : c.tenure_label;
+
+        const matchedRow = allActiveRows.find(row =>
+          row.bank_code === cBankCode &&
+          row.customer_type === cCustomerType &&
+          row.tenure_domain === cTenureDomain &&
+          (cTenureDomain === 'DAYS'
+            ? (Number(row.min_tenure_days) === Number(cMinDays) && Number(row.max_tenure_days) === Number(cMaxDays))
+            : (row.tenure_label === cLabel))
+        );
+
+        if (matchedRow && matchedRow.id) {
+          c.id = matchedRow.id;
+          c._candidate_id = matchedRow.id;
+          c.stagedCandidateId = matchedRow.id;
+        }
       }
 
       return {
-        persistedCount: (data && data.length) ? data.length : records.length,
-        insertedRows: data || [],
+        persistedCount: allActiveRows.length,
+        insertedRows: allActiveRows,
+        reusedCount: reusedRows.length,
+        newlyInsertedCount: insertedRows.length,
       };
     } catch (err) {
       this.logger.warn(`Staging DB persistence error: ${err.message}`);
@@ -413,6 +603,8 @@ class CandidateStagingService {
       sourceId,
       sourceUrl,
       sourceContentHash: contentHash,
+      ...options,
+      ...(options.parserOptions || {}),
     });
 
     if (!extractionResult.success || extractionResult.candidates.length === 0) {
@@ -468,6 +660,38 @@ class CandidateStagingService {
     // 6. Persist to Staging (if Supabase is available)
     let persistResult = { persistedCount: 0, insertedRows: [] };
     if (!options.skipDbPersist) {
+      const db = options.supabaseClient || this.supabaseClient || supabaseAdmin;
+      const isAvailable = (options.supabaseClient || this.supabaseClient) ? true : isSupabaseAvailable();
+
+      if (isAvailable && db && !options.skipDbAccess && options.requireProvenance !== false) {
+        // Assert source provenance linkage: source_collection_logs MUST contain this contentHash
+        try {
+          const logQuery = db.from('source_collection_logs');
+          if (logQuery && typeof logQuery.select === 'function') {
+            const { data: logs, error: logCheckError } = await logQuery
+              .select('id')
+              .eq('source_id', sourceId)
+              .eq('content_hash', contentHash)
+              .limit(1);
+
+            if (logCheckError) {
+              this.logger.error(`[CandidateStagingService] Provenance verification failed: ${logCheckError.message}`);
+              throw new Error(`Provenance verification failed for source [${sourceId}] hash [${contentHash}]: ${logCheckError.message}`);
+            }
+
+            if (!logs || logs.length === 0) {
+              this.logger.error(`[CandidateStagingService] Provenance assertion failed: No source_collection_logs record found for source [${sourceId}] with content hash [${contentHash}]`);
+              throw new Error(`Provenance assertion failed: Cannot stage candidates without verified source_collection_log for source [${sourceId}] and content hash [${contentHash}]`);
+            }
+          }
+        } catch (err) {
+          if (err.message && (err.message.includes('Provenance assertion failed') || err.message.includes('Provenance verification failed'))) {
+            throw err;
+          }
+          // In mocks where source_collection_logs query is unsupported, pass through
+        }
+      }
+
       persistResult = await this._persistCandidates(candidates, options);
     }
 

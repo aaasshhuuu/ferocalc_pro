@@ -62,25 +62,61 @@ class AnomalyDetector {
         }
       }
 
-      // 2. Check Rate Delta per Tenure Bucket
-      // Index previous rates by (customerType, isCallable, minTenureDays, maxTenureDays)
-      const prevMap = new Map();
-      for (const p of previousRates) {
-        const pRate = p.interest_rate || p.interestRate;
-        const key = `${p.customer_type || p.customerType}|${p.is_callable !== false}|${p.min_tenure_days || p.minTenureDays}|${p.max_tenure_days || p.maxTenureDays}`;
-        if (pRate !== undefined && pRate !== null) {
-          prevMap.set(key, parseFloat(pRate));
+      // Helper to generate canonical bucket key
+      const getBucketKey = (item) => {
+        const cust = item.customer_type || item.customerType;
+        const call = item.is_callable !== false && item.isCallable !== false;
+        const domain = String(item.tenure_domain || item.tenureDomain || 'DAYS').toUpperCase().trim();
+        if (domain === 'CALENDAR') {
+          const minY = item.min_years != null ? Number(item.min_years) : (item.minYears != null ? Number(item.minYears) : 0);
+          const minM = item.min_months != null ? Number(item.min_months) : (item.minMonths != null ? Number(item.minMonths) : 0);
+          const minD = item.min_days_cal != null ? Number(item.min_days_cal) : (item.minDaysCal != null ? Number(item.minDaysCal) : 0);
+          const minOp = String(item.min_operator || item.minOperator || '').toUpperCase().trim();
+          const maxY = item.max_years != null ? Number(item.max_years) : (item.maxYears != null ? Number(item.maxYears) : 0);
+          const maxM = item.max_months != null ? Number(item.max_months) : (item.maxMonths != null ? Number(item.maxMonths) : 0);
+          const maxD = item.max_days_cal != null ? Number(item.max_days_cal) : (item.maxDaysCal != null ? Number(item.maxDaysCal) : 0);
+          const maxOp = String(item.max_operator || item.maxOperator || '').toUpperCase().trim();
+          return `${cust}|${call}|CALENDAR|${minY}_${minM}_${minD}_${minOp}|${maxY}_${maxM}_${maxD}_${maxOp}`;
         }
+        const minDays = item.min_tenure_days != null ? item.min_tenure_days : (item.minTenureDays != null ? item.minTenureDays : null);
+        const maxDays = item.max_tenure_days != null ? item.max_tenure_days : (item.maxTenureDays != null ? item.maxTenureDays : null);
+        return `${cust}|${call}|DAYS|${minDays}|${maxDays}`;
+      };
+
+      const getLabelKey = (item) => {
+        const cust = item.customer_type || item.customerType;
+        const call = item.is_callable !== false && item.isCallable !== false;
+        const label = String(item.tenure_label || item.tenureLabel || item.source_tenure_text || item.sourceTenureText || '').toLowerCase().trim();
+        return label ? `${cust}|${call}|LABEL|${label}` : null;
+      };
+
+      // 2. Check Rate Delta per Tenure Bucket
+      // Index previous rates by bucket key and label key
+      const prevMap = new Map();
+      const prevLabelMap = new Map();
+      const prevRatesByKey = [];
+
+      for (const p of previousRates) {
+        const pRate = p.interest_rate !== undefined && p.interest_rate !== null ? p.interest_rate : p.interestRate;
+        const bKey = getBucketKey(p);
+        const lKey = getLabelKey(p);
+        if (pRate !== undefined && pRate !== null) {
+          prevMap.set(bKey, parseFloat(pRate));
+          if (lKey) prevLabelMap.set(lKey, parseFloat(pRate));
+        }
+        prevRatesByKey.push({ bKey, lKey, p });
       }
 
       for (const c of candidates) {
-        const key = `${c.customerType}|${c.isCallable !== false}|${c.minTenureDays}|${c.maxTenureDays}`;
-        if (prevMap.has(key)) {
-          const prevRate = prevMap.get(key);
-          const delta = Math.abs(c.interestRate - prevRate);
+        const bKey = getBucketKey(c);
+        const lKey = getLabelKey(c);
+        const prevRate = prevMap.has(bKey) ? prevMap.get(bKey) : (lKey && prevLabelMap.has(lKey) ? prevLabelMap.get(lKey) : null);
 
+        if (prevRate !== null && prevRate !== undefined) {
+          const delta = Math.abs(c.interestRate - prevRate);
           if (delta > this.config.maxRateDeltaPct) {
-            const flag = `ANOMALY_LARGE_RATE_DELTA: Rate for ${c.customerType} [${c.minTenureDays}..${c.maxTenureDays}d] changed by ${delta.toFixed(2)}% (from ${prevRate}% to ${c.interestRate}%, threshold ${this.config.maxRateDeltaPct}%)`;
+            const tenureDesc = (c.tenureDomain || 'DAYS') === 'CALENDAR' ? c.tenureLabel : `[${c.minTenureDays}..${c.maxTenureDays}d]`;
+            const flag = `ANOMALY_LARGE_RATE_DELTA: Rate for ${c.customerType} ${tenureDesc} changed by ${delta.toFixed(2)}% (from ${prevRate}% to ${c.interestRate}%, threshold ${this.config.maxRateDeltaPct}%)`;
             c.anomalyFlags.push(flag);
             c.stagingStatus = 'IN_REVIEW';
             anomalies.flags.push(flag);
@@ -91,19 +127,19 @@ class AnomalyDetector {
       }
 
       // 3. Check for Disappeared Tenures
-      // If a previous tenure bucket is completely absent in the new set
-      const currKeys = new Set(candidates.map(c => 
-        `${c.customerType}|${c.isCallable !== false}|${c.minTenureDays}|${c.maxTenureDays}`
-      ));
+      // A previous rate is missing if neither its bucket key nor its label key is present in new candidates
+      const currBucketKeys = new Set(candidates.map(c => getBucketKey(c)));
+      const currLabelKeys = new Set(candidates.map(c => getLabelKey(c)).filter(Boolean));
 
       let missingCount = 0;
-      for (const key of prevMap.keys()) {
-        if (!currKeys.has(key)) {
+      for (const { bKey, lKey } of prevRatesByKey) {
+        const isMatched = currBucketKeys.has(bKey) || (lKey && currLabelKeys.has(lKey));
+        if (!isMatched) {
           missingCount++;
         }
       }
 
-      if (missingCount > 0 && missingCount >= prevMap.size * 0.3) {
+      if (missingCount > 0 && missingCount >= prevRatesByKey.length * 0.3) {
         const flag = `ANOMALY_TENURE_DISAPPEARED: ${missingCount} previously active tenure buckets are missing in new extraction`;
         anomalies.flags.push(flag);
         anomalies.hasAnomalies = true;

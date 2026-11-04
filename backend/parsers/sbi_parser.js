@@ -7,6 +7,261 @@ const { BaseRateParser, CandidateRate, ExtractionResult } = require('./base_pars
 const { parseHtmlTables } = require('./html_table_parser');
 const { parseTenureRange } = require('./tenure_parser');
 
+
+/**
+ * Normalizes an SBI retail tenure label into canonical DAYS or CALENDAR domain representation.
+ *
+ * Slabs:
+ * DAYS domain:
+ * 1. "7 days to 45 days" -> min: 7, max: 45 days, unit: 'DAYS'
+ * 2. "46 days to 179 days" -> min: 46, max: 179 days, unit: 'DAYS'
+ * 3. "180 days to 210 days" -> min: 180, max: 210 days, unit: 'DAYS'
+ * 4. "211 days to less than 1 year" -> min: 211, max: 364 days, unit: 'DAYS'
+ *
+ * CALENDAR domain:
+ * 5. "1 Year to less than 2 years" -> GTE 1Y, LT 2Y, unit: 'YEARS', days: null
+ * 6. "2 years to less than 3 years" -> GTE 2Y, LT 3Y, unit: 'YEARS', days: null
+ * 7. "3 years to less than 5 years" -> GTE 3Y, LT 5Y, unit: 'YEARS', days: null
+ * 8. "5 years and up to 10 years" -> GTE 5Y, LTE 10Y, unit: 'YEARS', days: null
+ *
+ * @param {string} label
+ * @returns {Object} Structured canonical tenure object
+ */
+function parseSbiTenure(label) {
+  if (!label || typeof label !== 'string') {
+    return {
+      rawLabel: '',
+      tenureDomain: 'DAYS',
+      minTenureDays: 0,
+      maxTenureDays: 0,
+      tenureUnit: 'DAYS',
+      minTenure: 0,
+      maxTenure: 0,
+      minYears: null,
+      minMonths: null,
+      minDaysCal: null,
+      minOperator: null,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      isBespoke: false,
+      isValid: false,
+      error: 'Empty tenure label',
+    };
+  }
+
+  const clean = label.replace(/[\u00a0\s]+/g, ' ').trim();
+  const lower = clean.toLowerCase();
+
+  // 1. "7 days to 45 days"
+  if (/^7\s*days?\s*to\s*45\s*days?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'DAYS',
+      minTenureDays: 7,
+      maxTenureDays: 45,
+      tenureUnit: 'DAYS',
+      minTenure: 7,
+      maxTenure: 45,
+      minYears: null,
+      minMonths: null,
+      minDaysCal: null,
+      minOperator: null,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 2. "46 days to 179 days"
+  if (/^46\s*days?\s*to\s*179\s*days?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'DAYS',
+      minTenureDays: 46,
+      maxTenureDays: 179,
+      tenureUnit: 'DAYS',
+      minTenure: 46,
+      maxTenure: 179,
+      minYears: null,
+      minMonths: null,
+      minDaysCal: null,
+      minOperator: null,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 3. "180 days to 210 days"
+  if (/^180\s*days?\s*to\s*210\s*days?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'DAYS',
+      minTenureDays: 180,
+      maxTenureDays: 210,
+      tenureUnit: 'DAYS',
+      minTenure: 180,
+      maxTenure: 210,
+      minYears: null,
+      minMonths: null,
+      minDaysCal: null,
+      minOperator: null,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 4. "211 days to less than 1 year"
+  if (/^211\s*days?\s*to\s*less\s+than\s*1\s*year$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'DAYS',
+      minTenureDays: 211,
+      maxTenureDays: 364,
+      tenureUnit: 'DAYS',
+      minTenure: 211,
+      maxTenure: 364,
+      minYears: null,
+      minMonths: null,
+      minDaysCal: null,
+      minOperator: null,
+      maxYears: null,
+      maxMonths: null,
+      maxDaysCal: null,
+      maxOperator: null,
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 5. "1 Year to less than 2 years"
+  if (/^1\s*years?\s*to\s*less\s+than\s*2\s*years?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'CALENDAR',
+      minTenureDays: null,
+      maxTenureDays: null,
+      tenureUnit: 'YEARS',
+      minTenure: 1,
+      maxTenure: 2,
+      minYears: 1,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: 'GTE',
+      maxYears: 2,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: 'LT',
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 6. "2 years to less than 3 years"
+  if (/^2\s*years?\s*to\s*less\s+than\s*3\s*years?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'CALENDAR',
+      minTenureDays: null,
+      maxTenureDays: null,
+      tenureUnit: 'YEARS',
+      minTenure: 2,
+      maxTenure: 3,
+      minYears: 2,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: 'GTE',
+      maxYears: 3,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: 'LT',
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 7. "3 years to less than 5 years"
+  if (/^3\s*years?\s*to\s*less\s+than\s*5\s*years?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'CALENDAR',
+      minTenureDays: null,
+      maxTenureDays: null,
+      tenureUnit: 'YEARS',
+      minTenure: 3,
+      maxTenure: 5,
+      minYears: 3,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: 'GTE',
+      maxYears: 5,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: 'LT',
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // 8. "5 years and up to 10 years"
+  if (/^5\s*years?\s*(?:and\s+)?up\s+to\s*10\s*years?$/i.test(lower)) {
+    return {
+      rawLabel: clean,
+      tenureDomain: 'CALENDAR',
+      minTenureDays: null,
+      maxTenureDays: null,
+      tenureUnit: 'YEARS',
+      minTenure: 5,
+      maxTenure: 10,
+      minYears: 5,
+      minMonths: 0,
+      minDaysCal: 0,
+      minOperator: 'GTE',
+      maxYears: 10,
+      maxMonths: 0,
+      maxDaysCal: 0,
+      maxOperator: 'LTE',
+      isBespoke: false,
+      isValid: true,
+    };
+  }
+
+  // Fallback to general tenure parser if label is non-standard
+  const fallback = parseTenureRange(clean);
+  return {
+    rawLabel: clean,
+    tenureDomain: 'DAYS',
+    minTenureDays: fallback.minTenureDays,
+    maxTenureDays: fallback.maxTenureDays,
+    tenureUnit: fallback.tenureUnit,
+    minTenure: fallback.minTenure,
+    maxTenure: fallback.maxTenure,
+    minYears: null,
+    minMonths: null,
+    minDaysCal: null,
+    minOperator: null,
+    maxYears: null,
+    maxMonths: null,
+    maxDaysCal: null,
+    maxOperator: null,
+    isBespoke: fallback.isBespoke,
+    isValid: fallback.isValid,
+    error: fallback.error,
+  };
+}
+
 class SbiRateParser extends BaseRateParser {
   constructor() {
     super({
@@ -136,7 +391,7 @@ class SbiRateParser extends BaseRateParser {
       if (row.length <= Math.max(regularColIdx, seniorColIdx)) continue;
 
       const tenureLabel = row[0];
-      const tenure = parseTenureRange(tenureLabel);
+      const tenure = parseSbiTenure(tenureLabel);
       if (!tenure.isValid) {
         errors.push(`Row ${r}: Unable to parse tenure label "${tenureLabel}": ${tenure.error}`);
         continue;
@@ -223,6 +478,17 @@ class SbiRateParser extends BaseRateParser {
           notes: null,
           rawRateText: regularParsed.rawText,
           footnoteMarker: regularParsed.marker,
+          // Migration 009 / 017 Dual-Domain Tenure Fields
+          tenureDomain: tenure.tenureDomain,
+          sourceTenureText: tenure.rawLabel,
+          minYears: tenure.minYears,
+          minMonths: tenure.minMonths,
+          minDaysCal: tenure.minDaysCal,
+          minOperator: tenure.minOperator,
+          maxYears: tenure.maxYears,
+          maxMonths: tenure.maxMonths,
+          maxDaysCal: tenure.maxDaysCal,
+          maxOperator: tenure.maxOperator,
         }));
       }
 
@@ -257,6 +523,17 @@ class SbiRateParser extends BaseRateParser {
           notes: seniorNotes,
           rawRateText: seniorParsed.rawText,
           footnoteMarker: seniorParsed.marker,
+          // Migration 009 / 017 Dual-Domain Tenure Fields
+          tenureDomain: tenure.tenureDomain,
+          sourceTenureText: tenure.rawLabel,
+          minYears: tenure.minYears,
+          minMonths: tenure.minMonths,
+          minDaysCal: tenure.minDaysCal,
+          minOperator: tenure.minOperator,
+          maxYears: tenure.maxYears,
+          maxMonths: tenure.maxMonths,
+          maxDaysCal: tenure.maxDaysCal,
+          maxOperator: tenure.maxOperator,
         }));
       }
     }
@@ -351,7 +628,11 @@ class SbiRateParser extends BaseRateParser {
     // 1. Positive identification for SBI We-Care
     // Requires: Footnote explicitly mentions We-Care AND tenure slab is within 5 to 10 years (1825-3650 days)
     if (/we[- ]?care/i.test(cleanFootnote)) {
-      if (tenure && tenure.minTenureDays >= 1825 && tenure.maxTenureDays <= 3650) {
+      const isFiveToTenYears =
+        (tenure && tenure.minTenureDays >= 1825 && tenure.maxTenureDays <= 3650) ||
+        (tenure && tenure.tenureDomain === 'CALENDAR' && tenure.minYears === 5 && tenure.maxYears === 10) ||
+        (tenure && tenure.minYears === 5 && tenure.maxYears === 10);
+      if (isFiveToTenYears) {
         return 'SBI We-Care';
       }
       // If footnote mentions We-Care but tenure does not match 5-10 years, fail closed (contradictory)
@@ -381,4 +662,5 @@ class SbiRateParser extends BaseRateParser {
 
 module.exports = {
   SbiRateParser,
+  parseSbiTenure,
 };

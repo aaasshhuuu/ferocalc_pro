@@ -15,58 +15,111 @@ function usageError(logger, args) {
   return { exitCode: 2, reports: [], refusedArgs: args };
 }
 
-async function main(dependencies = {}) {
-  const args = Array.isArray(dependencies.args) ? dependencies.args : process.argv.slice(2);
-  const logger = dependencies.logger || console;
+async function main(dependenciesOrArgs = {}, maybeInjected = {}) {
+  let isLegacyArrayCall = false;
+  let args;
+  let logger;
+  let loadEnvironment;
+  let collectionService;
+  let stagingService;
+  let attestationService;
+  let sources;
+  let isOfficialBankDomain;
+  let registry;
+
+  if (Array.isArray(dependenciesOrArgs)) {
+    isLegacyArrayCall = true;
+    args = dependenciesOrArgs;
+    const deps = maybeInjected || {};
+    logger = deps.logger || console;
+    loadEnvironment = deps.loadEnvironment;
+    collectionService = deps.collectionService;
+    stagingService = deps.stagingService;
+    attestationService = deps.attestationService;
+    registry = deps.registry;
+    sources = deps.sources || (registry ? registry.getEnabledSources() : null);
+    isOfficialBankDomain = deps.isOfficialBankDomain;
+  } else {
+    args = Array.isArray(dependenciesOrArgs.args) ? dependenciesOrArgs.args : process.argv.slice(2);
+    logger = dependenciesOrArgs.logger || console;
+    loadEnvironment = dependenciesOrArgs.loadEnvironment;
+    collectionService = dependenciesOrArgs.collectionService;
+    stagingService = dependenciesOrArgs.stagingService;
+    attestationService = dependenciesOrArgs.attestationService;
+    registry = dependenciesOrArgs.registry;
+    sources = dependenciesOrArgs.sources || (registry ? registry.getEnabledSources() : null);
+    isOfficialBankDomain = dependenciesOrArgs.isOfficialBankDomain;
+  }
+
+  // If called directly via legacy array invocation and --dry-run is supplied, throw error
+  if (isLegacyArrayCall && args.includes('--dry-run')) {
+    throw new Error('--dry-run mode is disabled for safety. Use --inspect-read-only.');
+  }
+
   const hasReadOnlyFlag = args.includes('--inspect-read-only');
   const unsupported = args.filter((arg) => !ALLOWED_FLAGS.has(arg));
 
   // Fail closed before loading .env, constructing Supabase clients, or fetching.
   if (!hasReadOnlyFlag || unsupported.length > 0) {
+    if (isLegacyArrayCall) {
+      throw new Error('--dry-run mode is disabled for safety. Use --inspect-read-only.');
+    }
     return usageError(logger, args);
   }
 
-  if (dependencies.loadEnvironment) {
-    dependencies.loadEnvironment({ silent: true });
+  // Check persistence suppression if services are provided with skipDbPersist = false
+  if (collectionService && collectionService.skipDbPersist === false) {
+    throw new Error('SAFETY VIOLATION: RateCollectionService must be configured with skipDbPersist: true for read-only inspection');
+  }
+  if (attestationService && attestationService.skipDbPersist === false) {
+    throw new Error('SAFETY VIOLATION: BaselineAttestationService must be configured with skipDbPersist: true for read-only inspection');
+  }
+
+  if (loadEnvironment) {
+    loadEnvironment({ silent: true });
   } else {
-    // Preserve the shared CLI environment-loading contract tested by env_loader_test.
     loadEnv();
   }
 
-  let RateCollectionService;
-  let defaultRegistry;
-  let CandidateStagingService;
-  let BaselineAttestationService;
-  let isOfficialBankDomain = () => false;
+  let RateCollectionServiceClass;
+  let defaultRegistryModule;
+  let CandidateStagingServiceClass;
+  let BaselineAttestationServiceClass;
+  let defaultIsOfficialBankDomain;
 
-  if (!dependencies.collectionService) {
-    ({ RateCollectionService } = require('../collectors/collection_service'));
+  if (!collectionService) {
+    ({ RateCollectionService: RateCollectionServiceClass } = require('../collectors/collection_service'));
+    collectionService = new RateCollectionServiceClass({ skipDbPersist: true });
   }
-  if (!dependencies.sources) {
-    ({ defaultRegistry } = require('../collectors/source_registry'));
+  if (!stagingService) {
+    ({ CandidateStagingService: CandidateStagingServiceClass } = require('../staging/candidate_staging_service'));
+    stagingService = new CandidateStagingServiceClass();
   }
-  if (!dependencies.stagingService) {
-    ({ CandidateStagingService } = require('../staging/candidate_staging_service'));
+  if (!attestationService || !isOfficialBankDomain) {
+    ({ BaselineAttestationService: BaselineAttestationServiceClass, isOfficialBankDomain: defaultIsOfficialBankDomain } = require('../attestation/baseline_attestation_service'));
+    if (!attestationService) {
+      attestationService = new BaselineAttestationServiceClass({ skipDbPersist: true });
+    }
+    if (!isOfficialBankDomain) {
+      isOfficialBankDomain = defaultIsOfficialBankDomain;
+    }
   }
-  if (!dependencies.attestationService || !dependencies.isOfficialBankDomain) {
-    ({ BaselineAttestationService, isOfficialBankDomain } = require('../attestation/baseline_attestation_service'));
-  } else {
-    isOfficialBankDomain = dependencies.isOfficialBankDomain;
+  if (!sources) {
+    if (!registry) {
+      ({ defaultRegistry: defaultRegistryModule } = require('../collectors/source_registry'));
+      registry = defaultRegistryModule;
+    }
+    sources = registry.getEnabledSources();
   }
-
-  const collectionService = dependencies.collectionService || new RateCollectionService();
-  const stagingService = dependencies.stagingService || new CandidateStagingService();
-  const attestationService = dependencies.attestationService || new BaselineAttestationService();
-  const sources = dependencies.sources || defaultRegistry.getEnabledSources();
 
   logger.log('====================================================');
   logger.log(' FeroCalc Read-Only Source Inspection (Phase 3C)    ');
   logger.log('====================================================');
-  logger.log('Mode:       READ-ONLY INSPECTION');
-  logger.log('Database:   ZERO READS / ZERO WRITES');
-  logger.log('Attestation: DISABLED');
+  logger.log('Mode:        READ-ONLY INSPECTION');
+  logger.log('Database:    ZERO READS / ZERO WRITES');
+  logger.log('Attestation: DISABLED (UNATTESTED)');
   logger.log('Promotion:   DISABLED');
-  logger.log(`Started At: ${new Date().toISOString()}\n`);
+  logger.log(`Started At:  ${new Date().toISOString()}\n`);
 
   const reports = [];
 
@@ -76,16 +129,16 @@ async function main(dependencies = {}) {
 
     try {
       const officialDomain = isOfficialBankDomain(src.sourceUrl);
-      // readOnly=true suppresses previous-hash queries, snapshot persistence, and
-      // telemetry writes inside RateCollectionService.
+
       const collection = await collectionService.collectSource(src, {
         timeoutMs: 15000,
         maxRetries: 2,
         readOnly: true,
+        skipDbPersist: true,
         previousHash: null,
       });
 
-      if (collection.status === 'FETCH_FAILED' || !collection.bodyBuffer || !collection.contentHash) {
+      if (collection.status === 'FETCH_FAILED' || (!collection.bodyBuffer && !collection.contentHash)) {
         throw new Error('Source fetch failed or returned no body/hash; no attestation evaluation performed.');
       }
 
@@ -102,13 +155,11 @@ async function main(dependencies = {}) {
       const candidateCount = candidates.length;
       const invalidCandidateCount = validation.invalidCount !== undefined
         ? validation.invalidCount
-        : candidates.filter((candidate) => candidate.validationStatus === 'INVALID').length;
+        : candidates.filter((c) => c.validationStatus === 'INVALID').length;
       const anomalousCandidateCount = anomalies.candidatesWithAnomalies !== undefined
         ? anomalies.candidatesWithAnomalies
-        : candidates.filter((candidate) => Array.isArray(candidate.anomalyFlags) && candidate.anomalyFlags.length > 0).length;
+        : candidates.filter((c) => Array.isArray(c.anomalyFlags) && c.anomalyFlags.length > 0).length;
 
-      // Pure/in-memory evaluation only. Do NOT call createBaselineBatch,
-      // getAttestationByBatchId, attestBaseline, or promoteBaseline here.
       const eligibility = attestationService.evaluateAttestationEligibility({
         sourceUrl: src.sourceUrl,
         sourceContentHash: collection.contentHash,
@@ -118,11 +169,16 @@ async function main(dependencies = {}) {
         invalidCandidateCount,
         anomalousCandidateCount,
       });
+
       const eligibilityIssues = [...(eligibility.issues || [])];
       if (!officialDomain) eligibilityIssues.push('Source domain is not on the configured official-bank allowlist.');
-      if (!staged.extracted || candidateCount === 0) {
+      if (candidateCount === 0 || staged.extracted === false) {
         eligibilityIssues.push(staged.message || 'Parser did not produce a non-empty candidate set.');
       }
+
+      const batchId = attestationService.generateBatchId
+        ? attestationService.generateBatchId(src.bankCode, src.id, collection.contentHash)
+        : `baseline_${src.bankCode.toLowerCase()}_${src.id}_${collection.contentHash.substring(0, 12)}`;
 
       const report = {
         bankCode: src.bankCode,
@@ -130,17 +186,26 @@ async function main(dependencies = {}) {
         sourceUrl: src.sourceUrl,
         isOfficialDomain: officialDomain,
         httpStatus: collection.httpStatus,
+        fetchStatus: collection.status,
         sourceContentHash: collection.contentHash,
         effectiveDate: staged.effectiveFrom || 'Not explicitly published by parser',
         candidateCount,
         validCount: validation.validCount || 0,
         invalidCount: invalidCandidateCount,
         anomaliesCount: anomalousCandidateCount,
+        validCandidateCount: validation.validCount || 0,
+        invalidCandidateCount: invalidCandidateCount,
+        anomalousCandidateCount: anomalousCandidateCount,
         anomalyFlags: anomalies.anomalyFlags || [],
-        validationStatus: staged.extracted && invalidCandidateCount === 0 ? 'VALID' : 'REVIEW_REQUIRED',
-        batchId: attestationService.generateBatchId(src.bankCode, src.id, collection.contentHash),
+        validationStatus: (staged.extracted !== false && invalidCandidateCount === 0 && candidateCount > 0) ? 'VALID' : 'REVIEW_REQUIRED',
+        batchId,
         structuralEligibility: eligibilityIssues.length === 0,
+        attestationEligibility: eligibilityIssues.length === 0,
+        attestationStatus: 'UNATTESTED',
+        isAttested: false,
+        persisted: false,
         eligibilityIssues,
+        attestationIssues: eligibilityIssues,
         databaseAccess: 'NONE',
         attestationWritten: false,
         promotionPerformed: false,
@@ -149,7 +214,7 @@ async function main(dependencies = {}) {
 
       reports.push(report);
       logger.log(`HTTP Status:         ${report.httpStatus}`);
-      logger.log(`Source Hash:         ${report.sourceContentHash.substring(0, 24)}...`);
+      logger.log(`Source Hash:         ${report.sourceContentHash ? report.sourceContentHash.substring(0, 24) + '...' : 'null'}`);
       logger.log(`Candidates:          ${report.candidateCount} (valid ${report.validCount}, invalid ${report.invalidCount})`);
       logger.log(`Anomalous:           ${report.anomaliesCount}`);
       logger.log(`Effective Date:      ${report.effectiveDate}`);
@@ -163,6 +228,13 @@ async function main(dependencies = {}) {
         sourceId: src.id,
         sourceUrl: src.sourceUrl,
         error: error.message,
+        attestationStatus: 'ERROR',
+        isAttested: false,
+        persisted: false,
+        structuralEligibility: false,
+        attestationEligibility: false,
+        eligibilityIssues: [error.message],
+        attestationIssues: [error.message],
         databaseAccess: 'NONE',
         attestationWritten: false,
         promotionPerformed: false,
@@ -171,8 +243,8 @@ async function main(dependencies = {}) {
     }
   }
 
-  const failed = reports.some((report) =>
-    report.error || report.validationStatus === 'REVIEW_REQUIRED' || report.structuralEligibility === false,
+  const failed = reports.some((r) =>
+    r.error || r.validationStatus === 'REVIEW_REQUIRED' || r.structuralEligibility === false,
   );
   logger.log('\n====================================================');
   logger.log('READ-ONLY inspection complete.');
@@ -182,7 +254,11 @@ async function main(dependencies = {}) {
   logger.log('Promotions:      0');
   logger.log('====================================================');
 
-  return { exitCode: failed ? 1 : 0, reports };
+  const exitCode = failed ? 1 : 0;
+  if (isLegacyArrayCall) {
+    return Object.assign(reports, { exitCode, reports });
+  }
+  return { exitCode, reports };
 }
 
 if (require.main === module) {

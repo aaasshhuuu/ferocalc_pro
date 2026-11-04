@@ -15,6 +15,7 @@ const express = require('express');
 const router  = express.Router();
 const { supabasePublic, isSupabaseAvailable } = require('../supabase/supabase_client');
 const { getCanonicalMinDaysForMonths, getCanonicalMaxDaysForMonths } = require('../promotion/rate_diff_engine');
+const { defaultRegistry } = require('../collectors/source_registry');
 
 // ============================================================
 // Helper: create standard response envelope
@@ -577,6 +578,99 @@ router.get('/banks', requireSupabase, async (req, res) => {
     return serverError(res, err);
   }
 });
+
+// ============================================================
+// Helper: compute safe allowlisted freshness metadata
+// ============================================================
+
+function computeSourceFreshness(enabledSources, sourcesData = [], pendingCounts = {}, now = new Date()) {
+  return enabledSources.map(cfg => {
+    const recorded = sourcesData.find(s => s.id === cfg.id) || {};
+    const lastChecked = recorded.last_checked_at ? new Date(recorded.last_checked_at) : null;
+    const lastSuccess = recorded.last_success_at ? new Date(recorded.last_success_at) : null;
+    const pendingCount = Number(pendingCounts[cfg.bankCode] || 0);
+    const hasPendingReview = pendingCount > 0;
+
+    // Stale if no successful check in last 24h or never succeeded
+    const isStale = !lastSuccess || (now.getTime() - lastSuccess.getTime() > 24 * 60 * 60 * 1000);
+    const status = recorded.last_status || 'UNKNOWN';
+    const updateDetected = hasPendingReview || status === 'CHANGED';
+    const sanitizedStatus = (status === 'FETCH_FAILED' || recorded.last_error) ? 'FETCH_FAILED' : status;
+
+    return {
+      sourceId: cfg.id,
+      bankCode: cfg.bankCode,
+      bankName: cfg.bankName,
+      sourceUrl: cfg.sourceUrl,
+      lastCheckedAt: recorded.last_checked_at || null,
+      lastSuccessAt: recorded.last_success_at || null,
+      lastStatus: sanitizedStatus,
+      isStale,
+      pendingReviewCount: pendingCount,
+      hasPendingReview,
+      updateDetected,
+    };
+  });
+}
+
+// ============================================================
+// GET /api/verified-rates/freshness
+// Exposes safe, allowlisted change-detection and freshness metadata.
+// Strictly omits raw internal errors, credentials, and connection strings.
+// ============================================================
+
+router.get('/freshness', requireSupabase, async (req, res) => {
+  // Fresh rate metadata must never be cached indefinitely by intermediate proxies
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  try {
+    const enabledSources = defaultRegistry.getEnabledSources();
+    const enabledIds = enabledSources.map(s => s.id);
+    const enabledBankCodes = enabledSources.map(s => s.bankCode);
+
+    let sourcesData = [];
+    try {
+      const { data } = await supabasePublic
+        .from('rate_sources')
+        .select('id, bank_code, source_url, last_checked_at, last_success_at, last_status, last_error')
+        .in('id', enabledIds);
+      sourcesData = data || [];
+    } catch {
+      // Graceful fallback if table is not accessible
+    }
+
+    let pendingCounts = {};
+    try {
+      const { data: candidates } = await supabasePublic
+        .from('staged_rate_candidates')
+        .select('bank_code, staging_status')
+        .in('bank_code', enabledBankCodes)
+        .in('staging_status', ['IN_REVIEW', 'DRAFT']);
+      (candidates || []).forEach(c => {
+        pendingCounts[c.bank_code] = (pendingCounts[c.bank_code] || 0) + 1;
+      });
+    } catch {
+      // Graceful fallback
+    }
+
+    const freshnessList = computeSourceFreshness(enabledSources, sourcesData, pendingCounts);
+    const anyUpdatePending = freshnessList.some(s => s.updateDetected);
+    const allFresh = freshnessList.every(s => !s.isStale && s.lastStatus !== 'FETCH_FAILED');
+
+    return ok(res, freshnessList, {
+      count: freshnessList.length,
+      anyUpdatePending,
+      allFresh,
+      note: 'Allowlisted source freshness metadata. Confidential internals redacted.',
+    });
+  } catch (err) {
+    return serverError(res, err);
+  }
+});
+
+router.computeSourceFreshness = computeSourceFreshness;
 
 router.parseIsCallableFilter = parseIsCallableFilter;
 router.parseTenureQueryParams = parseTenureQueryParams;

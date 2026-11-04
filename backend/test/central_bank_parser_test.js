@@ -256,37 +256,37 @@ run('extracts structured calendar tenure fields correctly for standard slabs', (
   const cal2 = extractCalendarTenure('1 yr to less than 2 yrs');
   assert.strictEqual(cal2.tenureDomain, 'CALENDAR');
   assert.strictEqual(cal2.minYears, 1);
-  assert.strictEqual(cal2.minMonths, 12);
+  assert.strictEqual(cal2.minMonths, 0);
   assert.strictEqual(cal2.maxYears, 2);
-  assert.strictEqual(cal2.maxMonths, 24);
-  assert.strictEqual(cal2.maxOperator, '<');
+  assert.strictEqual(cal2.maxMonths, 0);
+  assert.strictEqual(cal2.maxOperator, 'LT');
 
   // Test 2 yr to less than 3 years
   const cal3 = extractCalendarTenure('2 yr to less than 3 years');
   assert.strictEqual(cal3.tenureDomain, 'CALENDAR');
   assert.strictEqual(cal3.minYears, 2);
-  assert.strictEqual(cal3.minMonths, 24);
+  assert.strictEqual(cal3.minMonths, 0);
   assert.strictEqual(cal3.maxYears, 3);
-  assert.strictEqual(cal3.maxMonths, 36);
-  assert.strictEqual(cal3.maxOperator, '<');
+  assert.strictEqual(cal3.maxMonths, 0);
+  assert.strictEqual(cal3.maxOperator, 'LT');
 
   // Test 3 yr to less than 5 years
   const cal4 = extractCalendarTenure('3 yr to less than 5 years');
   assert.strictEqual(cal4.tenureDomain, 'CALENDAR');
   assert.strictEqual(cal4.minYears, 3);
-  assert.strictEqual(cal4.minMonths, 36);
+  assert.strictEqual(cal4.minMonths, 0);
   assert.strictEqual(cal4.maxYears, 5);
-  assert.strictEqual(cal4.maxMonths, 60);
-  assert.strictEqual(cal4.maxOperator, '<');
+  assert.strictEqual(cal4.maxMonths, 0);
+  assert.strictEqual(cal4.maxOperator, 'LT');
 
   // Test 5 years & above upto 10 years
   const cal5 = extractCalendarTenure('5 years & above upto 10 years');
   assert.strictEqual(cal5.tenureDomain, 'CALENDAR');
   assert.strictEqual(cal5.minYears, 5);
-  assert.strictEqual(cal5.minMonths, 60);
+  assert.strictEqual(cal5.minMonths, 0);
   assert.strictEqual(cal5.maxYears, 10);
-  assert.strictEqual(cal5.maxMonths, 120);
-  assert.strictEqual(cal5.maxOperator, '<=');
+  assert.strictEqual(cal5.maxMonths, 0);
+  assert.strictEqual(cal5.maxOperator, 'LTE');
 });
 
 // 7. Customer eligibility restrictions
