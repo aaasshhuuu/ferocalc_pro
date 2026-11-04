@@ -140,18 +140,21 @@ jobs:
 
           status = sys.argv[1]
           resp_path = sys.argv[2]
+          is_dry_run_requested = sys.argv[3].lower() == 'true'
 
           try:
-              with open(resp_path, 'r') as f:
+              with open(resp_path, 'r', encoding='utf-8') as f:
                   data = json.load(f)
           except Exception as e:
               print(f'Failed to parse JSON response: {e}')
-              if status not in ('200', '201'):
-                  sys.exit(1)
-              sys.exit(0)
+              sys.exit(1)
+
+          if not isinstance(data, dict):
+              print('Pipeline error: Response root must be a JSON object')
+              sys.exit(1)
 
           # Extract only safe, sanitized summary metrics — never output full raw candidate arrays or secrets
-          pipeline_data = data.get('data', {})
+          pipeline_data = data.get('data') if isinstance(data.get('data'), dict) else {}
           job_id = pipeline_data.get('jobId', 'N/A')
           trigger = pipeline_data.get('triggerType', 'CRON')
           is_dry_run = pipeline_data.get('dryRun', False)
@@ -174,10 +177,29 @@ jobs:
           print(f'Invalid Count:       {pipeline_data.get(\"invalidCount\", 0)}')
           print('======================================================')
 
-          if status not in ('200', '201'):
-              err_msg = data.get('message', 'Non-success response from pipeline endpoint')
-              print(f'Pipeline error: {err_msg}')
-              sys.exit(1)
-          " "${HTTP_STATUS}" "${RESPONSE_FILE}"
+          if is_dry_run_requested:
+              if status != '200':
+                  print(f'Dry-run error: Expected HTTP status 200, got {status}')
+                  sys.exit(1)
+
+              if 'data' not in data or not isinstance(data.get('data'), dict):
+                  print('Dry-run error: Missing or invalid \"data\" object in response')
+                  sys.exit(1)
+
+              data_obj = data['data']
+              if data_obj.get('dryRun') is not True:
+                  print(f'Dry-run error: Expected data.dryRun to be true, got {data_obj.get(\"dryRun\")}')
+                  sys.exit(1)
+
+              promoted_count = data_obj.get('promotedCount')
+              if type(promoted_count) is bool or type(promoted_count) not in (int, float) or promoted_count != 0:
+                  print(f'Dry-run error: Expected data.promotedCount to be numeric 0, got {promoted_count}')
+                  sys.exit(1)
+          else:
+              if status not in ('200', '201'):
+                  err_msg = data.get('message', 'Non-success response from pipeline endpoint')
+                  print(f'Pipeline error: {err_msg}')
+                  sys.exit(1)
+          " "${HTTP_STATUS}" "${RESPONSE_FILE}" "${IS_DRY_RUN}"
 
           rm -f "${RESPONSE_FILE}"
