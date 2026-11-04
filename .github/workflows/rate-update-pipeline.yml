@@ -2,7 +2,7 @@ name: FeroCalc Rate Update Pipeline Hourly Scheduler
 
 on:
   schedule:
-    # Trigger hourly at minute 17 (offset from the top of the hour to prevent cloud thundering herds)
+    # Trigger hourly at minute 17 UTC (every hour at :47 IST; offset from the top of the hour to prevent cloud thundering herds)
     - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
@@ -27,26 +27,35 @@ jobs:
       - name: Check Automation Enablement
         id: check-enablement
         env:
+          EVENT_NAME: ${{ github.event_name }}
           AUTOMATION_ENABLED: ${{ vars.RATE_PIPELINE_AUTOMATION_ENABLED }}
+          IS_DRY_RUN: ${{ inputs.dry_run == true }}
         run: |
-          echo "Checking repository variable RATE_PIPELINE_AUTOMATION_ENABLED..."
-          if [ "${AUTOMATION_ENABLED}" = "true" ]; then
+          echo "Checking trigger event (${EVENT_NAME}), automation variable (RATE_PIPELINE_AUTOMATION_ENABLED=${AUTOMATION_ENABLED}), and dry_run mode (${IS_DRY_RUN})..."
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${IS_DRY_RUN}" = "true" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
             echo "enabled=true" >> $GITHUB_OUTPUT
-            echo "Rate pipeline automation is ENABLED."
+            echo "Manual dry-run requested via workflow_dispatch. Proceeding in dry-run mode regardless of automation variable."
+          elif [ "${AUTOMATION_ENABLED}" = "true" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "enabled=true" >> $GITHUB_OUTPUT
+            echo "Rate pipeline automation is ENABLED (RATE_PIPELINE_AUTOMATION_ENABLED='true')."
           else
+            echo "should_run=false" >> $GITHUB_OUTPUT
             echo "enabled=false" >> $GITHUB_OUTPUT
             echo "Rate pipeline automation is DISABLED or unset (RATE_PIPELINE_AUTOMATION_ENABLED != 'true')."
             echo "Zero network requests will be made. Exiting cleanly."
           fi
 
       - name: Validate Pipeline Secrets & Target Configuration
-        if: steps.check-enablement.outputs.enabled == 'true'
+        if: steps.check-enablement.outputs.should_run == 'true' # if: steps.check-enablement.outputs.enabled == 'true'
         id: validate-config
         env:
           PIPELINE_URL: ${{ secrets.FEROCALC_PIPELINE_URL }}
           CRON_SECRET: ${{ secrets.FEROCALC_CRON_SECRET }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          # Fail-closed check: Ensure both required secrets are configured and non-empty
+          # Fail-closed check: Ensure all three required secrets are configured and non-empty
           if [ -z "${PIPELINE_URL}" ]; then
             echo "::error::Missing required secret: FEROCALC_PIPELINE_URL is not set or empty."
             exit 1
@@ -54,6 +63,11 @@ jobs:
 
           if [ -z "${CRON_SECRET}" ]; then
             echo "::error::Missing required secret: FEROCALC_CRON_SECRET is not set or empty."
+            exit 1
+          fi
+
+          if [ -z "${VERCEL_BYPASS_TOKEN}" ]; then
+            echo "::error::Missing required secret: VERCEL_AUTOMATION_BYPASS_SECRET is not set or empty."
             exit 1
           fi
 
@@ -68,10 +82,18 @@ jobs:
               ;;
           esac
 
-          # Ensure the URL targets the verified internal cron endpoint path
+          # Ensure the URL targets the verified internal cron endpoint path and staging preview host
           case "${PIPELINE_URL}" in
             */api/internal/jobs/run-pipeline)
-              echo "Target endpoint path validated (/api/internal/jobs/run-pipeline)."
+              case "${PIPELINE_URL}" in
+                https://ferocalc-staging-backend-*.vercel.app/api/internal/jobs/run-pipeline)
+                  echo "Target endpoint host and path validated (Vercel staging backend preview: /api/internal/jobs/run-pipeline)."
+                  ;;
+                *)
+                  echo "::error::FEROCALC_PIPELINE_URL must target a verified ferocalc-staging-backend preview host."
+                  exit 1
+                  ;;
+              esac
               ;;
             *)
               echo "::error::FEROCALC_PIPELINE_URL must end with /api/internal/jobs/run-pipeline"
@@ -82,11 +104,12 @@ jobs:
           echo "Configuration validation passed."
 
       - name: Trigger Authenticated Rate Pipeline
-        if: steps.check-enablement.outputs.enabled == 'true'
+        if: steps.check-enablement.outputs.should_run == 'true' # if: steps.check-enablement.outputs.enabled == 'true'
         id: run-pipeline
         env:
           PIPELINE_URL: ${{ secrets.FEROCALC_PIPELINE_URL }}
           CRON_SECRET: ${{ secrets.FEROCALC_CRON_SECRET }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           IS_DRY_RUN: ${{ inputs.dry_run == true }}
         run: |
           echo "Dispatching authenticated POST request to pipeline endpoint..."
@@ -105,6 +128,7 @@ jobs:
             -X POST "${PIPELINE_URL}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "x-vercel-protection-bypass: ${VERCEL_BYPASS_TOKEN}" \
             -H "User-Agent: FeroCalc-Rate-Pipeline-Cron/1.0" \
             -d "${PAYLOAD}")
 
