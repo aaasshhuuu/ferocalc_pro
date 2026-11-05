@@ -353,7 +353,7 @@ class CandidateStagingService {
         try {
           const query = db.from('staged_rate_candidates');
           if (query && typeof query.select === 'function') {
-            const selectQuery = query.select('id, bank_code, product_type, customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, source_content_hash, staging_status, tenure_label, tenure_domain, tenure_unit, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, rate_category, scheme_name');
+            const selectQuery = query.select('id, bank_code, product_type, customer_type, min_tenure_days, max_tenure_days, interest_rate, is_callable, source_content_hash, staging_status, tenure_label, tenure_domain, tenure_unit, min_years, min_months, min_days_cal, min_operator, max_years, max_months, max_days_cal, max_operator, rate_category, scheme_name, validation_status, anomaly_flags, notes');
             if (selectQuery && typeof selectQuery.in === 'function') {
               const { data: existing, error: existErr } = await selectQuery
                 .in('bank_code', bankCodes)
@@ -426,7 +426,7 @@ class CandidateStagingService {
             matched.max_months !== rec.max_months ||
             matched.max_days_cal !== rec.max_days_cal ||
             matched.max_operator !== rec.max_operator ||
-            JSON.stringify(matched.anomaly_flags || []) !== JSON.stringify(rec.anomaly_flags || []);
+            (matched.staging_status !== 'IN_REVIEW' && JSON.stringify(matched.anomaly_flags || []) !== JSON.stringify(rec.anomaly_flags || []));
 
           if (isDifferent) {
             try {
@@ -464,8 +464,8 @@ class CandidateStagingService {
                     parser_version: rec.parser_version,
                     validation_status: rec.validation_status,
                     validation_errors: rec.validation_errors,
-                    anomaly_flags: rec.anomaly_flags,
-                    staging_status: (matched.staging_status === 'IN_REVIEW' && rec.staging_status === 'DRAFT') ? 'IN_REVIEW' : rec.staging_status,
+                    anomaly_flags: (matched.staging_status === 'IN_REVIEW') ? (matched.anomaly_flags || []) : rec.anomaly_flags,
+                    staging_status: (matched.staging_status === 'IN_REVIEW') ? 'IN_REVIEW' : rec.staging_status,
                     notes: rec.notes,
                     rate_category: rec.rate_category,
                     scheme_name: rec.scheme_name,
@@ -535,6 +535,22 @@ class CandidateStagingService {
           c.id = matchedRow.id;
           c._candidate_id = matchedRow.id;
           c.stagedCandidateId = matchedRow.id;
+          c._matchedRow = matchedRow;
+          if (matchedRow.staging_status) {
+            c.stagingStatus = matchedRow.staging_status;
+            c.staging_status = matchedRow.staging_status;
+          }
+          if (matchedRow.validation_status) {
+            c.validationStatus = matchedRow.validation_status;
+            c.validation_status = matchedRow.validation_status;
+          }
+          if (matchedRow.anomaly_flags) {
+            c.anomalyFlags = matchedRow.anomaly_flags;
+            c.anomaly_flags = matchedRow.anomaly_flags;
+          }
+          if (matchedRow.notes) {
+            c.notes = matchedRow.notes;
+          }
         }
       }
 

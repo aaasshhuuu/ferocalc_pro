@@ -192,6 +192,7 @@ class PipelineSchedulerService {
       reviewCount: 0,
       invalidCount: 0,
       unchangedCount: 0,
+      reconciledStaleReviewCount: 0,
       sourceResults: [],
       errors: [],
     };
@@ -223,6 +224,7 @@ class PipelineSchedulerService {
         runSummary.promotedCount += sourceResult.promotedCount || 0;
         runSummary.reviewCount += sourceResult.reviewCount || 0;
         runSummary.invalidCount += sourceResult.invalidCount || 0;
+        runSummary.reconciledStaleReviewCount += sourceResult.reconciledStaleReviewCount || 0;
       }
 
       // 4. Stale Monitoring Check across all sources
@@ -290,6 +292,7 @@ class PipelineSchedulerService {
       reviewCount: 0,
       invalidCount: 0,
       unchangedRatesCount: 0,
+      reconciledStaleReviewCount: 0,
       error: null,
     };
 
@@ -382,7 +385,24 @@ class PipelineSchedulerService {
         // If the rate is UNCHANGED vs active verified record, DO NOT duplicate promotion!
         if (diff.diffType === DIFF_TYPES.UNCHANGED) {
           result.unchangedRatesCount++;
-          candidate.stagingStatus = 'DRAFT';
+
+          // Safe Stale Tenure-Anomaly Reconciliation (Phase 4.1)
+          const reconcileRes = await this._reconcileCandidateReviewStatus({
+            candidate,
+            diff,
+            stageResult,
+            dryRun,
+          });
+
+          if (reconcileRes.error) {
+            result.status = 'ERROR';
+            result.error = reconcileRes.error;
+            return result;
+          }
+
+          if (reconcileRes.reconciled) {
+            result.reconciledStaleReviewCount++;
+          }
           continue;
         }
 
@@ -488,6 +508,201 @@ class PipelineSchedulerService {
   }
 
   // ----------------------------------------------------------------
+  /**
+   * Safe reconciliation of obsolete ANOMALY_TENURE_DISAPPEARED review flags (Phase 4.1).
+   *
+   * Rules:
+   * 1. Reconcile only an existing candidate confirmed UNCHANGED against active verified baseline.
+   * 2. Clear only obsolete ANOMALY_TENURE_DISAPPEARED when fresh extraction proves tenure buckets present.
+   * 3. Change IN_REVIEW to DRAFT only when:
+   *    - validation_status is VALID;
+   *    - the only anomaly is the specifically reconciled tenure-disappeared flag;
+   *    - candidate is unchanged;
+   *    - no other manual or policy review reason exists.
+   * 4. Preserve all unrelated anomaly flags and review statuses.
+   * 5. Zero database writes during dry-run.
+   * 6. Fails closed on database errors.
+   * 7. Idempotent on repeated runs.
+   *
+   * @param {Object} params
+   * @param {Object} params.candidate - Freshly extracted candidate
+   * @param {Object} params.diff - RateDiffEngine result
+   * @param {Object} params.stageResult - Extraction and anomaly summary for the batch
+   * @param {boolean} params.dryRun - Whether pipeline is running in dry-run mode
+   * @returns {Promise<{ reconciled: boolean, error?: string }>}
+   */
+  async _reconcileCandidateReviewStatus(params = {}) {
+    const { candidate, diff, stageResult, dryRun } = params;
+    if (!candidate || diff?.diffType !== DIFF_TYPES.UNCHANGED) {
+      return { reconciled: false };
+    }
+
+    const candId = candidate.id || candidate.stagedCandidateId || candidate._candidate_id;
+    const db = this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
+
+    // Inspect existing persisted candidate record
+    let existingRow = candidate._matchedRow || null;
+    if (!existingRow && candId && db && typeof db.from === 'function') {
+      try {
+        const query = db.from('staged_rate_candidates');
+        if (query && typeof query.select === 'function') {
+          const { data, error: fetchErr } = await query
+            .select('id, bank_code, staging_status, validation_status, anomaly_flags, notes')
+            .eq('id', candId)
+            .maybeSingle();
+
+          if (fetchErr) {
+            this.logger.error(`[PipelineSchedulerService] Failed to query candidate ${candId} for reconciliation: ${fetchErr.message}`);
+            return { reconciled: false, error: `Failed to query candidate for reconciliation: ${fetchErr.message}` };
+          }
+          if (data) {
+            existingRow = data;
+            candidate._matchedRow = data;
+          }
+        }
+      } catch (err) {
+        this.logger.error(`[PipelineSchedulerService] Exception querying candidate ${candId} for reconciliation: ${err.message}`);
+        return { reconciled: false, error: `Exception querying candidate for reconciliation: ${err.message}` };
+      }
+    }
+
+    // Determine original status and validation status safely
+    const originalStatus = (existingRow && existingRow.staging_status)
+      || candidate.stagingStatus
+      || candidate.staging_status
+      || 'DRAFT';
+
+    const validationStatus = (existingRow && existingRow.validation_status)
+      || candidate.validationStatus
+      || candidate.validation_status
+      || 'VALID';
+
+    // Requirement 5: Invalid candidates must not transition to DRAFT
+    if (validationStatus !== 'VALID') {
+      candidate.stagingStatus = 'INVALID';
+      candidate.staging_status = 'INVALID';
+      return { reconciled: false, status: 'INVALID' };
+    }
+
+    // Requirement 6: Dry-run must preserve every original status and perform zero database writes
+    if (dryRun) {
+      candidate.stagingStatus = originalStatus;
+      candidate.staging_status = originalStatus;
+      return { reconciled: false, status: originalStatus };
+    }
+
+    if (!candId || !db) {
+      candidate.stagingStatus = originalStatus;
+      candidate.staging_status = originalStatus;
+      return { reconciled: false, status: originalStatus };
+    }
+
+    if (!existingRow) {
+      candidate.stagingStatus = originalStatus;
+      candidate.staging_status = originalStatus;
+      return { reconciled: false, status: originalStatus };
+    }
+
+    // Idempotent: If not IN_REVIEW, preserve status and no action needed
+    if (existingRow.staging_status !== 'IN_REVIEW') {
+      candidate.stagingStatus = existingRow.staging_status;
+      candidate.staging_status = existingRow.staging_status;
+      return { reconciled: false, status: existingRow.staging_status };
+    }
+
+    // Requirement 3: Manual MANUAL_REVIEW holds must remain IN_REVIEW
+    const notesStr = (existingRow.notes && typeof existingRow.notes === 'string')
+      ? existingRow.notes
+      : (candidate.notes && typeof candidate.notes === 'string' ? candidate.notes : '');
+    if (notesStr.includes('MANUAL_REVIEW')) {
+      candidate.stagingStatus = 'IN_REVIEW';
+      candidate.staging_status = 'IN_REVIEW';
+      return { reconciled: false, status: 'IN_REVIEW' };
+    }
+
+    // Rule 3: Current extraction must prove tenure buckets are present (clean batch)
+    const currentBatchFlags = stageResult?.anomalies?.flags || [];
+    const candidateFlags = candidate.anomalyFlags || [];
+    const currentHasTenureDisappeared =
+      currentBatchFlags.some(f => typeof f === 'string' && f.includes('ANOMALY_TENURE_DISAPPEARED')) ||
+      candidateFlags.some(f => typeof f === 'string' && f.includes('ANOMALY_TENURE_DISAPPEARED'));
+
+    if (currentHasTenureDisappeared) {
+      candidate.stagingStatus = 'IN_REVIEW';
+      candidate.staging_status = 'IN_REVIEW';
+      return { reconciled: false, status: 'IN_REVIEW' };
+    }
+
+    const existingFlags = Array.isArray(existingRow.anomaly_flags) ? existingRow.anomaly_flags : [];
+    const hasStaleTenureAnomaly = existingFlags.some(f => typeof f === 'string' && f.includes('ANOMALY_TENURE_DISAPPEARED'));
+
+    if (!hasStaleTenureAnomaly) {
+      candidate.stagingStatus = 'IN_REVIEW';
+      candidate.staging_status = 'IN_REVIEW';
+      return { reconciled: false, status: 'IN_REVIEW' };
+    }
+
+    // Rule 3: Clear only the obsolete ANOMALY_TENURE_DISAPPEARED flag
+    const remainingFlags = existingFlags.filter(f => !(typeof f === 'string' && f.includes('ANOMALY_TENURE_DISAPPEARED')));
+
+    // Requirement 4: If there are additional anomalies, preserve IN_REVIEW and only clear the obsolete tenure flag
+    if (remainingFlags.length > 0) {
+      try {
+        const { error: updateErr } = await db
+          .from('staged_rate_candidates')
+          .update({
+            anomaly_flags: remainingFlags,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', candId);
+
+        if (updateErr) {
+          this.logger.error(`[PipelineSchedulerService] Failed to update anomaly flags for candidate ${candId}: ${updateErr.message}`);
+          return { reconciled: false, error: `Failed to update anomaly flags: ${updateErr.message}` };
+        }
+
+        existingRow.anomaly_flags = remainingFlags;
+        candidate.anomalyFlags = remainingFlags;
+        candidate.anomaly_flags = remainingFlags;
+        candidate.stagingStatus = 'IN_REVIEW';
+        candidate.staging_status = 'IN_REVIEW';
+        return { reconciled: false, status: 'IN_REVIEW' };
+      } catch (err) {
+        this.logger.error(`[PipelineSchedulerService] Exception updating anomaly flags for candidate ${candId}: ${err.message}`);
+        return { reconciled: false, error: `Exception updating anomaly flags: ${err.message}` };
+      }
+    }
+
+    // Requirement 1: All criteria satisfied - change IN_REVIEW to DRAFT and clear anomaly_flags
+    try {
+      const { error: updateErr } = await db
+        .from('staged_rate_candidates')
+        .update({
+          staging_status: 'DRAFT',
+          anomaly_flags: [],
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', candId);
+
+      if (updateErr) {
+        this.logger.error(`[PipelineSchedulerService] Failed to reconcile candidate ${candId} to DRAFT: ${updateErr.message}`);
+        return { reconciled: false, error: `Failed to reconcile candidate: ${updateErr.message}` };
+      }
+
+      existingRow.staging_status = 'DRAFT';
+      existingRow.anomaly_flags = [];
+      candidate.stagingStatus = 'DRAFT';
+      candidate.staging_status = 'DRAFT';
+      candidate.anomalyFlags = [];
+      candidate.anomaly_flags = [];
+
+      return { reconciled: true, status: 'DRAFT' };
+    } catch (err) {
+      this.logger.error(`[PipelineSchedulerService] Exception reconciling candidate ${candId}: ${err.message}`);
+      return { reconciled: false, error: `Exception reconciling candidate: ${err.message}` };
+    }
+  }
+
   // Audit Helpers
   // ----------------------------------------------------------------
 
@@ -542,7 +757,7 @@ class PipelineSchedulerService {
             review_count: summary.reviewCount,
             invalid_count: summary.invalidCount,
             error_summary: summary.errors.length > 0 ? summary.errors.join('; ') : null,
-            metadata: { sourceResults: summary.sourceResults },
+            metadata: { sourceResults: summary.sourceResults, reconciledStaleReviewCount: summary.reconciledStaleReviewCount || 0 },
           })
           .eq('job_id', summary.jobId);
       } catch (err) {
