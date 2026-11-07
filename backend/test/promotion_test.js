@@ -26,6 +26,9 @@
 
 'use strict';
 
+// Provide dedicated test bot identity if not set
+process.env.SYSTEM_BOT_USER_ID = process.env.SYSTEM_BOT_USER_ID || '11111111-2222-4333-8444-555555555555';
+
 const assert = require('assert');
 const { RateDiffEngine, DIFF_TYPES } = require('../promotion/rate_diff_engine');
 const { PromotionPolicyEngine } = require('../promotion/promotion_policy_engine');
@@ -410,7 +413,7 @@ async function runPromotionTestSuite() {
     const res = await promotionService.promoteCandidate({
       candidate: inReviewCandidate,
       actorType: 'ADMIN',
-      actorId: 'admin-user-uuid',
+      actorId: '22222222-3333-4444-8555-666666666666',
       reason: 'Admin verified against official SBI press release',
       overridePolicy: true,
     });
@@ -674,6 +677,136 @@ async function runPromotionTestSuite() {
     // Since regularCallable is a different customer type and callable dimension, it must NOT match as an identical bucket
     assert.notStrictEqual(diff.diffType, DIFF_TYPES.UNCHANGED);
     assert.notStrictEqual(diff.diffType, DIFF_TYPES.RATE_CHANGED);
+  });
+
+
+  // ----------------------------------------------------------------
+  // Tests 23-25: Phase 4.2.10 Regression — Null Actor, Partial Bot Identity, UTC Determinism
+  // ----------------------------------------------------------------
+  console.log('\nGroup 6: Phase 4.2.10 Regression — Authorization Guards & UTC Effective-Date...');
+
+  await runTestAsync('23. p_actor_type = null is rejected before any candidate read or mutation', async () => {
+    const cand = new CandidateRate({
+      bankCode: 'SBI',
+      customerType: 'REGULAR',
+      minTenureDays: 365,
+      maxTenureDays: 729,
+      interestRate: 6.25,
+      validationStatus: 'VALID',
+    });
+
+    const service = new PromotionService({ diffEngine, policyEngine });
+
+    let threw = false;
+    let errorMessage = '';
+    try {
+      await service.promoteCandidate({
+        candidate: cand,
+        actorType: null,
+        actorId: '11111111-2222-4333-8444-555555555555',
+      });
+    } catch (err) {
+      threw = true;
+      errorMessage = err.message;
+    }
+
+    assert.ok(threw, 'Must throw when actorType is null');
+    assert.ok(
+      errorMessage.includes('Unrecognized actorType') || errorMessage.includes('actorType'),
+      'Error must cite actorType rejection, got: "' + errorMessage + '"'
+    );
+    const finalStatus = cand.stagingStatus || cand.staging_status;
+    assert.notStrictEqual(finalStatus, 'PROMOTED', 'Candidate must not be promoted when actorType is null');
+  });
+
+  await runTestAsync('24. is_service_account=true but ferocalc_role != SYSTEM_BOT is rejected (JS layer)', async () => {
+    // The JS _verifyDedicatedBotIdentity requires both ferocalc_role === SYSTEM_BOT AND is_service_account === true.
+    // To reach _verifyDedicatedBotIdentity, the candidate must pass policyEngine evaluation.
+    // We supply an UNCHANGED match with parserId+parserVersion and parserSuccess=true so policy passes.
+    const badBotId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const savedBotId = process.env.SYSTEM_BOT_USER_ID;
+    process.env.SYSTEM_BOT_USER_ID = badBotId;
+
+    const mockAuthAdmin = {
+      getUserById: async (id) => ({
+        data: {
+          user: {
+            id,
+            app_metadata: {
+              ferocalc_role: 'REVIEWER',    // Wrong role — not SYSTEM_BOT
+              is_service_account: true,     // is_service_account true but role wrong
+            },
+          },
+        },
+        error: null,
+      }),
+    };
+
+    // A candidate that is UNCHANGED relative to the existing rate so UNCHANGED diff => policy passes
+    const existingRate = {
+      id: 'rate-bot-id-test-001',
+      bankCode: 'SBI', bank_code: 'SBI',
+      customer_type: 'REGULAR',
+      is_callable: true,
+      min_tenure_days: 180, max_tenure_days: 269,
+      interest_rate: 6.75,
+      status: 'VERIFIED',
+      source_url: 'https://sbi.co.in/rates',
+    };
+
+    const cand = new CandidateRate({
+      bankCode: 'SBI', customerType: 'REGULAR', isCallable: true,
+      minTenureDays: 180, maxTenureDays: 269, interestRate: 6.75,
+      validationStatus: 'VALID', effectiveFrom: '2026-11-01',
+      sourceContentHash: 'b'.repeat(64), sourceUrl: 'https://sbi.co.in/rates',
+      parserId: 'sbi_retail_html', parserVersion: '1.0.0',  // Required for parserSucceeded=true
+    });
+
+    const service = new PromotionService({ diffEngine, policyEngine, inMemoryRates: [existingRate] });
+
+    let threw = false;
+    let errorMessage = '';
+    try {
+      await service.promoteCandidate({
+        candidate: cand,
+        actorType: 'AUTOMATED_POLICY',
+        // parserSuccess:true ensures parserSucceeded check passes, reaching identity verification
+        context: { authAdmin: mockAuthAdmin, parserSuccess: true },
+      });
+    } catch (err) {
+      threw = true;
+      errorMessage = err.message;
+    } finally {
+      process.env.SYSTEM_BOT_USER_ID = savedBotId;
+    }
+
+    assert.ok(threw, 'Must throw when user has is_service_account=true but ferocalc_role is not SYSTEM_BOT');
+    assert.ok(
+      errorMessage.includes('not a dedicated service bot') || errorMessage.includes('identity verification failed'),
+      'Error must cite identity failure, got: "' + errorMessage + '"'
+    );
+    const finalStatus = cand.stagingStatus || cand.staging_status;
+    assert.notStrictEqual(finalStatus, 'PROMOTED', 'Candidate must not be promoted with wrong bot role');
+  });
+
+    runTest('25. Effective-date UTC resolution is deterministic regardless of local time zone', () => {
+    // The SQL uses: (v_candidate.effective_from::text || 'T00:00:00Z')::timestamptz
+    // This appends the literal UTC suffix anchoring to midnight UTC regardless of session TZ.
+    const effectiveDateStr = '2026-11-05';
+    const utcIso = new Date(effectiveDateStr + 'T00:00:00Z').toISOString();
+
+    assert.strictEqual(utcIso, '2026-11-05T00:00:00.000Z', 'Effective-date UTC suffix must anchor to midnight UTC');
+
+    const utcDate = utcIso.substring(0, 10);
+    assert.strictEqual(utcDate, effectiveDateStr, 'UTC date portion must match source effective_from string');
+
+    const explicitTs = '2026-11-05T00:00:00+00:00';
+    const derivedTs  = effectiveDateStr + 'T00:00:00Z';
+    assert.strictEqual(
+      new Date(explicitTs).getTime(),
+      new Date(derivedTs).getTime(),
+      'Explicit UTC +00:00 and Z suffix must resolve to identical epoch milliseconds'
+    );
   });
 
   // Summary

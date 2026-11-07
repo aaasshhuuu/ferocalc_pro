@@ -429,26 +429,33 @@ class PipelineSchedulerService {
 
         // Live Execution Mode:
         if (policyResult.eligibleForAutoPromotion) {
-          const promoRes = await this.promotionService.promoteCandidate({
-            candidate,
-            actorType: 'AUTOMATED_POLICY',
-            actorId: `SCHEDULER_${jobId}`,
-            reason: policyResult.decisionReason,
-            activeVerifiedRates,
-            context: { jobId },
-          });
+          try {
+            const promoRes = await this.promotionService.promoteCandidate({
+              candidate,
+              actorType: 'AUTOMATED_POLICY',
+              actorId: `SCHEDULER_${jobId}`,
+              reason: policyResult.decisionReason,
+              activeVerifiedRates,
+              context: { jobId },
+            });
 
-          if (promoRes.promoted) {
-            result.promotedCount++;
-            // Update local active rates for subsequent candidates in same batch
-            const idx = activeVerifiedRates.findIndex(r => r.id === (diff.previousRecord && diff.previousRecord.id));
-            if (idx >= 0) {
-              activeVerifiedRates[idx] = promoRes.newVerifiedRate;
+            if (promoRes.promoted) {
+              result.promotedCount++;
+              // Update local active rates for subsequent candidates in same batch
+              const idx = activeVerifiedRates.findIndex(r => r.id === (diff.previousRecord && diff.previousRecord.id));
+              if (idx >= 0) {
+                activeVerifiedRates[idx] = promoRes.newVerifiedRate;
+              } else {
+                activeVerifiedRates.push(promoRes.newVerifiedRate);
+              }
             } else {
-              activeVerifiedRates.push(promoRes.newVerifiedRate);
+              result.reviewCount++;
             }
-          } else {
-            result.reviewCount++;
+          } catch (promoErr) {
+            this.logger.error(`[PipelineSchedulerService] Promotion failed for candidate ${candidate.id || candidate.bankCode}: ${promoErr.message}`);
+            result.status = 'ERROR';
+            result.error = `Candidate promotion failed: ${promoErr.message}`;
+            return result;
           }
         } else if (policyResult.recommendedAction === 'INVALID') {
           result.invalidCount++;
@@ -538,7 +545,7 @@ class PipelineSchedulerService {
     }
 
     const candId = candidate.id || candidate.stagedCandidateId || candidate._candidate_id;
-    const db = this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
+    const db = params.db || this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
 
     // Inspect existing persisted candidate record
     let existingRow = candidate._matchedRow || null;
@@ -635,8 +642,9 @@ class PipelineSchedulerService {
 
     const existingFlags = Array.isArray(existingRow.anomaly_flags) ? existingRow.anomaly_flags : [];
     const hasStaleTenureAnomaly = existingFlags.some(f => typeof f === 'string' && f.includes('ANOMALY_TENURE_DISAPPEARED'));
+    const isCleanNoAnomalies = existingFlags.length === 0;
 
-    if (!hasStaleTenureAnomaly) {
+    if (!hasStaleTenureAnomaly && !isCleanNoAnomalies) {
       candidate.stagingStatus = 'IN_REVIEW';
       candidate.staging_status = 'IN_REVIEW';
       return { reconciled: false, status: 'IN_REVIEW' };

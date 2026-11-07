@@ -16,6 +16,7 @@ const { CandidateValidator } = require('../validators/candidate_validator');
 const { AnomalyDetector } = require('../validators/anomaly_detector');
 const { supabaseAdmin, isSupabaseAvailable } = require('../supabase/supabase_client');
 const { normalizeSchemeName, normalizeExactDecimal } = require('./staging_retry_coordinator');
+const { RateDiffEngine, DIFF_TYPES } = require('../promotion/rate_diff_engine');
 
 class CandidateStagingService {
   constructor(options = {}) {
@@ -731,6 +732,186 @@ class CandidateStagingService {
       insertedRows: persistResult.insertedRows || [],
     };
   }
+
+
+  /**
+   * Reconciles legitimate clean candidates stuck in IN_REVIEW back to DRAFT (Phase 4.2).
+   *
+   * Eligibility Requirements:
+   * 1. validation_status === 'VALID'
+   * 2. anomaly_flags is exactly empty ([])
+   * 3. No MANUAL_REVIEW hold in notes
+   * 4. Exact candidate identity matches an active verified rate
+   * 5. RateDiffEngine confirms DIFF_TYPES.UNCHANGED
+   * 6. Preserves existing promoted records, verified_fd_rates, and audit history
+   * 7. Dry-run mode performs zero database mutations
+   *
+   * @param {Object} [options]
+   * @param {string} [options.bankCode] - Filter by specific bank code (optional)
+   * @param {boolean} [options.dryRun=false] - When true, simulate without database writes
+   * @param {Array<Object>} [options.activeVerifiedRates] - In-memory verified rates (for tests)
+   * @param {Array<Object>} [options.inMemoryCandidates] - In-memory candidates (for tests)
+   * @param {Object} [options.supabaseClient] - Custom Supabase client
+   * @returns {Promise<Object>} Recovery telemetry report
+   */
+  async reconcileCleanReviewCandidates(options = {}) {
+    const dryRun = Boolean(options.dryRun);
+    const bankFilter = (options.bankCode || options.bankFilter) ? String(options.bankCode || options.bankFilter).trim().toUpperCase() : null;
+    const db = options.supabaseClient || options.db || this.supabaseClient || (isSupabaseAvailable() ? supabaseAdmin : null);
+    const diffEngine = new RateDiffEngine();
+
+    // 1. Load active verified rates
+    let activeRates = options.activeVerifiedRates || options.inMemoryActiveRates || [];
+    if (activeRates.length === 0 && db) {
+      try {
+        const { data: vRates, error: vErr } = await db
+          .from('verified_fd_rates')
+          .select('*');
+        if (!vErr && Array.isArray(vRates)) {
+          activeRates = vRates.map(r => ({
+            ...r,
+            bankCode: r.bank_short_name || r.bankCode || r.bank_code,
+            bank_code: r.bank_short_name || r.bankCode || r.bank_code,
+          }));
+        }
+      } catch (fetchVErr) {
+        this.logger.warn(`Failed to fetch verified_fd_rates for clean reconciliation: ${fetchVErr.message}`);
+      }
+    }
+
+    // 2. Load candidates in IN_REVIEW
+    let inReviewCandidates = options.inMemoryCandidates || [];
+    if (inReviewCandidates.length === 0 && db) {
+      try {
+        let q = db
+          .from('staged_rate_candidates')
+          .select('*')
+          .eq('staging_status', 'IN_REVIEW');
+        if (bankFilter) {
+          q = q.eq('bank_code', bankFilter);
+        }
+        const { data: candData, error: candErr } = await q;
+        if (!candErr && Array.isArray(candData)) {
+          inReviewCandidates = candData;
+        }
+      } catch (fetchCErr) {
+        this.logger.warn(`Failed to fetch staged_rate_candidates for clean reconciliation: ${fetchCErr.message}`);
+      }
+    }
+
+    if (options.inMemoryCandidates) {
+      inReviewCandidates = inReviewCandidates.filter(c => (c.staging_status || c.stagingStatus || 'IN_REVIEW') === 'IN_REVIEW');
+    }
+    if (bankFilter && options.inMemoryCandidates) {
+      inReviewCandidates = inReviewCandidates.filter(c => (c.bank_code || c.bankCode) === bankFilter);
+    }
+
+    const report = {
+      totalInReview: inReviewCandidates.length,
+      totalAudited: 0,
+      eligibleCount: 0,
+      reconciledCount: 0,
+      skippedCount: 0,
+      dryRun,
+      bankBreakdown: {},
+      errors: [],
+    };
+
+    for (const c of inReviewCandidates) {
+      const bCode = (c.bank_code || c.bankCode || '').toUpperCase();
+      if (!report.bankBreakdown[bCode]) {
+        report.bankBreakdown[bCode] = {
+          total: 0,
+          eligible: 0,
+          reconciled: 0,
+          skipped: 0,
+          reasons: [],
+        };
+      }
+      const bStats = report.bankBreakdown[bCode];
+      report.totalAudited++;
+      bStats.total++;
+
+      // Requirement 1: validation_status === 'VALID'
+      const valStatus = c.validation_status || c.validationStatus || 'VALID';
+      if (valStatus !== 'VALID') {
+        report.skippedCount++;
+        bStats.skipped++;
+        bStats.reasons.push({ id: c.id, reason: 'INVALID_STATUS' });
+        continue;
+      }
+
+      // Requirement 2: anomaly_flags is exactly empty ([])
+      const flags = Array.isArray(c.anomaly_flags) ? c.anomaly_flags : (Array.isArray(c.anomalyFlags) ? c.anomalyFlags : []);
+      if (flags.length > 0) {
+        report.skippedCount++;
+        bStats.skipped++;
+        bStats.reasons.push({ id: c.id, reason: 'ANOMALIES_PRESENT', flags });
+        continue;
+      }
+
+      // Requirement 3: No MANUAL_REVIEW hold
+      const notes = String(c.notes || '');
+      if (notes.includes('MANUAL_REVIEW')) {
+        report.skippedCount++;
+        bStats.skipped++;
+        bStats.reasons.push({ id: c.id, reason: 'MANUAL_REVIEW_HOLD' });
+        continue;
+      }
+
+      // Requirement 4 & 5: Exact candidate identity matches active verified rate (DIFF_TYPES.UNCHANGED)
+      const bankActive = activeRates.filter(r => String(r.bankCode || r.bank_code || r.bank_short_name || '').toUpperCase() === bCode);
+      const diff = diffEngine.diffCandidate(c, bankActive);
+      if (diff.diffType !== DIFF_TYPES.UNCHANGED) {
+        report.skippedCount++;
+        bStats.skipped++;
+        bStats.reasons.push({ id: c.id, reason: `DIFF_${diff.diffType}`, details: diff.details });
+        continue;
+      }
+
+      // Candidate is proven ELIGIBLE!
+      report.eligibleCount++;
+      bStats.eligible++;
+
+      // Dry-run preserves status and makes zero database writes
+      if (dryRun) {
+        continue;
+      }
+
+      // Requirement 6 & 7: Update candidate in database to DRAFT
+      if (db && c.id) {
+        try {
+          const { error: upErr } = await db
+            .from('staged_rate_candidates')
+            .update({
+              staging_status: 'DRAFT',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', c.id);
+
+          if (upErr) {
+            report.errors.push(`Failed to update candidate ${c.id}: ${upErr.message}`);
+            continue;
+          }
+
+          c.staging_status = 'DRAFT';
+          c.stagingStatus = 'DRAFT';
+          report.reconciledCount++;
+          bStats.reconciled++;
+        } catch (dbErr) {
+          report.errors.push(`Exception updating candidate ${c.id}: ${dbErr.message}`);
+        }
+      } else {
+        c.staging_status = 'DRAFT';
+        c.stagingStatus = 'DRAFT';
+        report.reconciledCount++;
+        bStats.reconciled++;
+      }
+    }
+
+    return report;
+  }
+
 }
 
 module.exports = {

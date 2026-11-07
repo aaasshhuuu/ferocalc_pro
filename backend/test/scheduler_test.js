@@ -28,6 +28,9 @@
 
 'use strict';
 
+// Provide dedicated test bot identity if not set
+process.env.SYSTEM_BOT_USER_ID = process.env.SYSTEM_BOT_USER_ID || '11111111-2222-4333-8444-555555555555';
+
 const assert = require('assert');
 const { PipelineSchedulerService } = require('../scheduling/pipeline_scheduler_service');
 const { JobLockManager } = require('../monitoring/job_lock_manager');

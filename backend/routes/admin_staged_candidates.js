@@ -211,6 +211,14 @@ router.post('/staged-candidates/:id/promote', requireAdmin, async (req, res) => 
     const { id } = req.params;
     const { notes } = req.body;
 
+    // Strict RBAC: Only ADMIN can manually promote candidates; REVIEWER is strictly rejected
+    if (req.adminUser?.app_metadata?.ferocalc_role !== 'ADMIN') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Admin privileges required for candidate promotion (REVIEWER cannot promote)',
+      });
+    }
+
     const { data: candidate, error } = await supabaseAdmin
       .from('staged_rate_candidates')
       .select('*')
@@ -238,17 +246,19 @@ router.post('/staged-candidates/:id/promote', requireAdmin, async (req, res) => 
       overridePolicy: true,
     });
 
-    // Update staged record
-    await supabaseAdmin
-      .from('staged_rate_candidates')
-      .update({
-        staging_status: 'PROMOTED',
-        promoted_rate_id: result.newVerifiedRate.id,
-        promoted_at: new Date().toISOString(),
-        promoted_by: req.adminUser.id,
-        promotion_reason: notes || 'Admin manual verification and promotion',
-      })
-      .eq('id', id);
+    // Update staged record (only if non-atomic fallback was used; RPC updates staged record atomically)
+    if (!result.atomicRpc) {
+      await supabaseAdmin
+        .from('staged_rate_candidates')
+        .update({
+          staging_status: 'PROMOTED',
+          promoted_rate_id: result.newVerifiedRate.id,
+          promoted_at: new Date().toISOString(),
+          promoted_by: req.adminUser.id,
+          promotion_reason: notes || 'Admin manual verification and promotion',
+        })
+        .eq('id', id);
+    }
 
     return res.json({
       status: 'ok',

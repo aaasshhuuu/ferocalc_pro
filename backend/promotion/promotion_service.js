@@ -15,7 +15,7 @@
 const crypto = require('crypto');
 const { RateDiffEngine, DIFF_TYPES } = require('./rate_diff_engine');
 const { PromotionPolicyEngine } = require('./promotion_policy_engine');
-const { supabaseAdmin, isSupabaseAvailable } = require('../supabase/supabase_client');
+const { supabaseAdmin, supabasePublic, isSupabaseAvailable } = require('../supabase/supabase_client');
 
 class PromotionService {
   constructor(options = {}) {
@@ -28,6 +28,54 @@ class PromotionService {
     this._inMemoryRates = options.inMemoryRates || [];
     this._inMemoryAuditLogs = options.inMemoryAuditLogs || [];
     this._inMemoryStagedCandidates = options.inMemoryStagedCandidates || [];
+    this._isOfflineTestMode = options.isOfflineTestMode !== undefined
+      ? Boolean(options.isOfflineTestMode)
+      : (Array.isArray(options.inMemoryRates) || !process.env.SUPABASE_URL);
+  }
+
+  /**
+   * Resolves and verifies the privileged database client for promotion.
+   * Enforces service-role client in live staging/production runtime and rejects
+   * unprivileged public/anon clients.
+   *
+   * @param {Object} [context]
+   * @returns {Object|null} Verified privileged client or null in offline test mode
+   * @private
+   */
+  _resolvePrivilegedClient(context = {}) {
+    const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+    const vercelEnv = (process.env.VERCEL_ENV || '').toLowerCase();
+    const isLiveRuntime = (
+      nodeEnv === 'production' ||
+      nodeEnv === 'staging' ||
+      vercelEnv === 'production' ||
+      vercelEnv === 'preview' ||
+      Boolean(process.env.SUPABASE_URL)
+    );
+
+    let client = this.supabaseClient;
+    if (!client && isSupabaseAvailable()) {
+      client = supabaseAdmin;
+    }
+
+    // Reject unprivileged clients (anon key, public client, or client flagged as non-admin)
+    if (client) {
+      if (client === supabasePublic || client.isAnonClient === true || client.role === 'anon') {
+        throw new Error('Privileged operation rejected: client is an unprivileged public/anon client. Service-role client required.');
+      }
+    }
+
+    // In live runtime, absence of a privileged client with rpc() must fail closed
+    if (isLiveRuntime && !this._isOfflineTestMode) {
+      if (!client) {
+        throw new Error('Promotion halted: privileged database client (supabaseAdmin with service-role) is required in staging/production runtime');
+      }
+      if (typeof client.rpc !== 'function') {
+        throw new Error('Promotion halted: privileged database client lacks required rpc() method');
+      }
+    }
+
+    return client;
   }
 
   /**
@@ -180,6 +228,23 @@ class PromotionService {
       throw new Error('Candidate is required for promotion');
     }
 
+    // Idempotency guard: If candidate is already PROMOTED, return success without re-promotion
+    const curStatus = candidate.stagingStatus || candidate.staging_status;
+    if (curStatus === 'PROMOTED') {
+      const existingRateId = candidate.promotedRateId || candidate.promoted_rate_id;
+      return {
+        success: true,
+        promoted: false,
+        alreadyPromoted: true,
+        promotedRateId: existingRateId,
+        stagingStatus: 'PROMOTED',
+        reason: 'Candidate is already PROMOTED (idempotent)',
+      };
+    }
+
+    // Client Privilege Guard: Validate privileged database client before any reads or mutations
+    const db = this._resolvePrivilegedClient(context);
+
     const normalizedCandidate = this.normalizeCandidate(candidate);
     // Sync normalized fields back to candidate reference
     Object.assign(candidate, normalizedCandidate);
@@ -242,18 +307,195 @@ class PromotionService {
     }
 
     // 5. Execute Promotion & Historical Versioning
-    // A. If replacing an existing verified record, archive the old record safely
-    let supersededRecord = null;
+    // System-Bot Identity Guard: Fail closed before archiving or changing any verified rate
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const HUMAN_ADMIN_UUID = '995b04cd-518b-435d-83a0-d1bdde22cca6';
+
+    let effectiveActorId;
+    if (actorType === 'AUTOMATED_POLICY') {
+      const botEnv = process.env.SYSTEM_BOT_USER_ID;
+      if (!botEnv || !botEnv.trim()) {
+        throw new Error('Automated promotion halted: SYSTEM_BOT_USER_ID environment variable is not configured');
+      }
+      const trimmedBotId = botEnv.trim();
+      if (!UUID_REGEX.test(trimmedBotId)) {
+        throw new Error(`Automated promotion halted: SYSTEM_BOT_USER_ID is malformed: "${trimmedBotId}"`);
+      }
+      if (trimmedBotId.toLowerCase() === HUMAN_ADMIN_UUID.toLowerCase()) {
+        throw new Error(`Automated promotion halted: SYSTEM_BOT_USER_ID cannot be human admin account (${trimmedBotId})`);
+      }
+      await this._verifyDedicatedBotIdentity(trimmedBotId, context);
+      effectiveActorId = trimmedBotId;
+    } else if (actorType === 'ADMIN') {
+      const adminIdToVerify = (actorId && UUID_REGEX.test(actorId)) ? actorId : null;
+      if (isSupabaseAvailable() && supabaseAdmin) {
+        if (!actorId || !UUID_REGEX.test(actorId)) {
+          throw new Error(`Admin promotion requires a valid user UUID for actorId, got: ${actorId}`);
+        }
+        effectiveActorId = actorId;
+      } else {
+        effectiveActorId = adminIdToVerify || (actorId || crypto.randomUUID());
+      }
+      await this._verifyAdminIdentity(effectiveActorId, context);
+    }
+
+    // 5. Execute Atomic Promotion via PostgreSQL RPC (when database client is available)
+    const candidateId = candidate.id || candidate.candidateId;
+    const supersededRateId = diffResult.previousRecord ? diffResult.previousRecord.id : null;
     const effectiveAt = (candidate.effectiveFrom || candidate.effective_from)
       ? new Date(candidate.effectiveFrom || candidate.effective_from).toISOString()
       : new Date().toISOString();
 
-    if (diffResult.previousRecord) {
-      supersededRecord = await this._archiveRate(diffResult.previousRecord, effectiveAt, actorId, 'Superseded by newly promoted candidate');
+    if (db && typeof db.rpc === 'function') {
+      const rpcParams = {
+        p_staged_candidate_id: candidateId,
+        p_actor_type: actorType,
+        p_actor_id: effectiveActorId,
+        p_supersede_rate_id: supersededRateId,
+        p_effective_at: effectiveAt,
+        p_policy_result: policyResult,
+        p_diff_summary: diffResult,
+        p_notes: reason || policyResult.decisionReason || null,
+      };
+
+      const { data, error } = await db.rpc('promote_staged_candidate', rpcParams);
+
+      if (error) {
+        throw new Error(`Atomic promotion RPC failed: ${error.message || JSON.stringify(error)}`);
+      }
+
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      if (!rpcRow || !rpcRow.new_rate_id) {
+        throw new Error('Atomic promotion RPC returned empty or invalid result');
+      }
+
+      const nowIso = new Date().toISOString();
+      const newRateId = rpcRow.new_rate_id;
+      const promoReason = reason || policyResult.decisionReason;
+
+      candidate.stagingStatus = 'PROMOTED';
+      candidate.staging_status = 'PROMOTED';
+      candidate.promotedRateId = newRateId;
+      candidate.promoted_rate_id = newRateId;
+      candidate.promotedAt = nowIso;
+      candidate.promoted_at = nowIso;
+      candidate.promotedBy = actorType;
+      candidate.promoted_by = actorType;
+      candidate.promotionReason = promoReason;
+      candidate.promotion_reason = promoReason;
+
+      if (params.candidate) {
+        params.candidate.stagingStatus = 'PROMOTED';
+        params.candidate.staging_status = 'PROMOTED';
+        params.candidate.promotedRateId = newRateId;
+        params.candidate.promoted_rate_id = newRateId;
+        params.candidate.promotedAt = nowIso;
+        params.candidate.promoted_at = nowIso;
+        params.candidate.promotedBy = actorType;
+        params.candidate.promoted_by = actorType;
+        params.candidate.promotionReason = promoReason;
+        params.candidate.promotion_reason = promoReason;
+      }
+
+      const newVerifiedRate = {
+        id: newRateId,
+        bank_id: candidate.bankId || candidate.bank_id,
+        bankCode: candidate.bankCode || candidate.bank_code,
+        customer_type: candidate.customerType || candidate.customer_type,
+        product_type: candidate.productType || candidate.product_type,
+        interest_rate: candidate.interestRate !== undefined ? candidate.interestRate : candidate.interest_rate,
+        tenure_domain: candidate.tenureDomain || candidate.tenure_domain,
+        min_tenure_days: candidate.minTenureDays !== undefined ? candidate.minTenureDays : candidate.min_tenure_days,
+        max_tenure_days: candidate.maxTenureDays !== undefined ? candidate.maxTenureDays : candidate.max_tenure_days,
+        min_years: candidate.minYears !== undefined ? candidate.minYears : candidate.min_years,
+        min_months: candidate.minMonths !== undefined ? candidate.minMonths : candidate.min_months,
+        min_days_cal: candidate.minDaysCal !== undefined ? candidate.minDaysCal : candidate.min_days_cal,
+        min_operator: candidate.minOperator || candidate.min_operator,
+        max_years: candidate.maxYears !== undefined ? candidate.maxYears : candidate.max_years,
+        max_months: candidate.maxMonths !== undefined ? candidate.maxMonths : candidate.max_months,
+        max_days_cal: candidate.maxDaysCal !== undefined ? candidate.maxDaysCal : candidate.max_days_cal,
+        max_operator: candidate.maxOperator || candidate.max_operator,
+        tenure_label: candidate.tenureLabel || candidate.tenure_label,
+        source_tenure_text: candidate.sourceTenureText || candidate.source_tenure_text,
+        rate_category: candidate.rateCategory || candidate.rate_category || 'STANDARD',
+        scheme_name: candidate.schemeName || candidate.scheme_name || null,
+        is_callable: candidate.isCallable !== undefined ? candidate.isCallable : candidate.is_callable,
+        min_deposit: candidate.minDeposit !== undefined ? candidate.minDeposit : candidate.min_deposit,
+        max_deposit: candidate.maxDeposit !== undefined ? candidate.maxDeposit : candidate.max_deposit,
+        effective_from: effectiveAt,
+        effective_until: null,
+        status: 'VERIFIED',
+        verified_by: effectiveActorId,
+      };
+
+      let supersededRecord = null;
+      if (rpcRow.superseded_rate_id && diffResult.previousRecord) {
+        supersededRecord = {
+          ...diffResult.previousRecord,
+          status: 'ARCHIVED',
+          effective_until: effectiveAt,
+        };
+      }
+
+      return {
+        success: true,
+        promoted: true,
+        atomicRpc: true,
+        newVerifiedRate,
+        supersededRecord,
+        policyResult,
+        diffResult,
+        reason: promoReason,
+      };
     }
 
-    // B. Create the new active VERIFIED rate record
-    const newVerifiedRate = await this._insertVerifiedRate(candidate, actorId, reason || policyResult.decisionReason);
+    // In-Memory Fallback Path: Offline simulation for unit tests when database client is absent
+    const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+    const vercelEnv = (process.env.VERCEL_ENV || '').toLowerCase();
+    const isLiveRuntime = (
+      nodeEnv === 'production' ||
+      nodeEnv === 'staging' ||
+      vercelEnv === 'production' ||
+      vercelEnv === 'preview' ||
+      Boolean(process.env.SUPABASE_URL)
+    );
+
+    if (isLiveRuntime || !this._isOfflineTestMode) {
+      throw new Error('Promotion failed: in-memory sequential fallback is strictly prohibited in staging/production runtime. Database commit via atomic RPC required.');
+    }
+
+    // Capture previous record state BEFORE any archival
+    let originalPreviousState = null;
+    if (diffResult.previousRecord) {
+      originalPreviousState = {
+        id: diffResult.previousRecord.id,
+        status: diffResult.previousRecord.status,
+        effective_until: diffResult.previousRecord.effective_until || diffResult.previousRecord.effectiveUntil || null,
+        updated_at: diffResult.previousRecord.updated_at || diffResult.previousRecord.updatedAt || null,
+      };
+    }
+
+    // A. If replacing an existing verified record, archive the old record safely
+    let supersededRecord = null;
+
+    if (diffResult.previousRecord) {
+      supersededRecord = await this._archiveRate(diffResult.previousRecord, effectiveAt, effectiveActorId, 'Superseded by newly promoted candidate');
+    }
+
+    // B. Create the new active VERIFIED rate record (with rollback safety)
+    let newVerifiedRate;
+    try {
+      newVerifiedRate = await this._insertVerifiedRate(candidate, effectiveActorId, reason || policyResult.decisionReason);
+    } catch (insertErr) {
+      if (supersededRecord && diffResult.previousRecord) {
+        try {
+          await this._restoreArchivedRate(diffResult.previousRecord, originalPreviousState, effectiveAt);
+        } catch (rbErr) {
+          this.logger.error(`Failed to rollback archived rate ${diffResult.previousRecord.id}: ${rbErr.message}`);
+        }
+      }
+      throw insertErr;
+    }
 
     const previousStatus = candidate.stagingStatus || candidate.staging_status || 'DRAFT';
     const nowIso = new Date().toISOString();
@@ -289,7 +531,7 @@ class PromotionService {
       rateId: newVerifiedRate.id,
       action: 'PROMOTE',
       actorType,
-      actorId,
+      actorId: effectiveActorId,
       previousStatus,
       newStatus: 'VERIFIED',
       policyResult,
@@ -302,6 +544,8 @@ class PromotionService {
     return {
       success: true,
       promoted: true,
+      atomicRpc: false,
+      isOfflineSimulation: true,
       newVerifiedRate,
       supersededRecord,
       policyResult,
@@ -638,6 +882,92 @@ class PromotionService {
     return data || null;
   }
 
+  async _verifyDedicatedBotIdentity(botId, context = {}) {
+    const authAdmin = (context && context.authAdmin) ||
+      (isSupabaseAvailable() && supabaseAdmin && supabaseAdmin.auth && supabaseAdmin.auth.admin ? supabaseAdmin.auth.admin : null);
+
+    // In live execution, staging, production, or when explicitly requested by context,
+    // the Supabase Auth Admin API MUST be available. Fail closed if unavailable.
+    if (!authAdmin) {
+      if (isSupabaseAvailable() || process.env.NODE_ENV === 'production' || (context && context.requireAuthAdmin)) {
+        throw new Error('System Bot identity verification failed: Supabase Auth Admin API is unavailable');
+      }
+      return;
+    }
+
+    let data, error;
+    try {
+      const res = await authAdmin.getUserById(botId);
+      data = res && res.data;
+      error = res && res.error;
+    } catch (err) {
+      throw new Error(`System Bot identity verification failed: lookup error (${err.message})`);
+    }
+
+    if (error || !data || !data.user) {
+      throw new Error(`System Bot identity verification failed: user ${botId} not found in auth (${error ? error.message : 'not found'})`);
+    }
+
+    const user = data.user;
+    const appMetadata = user.app_metadata || {};
+    const appRole = appMetadata.ferocalc_role;
+    const isServiceAccount = appMetadata.is_service_account === true;
+
+    // Security Rule: Both ferocalc_role === 'SYSTEM_BOT' and is_service_account === true
+    // MUST be present in trusted app_metadata.
+    // user_metadata is user-editable in Supabase Auth and MUST NEVER be used for authorization or identity checks.
+    if (appRole !== 'SYSTEM_BOT' || !isServiceAccount) {
+      throw new Error(
+        `System Bot identity verification failed: user ${botId} is not a dedicated service bot ` +
+        `(app_metadata.ferocalc_role="${appRole}", app_metadata.is_service_account=${isServiceAccount})`
+      );
+    }
+  }
+
+  async _verifyAdminIdentity(adminId, context = {}) {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    const botEnv = process.env.SYSTEM_BOT_USER_ID;
+    if (botEnv && adminId && botEnv.trim().toLowerCase() === String(adminId).trim().toLowerCase()) {
+      throw new Error(`Admin identity verification failed: service bot ${adminId} cannot promote in ADMIN mode`);
+    }
+
+    const authAdmin = (context && context.authAdmin) ||
+      (isSupabaseAvailable() && supabaseAdmin && supabaseAdmin.auth && supabaseAdmin.auth.admin ? supabaseAdmin.auth.admin : null);
+
+    if (authAdmin) {
+      if (!adminId || !UUID_REGEX.test(adminId)) {
+        throw new Error(`Admin identity verification failed: invalid UUID (${adminId})`);
+      }
+
+      let data, error;
+      try {
+        const res = await authAdmin.getUserById(adminId);
+        data = res && res.data;
+        error = res && res.error;
+      } catch (err) {
+        throw new Error(`Admin identity verification failed: lookup error (${err.message})`);
+      }
+
+      if (error || !data || !data.user) {
+        throw new Error(`Admin identity verification failed: user ${adminId} not found in auth (${error ? error.message : 'not found'})`);
+      }
+
+      const user = data.user;
+      const appMetadata = user.app_metadata || {};
+      const appRole = appMetadata.ferocalc_role;
+      const isServiceAccount = appMetadata.is_service_account === true;
+
+      if (appRole === 'SYSTEM_BOT' || isServiceAccount) {
+        throw new Error(`Admin identity verification failed: service bot ${adminId} cannot promote in ADMIN mode`);
+      }
+
+      if (appRole !== 'ADMIN') {
+        throw new Error(`Admin identity verification failed: user ${adminId} possesses role "${appRole}", not ADMIN`);
+      }
+    }
+  }
+
   async _archiveRate(rate, effectiveUntil, actorId, notes) {
     rate.status = 'ARCHIVED';
     rate.effective_until = effectiveUntil;
@@ -650,6 +980,75 @@ class PromotionService {
         .update({
           status: 'ARCHIVED',
           effective_until: effectiveUntil,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', rate.id);
+    }
+    return rate;
+  }
+
+  async _restoreArchivedRate(rate, originalState = null, effectiveAt = null) {
+    const now = new Date();
+    const originalStatus = originalState ? originalState.status : 'VERIFIED';
+    const originalEffectiveUntil = originalState ? originalState.effective_until : null;
+
+    // Invariant: If rate was already ARCHIVED before promotion, keep it ARCHIVED
+    if (originalStatus === 'ARCHIVED') {
+      rate.status = 'ARCHIVED';
+      rate.effective_until = originalEffectiveUntil;
+      rate.effectiveUntil = originalEffectiveUntil;
+      rate.updated_at = new Date().toISOString();
+      if (isSupabaseAvailable() && supabaseAdmin) {
+        await supabaseAdmin
+          .from('fd_rates')
+          .update({
+            status: 'ARCHIVED',
+            effective_until: originalEffectiveUntil,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', rate.id);
+      }
+      return rate;
+    }
+
+    // Invariant: If rate has expired (effective period ended), do NOT reactivate it as current!
+    // Reactivating an expired rate with effective_until = null would publish a stale rate to verified_fd_rates.
+    const isExpired = Boolean(
+      (originalEffectiveUntil && new Date(originalEffectiveUntil) <= now) ||
+      (effectiveAt && new Date(effectiveAt) <= now)
+    );
+
+    if (isExpired) {
+      const safeEffectiveUntil = originalEffectiveUntil || effectiveAt || now.toISOString();
+      rate.status = 'ARCHIVED';
+      rate.effective_until = safeEffectiveUntil;
+      rate.effectiveUntil = safeEffectiveUntil;
+      rate.updated_at = new Date().toISOString();
+      if (isSupabaseAvailable() && supabaseAdmin) {
+        await supabaseAdmin
+          .from('fd_rates')
+          .update({
+            status: 'ARCHIVED',
+            effective_until: safeEffectiveUntil,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', rate.id);
+      }
+      this.logger.warn(`Rollback for rate ${rate.id}: rate has expired (effective: ${safeEffectiveUntil}). Preserving ARCHIVED status to prevent publishing stale rate as active.`);
+      return rate;
+    }
+
+    // Rate was active and is not expired: restore original status and original effective_until
+    rate.status = 'VERIFIED';
+    rate.effective_until = originalEffectiveUntil;
+    rate.effectiveUntil = originalEffectiveUntil;
+    rate.updated_at = new Date().toISOString();
+    if (isSupabaseAvailable() && supabaseAdmin) {
+      await supabaseAdmin
+        .from('fd_rates')
+        .update({
+          status: 'VERIFIED',
+          effective_until: originalEffectiveUntil,
           updated_at: new Date().toISOString(),
         })
         .eq('id', rate.id);
@@ -701,11 +1100,26 @@ class PromotionService {
     const resolvedBankId = await this._resolveBankId(candidate.bankId || candidate.bank_id || bankCode);
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const HUMAN_ADMIN_UUID = '995b04cd-518b-435d-83a0-d1bdde22cca6';
     const rateId = (candidate.promotedRateId && UUID_REGEX.test(candidate.promotedRateId))
       ? candidate.promotedRateId
       : ((candidate.promoted_rate_id && UUID_REGEX.test(candidate.promoted_rate_id)) ? candidate.promoted_rate_id : crypto.randomUUID());
 
-    const verifiedByUuid = (actorId && UUID_REGEX.test(actorId)) ? actorId : null;
+    let verifiedByUuid = null;
+    if (actorId && UUID_REGEX.test(actorId)) {
+      verifiedByUuid = actorId;
+    } else if (process.env.SYSTEM_BOT_USER_ID && UUID_REGEX.test(process.env.SYSTEM_BOT_USER_ID.trim())) {
+      const botId = process.env.SYSTEM_BOT_USER_ID.trim();
+      if (botId.toLowerCase() !== HUMAN_ADMIN_UUID.toLowerCase()) {
+        verifiedByUuid = botId;
+      }
+    }
+
+    // Fail closed: Do not silently pass null verified_by to DB insert which violates fd_rates_verify_fields_consistent
+    if (isSupabaseAvailable() && supabaseAdmin && !verifiedByUuid) {
+      throw new Error(`Cannot insert VERIFIED rate: valid verified_by UUID is required to satisfy fd_rates_verify_fields_consistent constraint (actorId: "${actorId}", SYSTEM_BOT_USER_ID: "${process.env.SYSTEM_BOT_USER_ID}")`);
+    }
+
     const nowIso = new Date().toISOString();
     const effectiveFromDate = candidate.effectiveFrom || candidate.effective_from || nowIso.split('T')[0];
 
