@@ -262,9 +262,61 @@ class PromotionService {
     // 4. Enforce Policy Controls
     if (actorType === 'AUTOMATED_POLICY') {
       if (!policyResult.eligibleForAutoPromotion) {
-        // AUTOMATED_POLICY cannot bypass policy: Route to IN_REVIEW or INVALID
+        // AUTOMATED_POLICY cannot bypass policy: Route to IN_REVIEW or INVALID.
+        // Phase 4.2.11 fix: persist the status transition atomically via RPC before
+        // updating the in-memory candidate. Never report success if persistence fails.
         const previousStatus = candidate.stagingStatus || candidate.staging_status || 'DRAFT';
         const newStatus = policyResult.recommendedAction; // 'IN_REVIEW' or 'INVALID'
+
+        // Attempt atomic DB persistence when a privileged client is available
+        if (db && typeof db.rpc === 'function') {
+          const escalationParams = {
+            p_staged_candidate_id: candidate.id || candidate.candidateId,
+            p_actor_type: 'AUTOMATED_POLICY',
+            p_actor_id: actorId,
+            p_expected_previous_status: previousStatus,
+            p_new_status: newStatus,
+            p_policy_result: policyResult,
+            p_diff_summary: diffResult,
+            p_notes: policyResult.decisionReason || null,
+            p_source_content_hash: candidate.sourceContentHash || candidate.source_content_hash || null,
+            p_parser_version: candidate.parserVersion || candidate.parser_version || null,
+          };
+
+          const { data: escData, error: escError } = await db.rpc('escalate_staged_candidate', escalationParams);
+
+          if (escError) {
+            // Fail closed: propagate the DB error; do not update in-memory state
+            throw new Error(`Atomic escalation RPC failed: ${escError.message || JSON.stringify(escError)}`);
+          }
+
+          const escRow = Array.isArray(escData) ? escData[0] : escData;
+          if (!escRow || !escRow.escalation_status) {
+            throw new Error('Atomic escalation RPC returned empty or invalid result');
+          }
+          // RPC succeeded (ESCALATED or IDEMPOTENT) — now safe to update in-memory state
+        } else if (this._isOfflineTestMode) {
+          // Offline test mode: allow in-memory-only escalation (no DB write expected)
+          await this._logAudit({
+            stagedCandidateId: candidate.id || candidate.candidateId,
+            rateId: null,
+            action: newStatus === 'INVALID' ? 'MARK_INVALID' : 'ESCALATE_TO_IN_REVIEW',
+            actorType: 'AUTOMATED_POLICY',
+            actorId,
+            previousStatus,
+            newStatus,
+            policyResult,
+            diffSummary: diffResult,
+            sourceContentHash: candidate.sourceContentHash,
+            parserVersion: candidate.parserVersion,
+            notes: policyResult.decisionReason,
+          });
+        } else {
+          // Live runtime without a valid db client — fail closed
+          throw new Error('Policy escalation halted: privileged database client required for atomic status persistence in staging/production runtime');
+        }
+
+        // DB write confirmed — now update in-memory candidate state
         candidate.stagingStatus = newStatus;
         candidate.staging_status = newStatus;
         if (params.candidate) {
@@ -272,25 +324,13 @@ class PromotionService {
           params.candidate.staging_status = newStatus;
         }
 
-        await this._logAudit({
-          stagedCandidateId: candidate.id || candidate.candidateId,
-          rateId: null,
-          action: newStatus === 'INVALID' ? 'MARK_INVALID' : 'ESCALATE_TO_IN_REVIEW',
-          actorType: 'AUTOMATED_POLICY',
-          actorId,
-          previousStatus,
-          newStatus,
-          policyResult,
-          diffSummary: diffResult,
-          sourceContentHash: candidate.sourceContentHash,
-          parserVersion: candidate.parserVersion,
-          notes: policyResult.decisionReason,
-        });
-
         return {
           success: false,
           promoted: false,
+          escalated: true,
+          atomicRpc: db && typeof db.rpc === 'function',
           stagingStatus: newStatus,
+          previousStatus,
           policyResult,
           diffResult,
           reason: policyResult.decisionReason,
