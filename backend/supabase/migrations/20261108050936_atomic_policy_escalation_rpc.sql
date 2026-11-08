@@ -3,7 +3,9 @@
 -- Migration 020: Atomic Policy Escalation RPC
 --
 -- STATUS: APPLIED
--- Applied to staging Supabase (cqrslxngpwbtkjejlwty) via migration interface. Version: 20261107134500.
+-- Applied to staging Supabase (cqrslxngpwbtkjejlwty) via SQL Editor.
+-- Recorded migration version: 20261108050936
+-- Migration name: 20261107134500_atomic_policy_escalation_rpc
 --
 -- Purpose:
 --   Provides an atomic PostgreSQL RPC to persist policy-escalation
@@ -23,6 +25,11 @@
 --   * Rejects transitions to 'PROMOTED' or 'VERIFIED' — this RPC
 --     NEVER creates or modifies verified_fd_rates rows.
 --   * Rejects unexpected actor types.
+--   * Rejects NULL p_new_status (SQLSTATE 22023).
+--   * Rejects NULL or disallowed p_expected_previous_status values
+--     (only 'DRAFT' and 'IN_REVIEW' are accepted; SQLSTATE 22023).
+--   * INVALID is a terminal state: INVALID → IN_REVIEW is rejected
+--     (SQLSTATE 42501). Only idempotent INVALID → INVALID is permitted.
 --   * Privileges: Revoked from PUBLIC, anon, authenticated;
 --     granted strictly to service_role.
 -- ============================================================
@@ -31,7 +38,7 @@ CREATE OR REPLACE FUNCTION public.escalate_staged_candidate(
   p_staged_candidate_id      UUID,
   p_actor_type               TEXT,           -- Must be 'AUTOMATED_POLICY'
   p_actor_id                 UUID,           -- Dedicated service bot UUID
-  p_expected_previous_status TEXT,           -- Optimistic concurrency check
+  p_expected_previous_status TEXT,           -- Optimistic concurrency check; must be 'DRAFT' or 'IN_REVIEW'
   p_new_status               TEXT,           -- 'IN_REVIEW' or 'INVALID'
   p_policy_result            JSONB DEFAULT '{}'::pg_catalog.jsonb,
   p_diff_summary             JSONB DEFAULT '{}'::pg_catalog.jsonb,
@@ -104,9 +111,17 @@ BEGIN
   END IF;
 
   -- ============================================================
-  -- 2. SAFETY GUARD: Reject transitions to PROMOTED/VERIFIED
-  --    This RPC MUST NEVER touch verified_fd_rates.
+  -- 2. INPUT VALIDATION: p_new_status
+  --    NULL is rejected explicitly before the allowed-value check
+  --    so callers receive a clear diagnostic rather than a cast error.
   -- ============================================================
+  IF p_new_status IS NULL THEN
+    RAISE EXCEPTION 'Escalation target status is required'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Safety guard: reject transitions to PROMOTED/VERIFIED.
+  -- This RPC MUST NEVER touch verified_fd_rates.
   IF p_new_status IN ('PROMOTED', 'VERIFIED') THEN
     RAISE EXCEPTION 'escalate_staged_candidate cannot transition to %; use promote_staged_candidate instead', p_new_status
       USING ERRCODE = '42501';
@@ -118,7 +133,27 @@ BEGIN
   END IF;
 
   -- ============================================================
-  -- 3. FETCH CANDIDATE & OPTIMISTIC CONCURRENCY CHECK
+  -- 3. INPUT VALIDATION: p_expected_previous_status
+  --    Only 'DRAFT' and 'IN_REVIEW' are valid source states for
+  --    automated escalation. NULL, 'INVALID', 'PROMOTED', and any
+  --    other value are rejected with SQLSTATE 22023.
+  --    'INVALID' is a terminal state; INVALID → IN_REVIEW is separately
+  --    enforced below (SQLSTATE 42501) for a more specific error message.
+  -- ============================================================
+  IF p_expected_previous_status NOT IN ('DRAFT', 'IN_REVIEW') THEN
+    RAISE EXCEPTION 'Unexpected escalation source status: %', p_expected_previous_status
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Terminal-state guard: INVALID candidates cannot be re-escalated to IN_REVIEW.
+  -- Idempotent INVALID → INVALID is handled further below.
+  IF p_expected_previous_status = 'INVALID' AND p_new_status = 'IN_REVIEW' THEN
+    RAISE EXCEPTION 'INVALID candidates cannot transition to IN_REVIEW via automated escalation'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- ============================================================
+  -- 4. FETCH CANDIDATE & OPTIMISTIC CONCURRENCY CHECK
   -- ============================================================
   SELECT * INTO v_candidate
   FROM public.staged_rate_candidates
@@ -147,7 +182,7 @@ BEGIN
   END IF;
 
   -- ============================================================
-  -- 4. ATOMIC STATUS UPDATE — no verified_fd_rates touched
+  -- 5. ATOMIC STATUS UPDATE — no verified_fd_rates touched
   -- ============================================================
   UPDATE public.staged_rate_candidates
   SET
@@ -157,7 +192,7 @@ BEGIN
   WHERE id = p_staged_candidate_id;
 
   -- ============================================================
-  -- 5. APPEND IMMUTABLE AUDIT ENTRY
+  -- 6. APPEND IMMUTABLE AUDIT ENTRY
   -- ============================================================
   v_action := CASE p_new_status
     WHEN 'INVALID'   THEN 'MARK_INVALID'
@@ -195,7 +230,7 @@ BEGIN
   );
 
   -- ============================================================
-  -- 6. RETURN RESULT
+  -- 7. RETURN RESULT
   -- ============================================================
   RETURN QUERY SELECT
     p_staged_candidate_id,
