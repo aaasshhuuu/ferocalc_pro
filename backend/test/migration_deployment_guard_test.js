@@ -1,5 +1,5 @@
 /**
- * FeroCalc Phase 3C.14 / 3C.15 — Migration Deployment Guard Unit & Regression Test Suite
+ * FeroCalc Phase 3C.14 / 3C.15 / 5.1.1.6 — Migration Deployment Guard Unit & Regression Test Suite
  *
  * Validates that the fail-closed deployment guard:
  * 1. Accurately detects and classifies legacy sequential migrations (001–015) vs. timestamped migrations.
@@ -11,6 +11,7 @@
  * 7. Fails closed if the target project/environment is unknown (Phase 3C.15 Task 3).
  * 8. Verifies the expected project reference and does NOT mistake the hard-coded staging ledger
  *    for proof of the currently linked remote project (Phase 3C.15 Task 4).
+ * 9. Maintains accurate total inventory count (24 total: 15 legacy + 9 timestamped) and chronological order (Phase 5.1.1.6).
  */
 
 'use strict';
@@ -81,22 +82,82 @@ test('parseMigrationFilename returns null for non-sql or invalid filenames', () 
 
 console.log('\nGroup 2: Live Migration Directory Analysis');
 
-test('analyzeMigrationDirectory categorizes all 21 repository migrations accurately', () => {
+test('analyzeMigrationDirectory categorizes all 24 repository migrations accurately', () => {
   const migrationsDir = path.resolve(__dirname, '../supabase/migrations');
   const analysis = analyzeMigrationDirectory(migrationsDir);
 
-  assert.strictEqual(analysis.totalCount, 21, 'Expected 21 total migration files');
+  assert.strictEqual(analysis.totalCount, 24, 'Expected 24 total migration files');
   assert.strictEqual(analysis.legacyFiles.length, 15, 'Expected 15 legacy files (001–015)');
-  assert.strictEqual(analysis.timestampedFiles.length, 6, 'Expected 6 timestamped files');
+  assert.strictEqual(analysis.timestampedFiles.length, 9, 'Expected 9 timestamped files');
+  assert.strictEqual(analysis.unparsedFiles.length, 0, 'All .sql files must be successfully parsed');
 
-  // Verify legacy sequence bounds
+  // Verify legacy sequence bounds and continuity (001 through 015)
   const legacyVersions = analysis.legacyFiles.map(f => f.version);
+  assert.strictEqual(legacyVersions.length, 15);
   assert.strictEqual(legacyVersions[0], '001');
   assert.strictEqual(legacyVersions[14], '015');
+  for (let i = 0; i < 15; i++) {
+    const expected = String(i + 1).padStart(3, '0');
+    assert.strictEqual(legacyVersions[i], expected, `Legacy migration at index ${i} must be ${expected}`);
+  }
 
-  // Verify timestamped files include reconciled Migration 018
+  // Verify all 9 timestamped migrations in exact chronological order
+  const expectedTimestampedVersions = [
+    '20261025095847', // restore_core_rls_policies_and_revoke_unsafe_ddl_privileges
+    '20261025100101', // calendar_aware_candidate_staging_017
+    '20261025100407', // restrict_public_views_to_read_only
+    '20261025100630', // use_invoker_security_for_public_views
+    '20261025100654', // harden_admin_rls_helper_and_bank_write_policies
+    '20261028095435', // restrict_reviewer_bank_catalog_mutations (Migration 018)
+    '20261107073416', // atomic_candidate_promotion_rpc
+    '20261108050936', // atomic_policy_escalation_rpc
+    '20261112193000'  // verified_rate_notification_events
+  ];
   const timestampedVersions = analysis.timestampedFiles.map(f => f.version);
-  assert.ok(timestampedVersions.includes('20261028095435'));
+  assert.deepStrictEqual(
+    timestampedVersions,
+    expectedTimestampedVersions,
+    'Timestamped migrations must match expected list in chronological order'
+  );
+
+  // Verify strict chronological ordering of timestamped migrations
+  for (let i = 1; i < timestampedVersions.length; i++) {
+    assert.ok(
+      timestampedVersions[i] > timestampedVersions[i - 1],
+      `Timestamped migration ${timestampedVersions[i]} must be strictly greater than preceding ${timestampedVersions[i - 1]}`
+    );
+  }
+
+  // Verify key milestone migrations are present
+  assert.ok(timestampedVersions.includes('20261028095435'), 'Must include reconciled Migration 018 (reviewer RBAC)');
+  assert.ok(timestampedVersions.includes('20261107073416'), 'Must include atomic promotion RPC migration');
+  assert.ok(timestampedVersions.includes('20261108050936'), 'Must include atomic policy escalation RPC migration');
+  assert.ok(timestampedVersions.includes('20261112193000'), 'Must include verified rate notification events migration');
+});
+
+test('all 24 migrations parse correctly with valid properties and non-empty descriptions', () => {
+  const migrationsDir = path.resolve(__dirname, '../supabase/migrations');
+  const analysis = analyzeMigrationDirectory(migrationsDir);
+
+  assert.strictEqual(analysis.totalCount, 24);
+
+  // Validate all 15 legacy files
+  for (const file of analysis.legacyFiles) {
+    assert.strictEqual(file.isLegacy, true, `File ${file.filename} must be flagged as legacy`);
+    assert.strictEqual(file.isTimestamped, false, `File ${file.filename} must not be flagged as timestamped`);
+    assert.strictEqual(file.version.length, 3, `Legacy version ${file.version} must be 3 digits`);
+    assert.ok(file.name && file.name.length > 0, `File ${file.filename} must have a non-empty name`);
+    assert.ok(file.filename.endsWith('.sql'), `File ${file.filename} must have .sql extension`);
+  }
+
+  // Validate all 9 timestamped files
+  for (const file of analysis.timestampedFiles) {
+    assert.strictEqual(file.isLegacy, false, `File ${file.filename} must not be flagged as legacy`);
+    assert.strictEqual(file.isTimestamped, true, `File ${file.filename} must be flagged as timestamped`);
+    assert.strictEqual(file.version.length, 14, `Timestamped version ${file.version} must be 14 digits`);
+    assert.ok(file.name && file.name.length > 0, `File ${file.filename} must have a non-empty name`);
+    assert.ok(file.filename.endsWith('.sql'), `File ${file.filename} must have .sql extension`);
+  }
 });
 
 console.log('\nGroup 3: Fail-Closed Protection Against Unreconciled Remote Deployment');

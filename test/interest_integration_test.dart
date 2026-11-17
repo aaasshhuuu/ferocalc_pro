@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:fincalc_pro/features/calculators/presentation/screens/emi_calculator_screen.dart';
 import 'package:fincalc_pro/features/calculators/presentation/screens/fd_calculator_screen.dart';
 import 'package:fincalc_pro/features/calculators/presentation/screens/interest_rate_calculator_screen.dart';
 import 'package:fincalc_pro/features/calculators/presentation/screens/loan_amount_calculator_screen.dart';
 import 'package:fincalc_pro/features/history/domain/repositories/calculation_history_repository.dart';
 import 'package:fincalc_pro/features/theme/bloc/theme_bloc.dart';
-import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:fincalc_pro/injection_container.dart' as di;
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _buildTestApp({required Widget child}) {
   return MultiBlocProvider(

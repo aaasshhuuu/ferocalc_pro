@@ -1,17 +1,16 @@
+import 'package:fincalc_pro/config/routes/app_router.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:fincalc_pro/features/calculators/presentation/screens/calculators_hub_screen.dart';
+import 'package:fincalc_pro/features/calculators/presentation/screens/compound_interest_calculator_screen.dart';
+import 'package:fincalc_pro/features/calculators/presentation/screens/simple_interest_calculator_screen.dart';
+import 'package:fincalc_pro/features/history/domain/repositories/calculation_history_repository.dart';
+import 'package:fincalc_pro/features/theme/bloc/theme_bloc.dart';
+import 'package:fincalc_pro/injection_container.dart' as di;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fincalc_pro/core/utils/financial_math.dart';
-import 'package:fincalc_pro/features/calculators/presentation/screens/simple_interest_calculator_screen.dart';
-import 'package:fincalc_pro/features/calculators/presentation/screens/compound_interest_calculator_screen.dart';
-import 'package:fincalc_pro/features/calculators/presentation/screens/calculators_hub_screen.dart';
-import 'package:fincalc_pro/features/history/data/models/calculation_history_entry.dart';
-import 'package:fincalc_pro/features/history/domain/repositories/calculation_history_repository.dart';
-import 'package:fincalc_pro/config/routes/app_router.dart';
-import 'package:fincalc_pro/features/theme/bloc/theme_bloc.dart';
-import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:fincalc_pro/injection_container.dart' as di;
 
 Widget _buildTestApp({required Widget child}) {
   return MultiBlocProvider(

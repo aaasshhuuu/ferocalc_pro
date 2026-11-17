@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fincalc_pro/core/data/bank_rate_repository.dart';
-import 'package:fincalc_pro/core/models/bank.dart';
 import 'package:fincalc_pro/core/models/fd_rate.dart';
 import 'package:fincalc_pro/core/services/rate_display_config.dart';
 import 'package:fincalc_pro/core/widgets/fd_rate_card.dart';
@@ -9,6 +6,8 @@ import 'package:fincalc_pro/core/widgets/official_rates_notice_card.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/features/compare/presentation/screens/bank_detail_screen.dart';
 import 'package:fincalc_pro/features/compare/presentation/screens/two_bank_comparison_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Launch Safety Rate Display Verification', () {
@@ -68,7 +67,7 @@ void main() {
 
     testWidgets('FdRateCard hides raw interest rate when rate is unverified in launch-safe mode', (tester) async {
       final sbi = BankRateRepository.getBankById('state_bank_of_india')!;
-      final unverifiedRate = FdRate(
+      const unverifiedRate = FdRate(
         rateId: 'sbi_unverified_1y',
         bankId: 'state_bank_of_india',
         customerType: CustomerType.regular,

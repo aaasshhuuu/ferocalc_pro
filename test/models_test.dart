@@ -1,10 +1,10 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:fincalc_pro/core/data/bank_rate_repository.dart';
 import 'package:fincalc_pro/core/models/bank.dart';
 import 'package:fincalc_pro/core/models/fd_rate.dart';
 import 'package:fincalc_pro/core/models/rate_change.dart';
-import 'package:fincalc_pro/core/services/rate_freshness_service.dart';
-import 'package:fincalc_pro/core/data/bank_rate_repository.dart';
 import 'package:fincalc_pro/core/services/bank_rate_api_service.dart';
+import 'package:fincalc_pro/core/services/rate_freshness_service.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   // ═══════════════════════════════════════════════════════════════
@@ -12,7 +12,7 @@ void main() {
   // ═══════════════════════════════════════════════════════════════
   group('Bank Model', () {
     test('Bank serialization roundtrip', () {
-      final bank = Bank(
+      const bank = Bank(
         id: 'sbi',
         name: 'State Bank of India',
         shortName: 'SBI',
@@ -35,8 +35,8 @@ void main() {
     });
 
     test('Bank isOperational', () {
-      final active = Bank(id: 'a', name: 'A', shortName: 'A', type: BankType.public, status: BankStatus.active);
-      final merged = Bank(id: 'b', name: 'B', shortName: 'B', type: BankType.public, status: BankStatus.merged);
+      const active = Bank(id: 'a', name: 'A', shortName: 'A', type: BankType.public, status: BankStatus.active);
+      const merged = Bank(id: 'b', name: 'B', shortName: 'B', type: BankType.public, status: BankStatus.merged);
 
       expect(active.isOperational, isTrue);
       expect(merged.isOperational, isFalse);
@@ -56,7 +56,7 @@ void main() {
   // ═══════════════════════════════════════════════════════════════
   group('FdRate Model', () {
     test('FdRate serialization roundtrip', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'test_1',
         bankId: 'sbi',
         customerType: CustomerType.regular,
@@ -80,7 +80,7 @@ void main() {
     });
 
     test('FdRate appliesToTenure', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'test',
         bankId: 'sbi',
         customerType: CustomerType.regular,
@@ -98,7 +98,7 @@ void main() {
     });
 
     test('FdRate appliesToAmount', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'test',
         bankId: 'sbi',
         customerType: CustomerType.regular,
@@ -202,7 +202,7 @@ void main() {
     });
 
     test('Pending review rate', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'test', bankId: 'sbi',
         customerType: CustomerType.regular,
         minTenureDays: 365, maxTenureDays: 365,
@@ -215,7 +215,7 @@ void main() {
     });
 
     test('Suspicious rate', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'test', bankId: 'sbi',
         customerType: CustomerType.regular,
         minTenureDays: 365, maxTenureDays: 365,
@@ -266,7 +266,7 @@ void main() {
         final rates = BankRateRepository.getRatesForBank(bank.id);
         for (final rate in rates) {
           expect(rate.verificationStatus, equals(VerificationStatus.pendingReview),
-              reason: 'Rate ${rate.rateId} should be PENDING_REVIEW');
+              reason: 'Rate ${rate.rateId} should be PENDING_REVIEW',);
         }
       }
     });
@@ -277,7 +277,7 @@ void main() {
         final rates = BankRateRepository.getRatesForBank(bank.id);
         for (final rate in rates) {
           expect(rate.verifiedAt, isNull,
-              reason: 'Unverified rate ${rate.rateId} should not have verifiedAt');
+              reason: 'Unverified rate ${rate.rateId} should not have verifiedAt',);
         }
       }
     });
@@ -377,9 +377,9 @@ void main() {
               'senior_citizen_extra': 0.5,
               'min_fd_amount': 1000,
             }
-          ]
+          ],
         },
-        'meta': {'timestamp': '2026-08-31T15:00:00Z'}
+        'meta': {'timestamp': '2026-08-31T15:00:00Z'},
       };
 
       final parsed = BankRateResponse.fromJson(apiResponse['data'] as Map<String, dynamic>);

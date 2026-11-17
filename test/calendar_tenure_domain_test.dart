@@ -1,4 +1,4 @@
-﻿/// FeroCalc Verified FD Rate Engine — Calendar Tenure Domain Tests (Migration 009)
+/// FeroCalc Verified FD Rate Engine — Calendar Tenure Domain Tests (Migration 009)
 ///
 /// Tests cover:
 /// - TenureDomain enum parsing and apiValue
@@ -11,8 +11,8 @@
 /// - coverstenure works correctly for DAYS records (nullable int?)
 /// - Backward compatibility: records without tenure_domain default to DAYS
 
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fincalc_pro/core/models/verified_fd_rate.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 // ============================================================
 // Test data helpers
@@ -291,7 +291,7 @@ void main() {
     test('CALENDAR records return sourceTenureText verbatim', () {
       final rate = makeCalendarRate(sourceTenureText: '1 year to less than 2 years');
       expect(rate.tenureDescription, '1 year to less than 2 years',
-        reason: 'CALENDAR tenureDescription must be verbatim sourceTenureText, not a day/month/year conversion');
+        reason: 'CALENDAR tenureDescription must be verbatim sourceTenureText, not a day/month/year conversion',);
     });
 
     test('CALENDAR records return sourceTenureText with special chars verbatim', () {
@@ -343,7 +343,7 @@ void main() {
       final rate = makeCalendarRate();
       // Integer day queries are meaningless for symbolic calendar records
       expect(rate.coverstenure(365), isFalse,
-        reason: 'CALENDAR records must never match integer-day queries');
+        reason: 'CALENDAR records must never match integer-day queries',);
       expect(rate.coverstenure(500), isFalse);
       expect(rate.coverstenure(0),   isFalse);
     });

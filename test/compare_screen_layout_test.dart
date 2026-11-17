@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:fincalc_pro/config/routes/app_router.dart';
+import 'package:fincalc_pro/core/services/verified_rate_service.dart';
 import 'package:fincalc_pro/core/widgets/fd_rate_card.dart';
 import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:fincalc_pro/features/compare/presentation/screens/compare_screen.dart';
@@ -17,6 +19,27 @@ Widget _buildTestApp() {
     ],
     child: MaterialApp.router(routerConfig: appRouter),
   );
+}
+
+Dio _createMockEmptyDio() {
+  final dio = Dio();
+  dio.interceptors.add(InterceptorsWrapper(
+    onRequest: (options, handler) {
+      handler.resolve(Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'status': 'ok',
+          'data': <dynamic>[],
+          'meta': {
+            'source': 'verified',
+            'count': 0,
+          },
+        },
+      ),);
+    },
+  ),);
+  return dio;
 }
 
 void main() {
@@ -419,6 +442,11 @@ void main() {
     });
 
     testWidgets('13. Verified rates tab with calendar tenure renders cleanly without overflow', (tester) async {
+      VerifiedRateService.setDioForTesting(_createMockEmptyDio());
+      addTearDown(() {
+        VerifiedRateService.setDioForTesting(null);
+      });
+
       tester.view.physicalSize = const Size(800, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -492,6 +520,11 @@ void main() {
     });
 
     testWidgets('15. CompareScreen in Calendar mode isolates fallback day estimates and renders reference approx indicator', (tester) async {
+      VerifiedRateService.setDioForTesting(_createMockEmptyDio());
+      addTearDown(() {
+        VerifiedRateService.setDioForTesting(null);
+      });
+
       tester.view.physicalSize = const Size(800, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {

@@ -1,8 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:fincalc_pro/config/routes/app_router.dart';
 import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:fincalc_pro/features/calculators/presentation/screens/calculators_hub_screen.dart';
@@ -19,6 +14,10 @@ import 'package:fincalc_pro/features/history/presentation/widgets/calculation_hi
 import 'package:fincalc_pro/features/profile/presentation/screens/profile_screen.dart';
 import 'package:fincalc_pro/features/theme/bloc/theme_bloc.dart';
 import 'package:fincalc_pro/injection_container.dart' as di;
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _buildTestApp() {
   return MultiBlocProvider(
@@ -282,7 +281,7 @@ void main() {
         results: {},
         primaryResultLabel: 'Corpus',
         primaryResultValue: '₹5,00,000',
-      ));
+      ),);
       final updated = await freshRepo.getHistory();
       expect(updated.length, 1);
       expect(updated.first.id, 'recovered_1');
@@ -300,7 +299,7 @@ void main() {
         results: {},
         primaryResultLabel: 'Maturity',
         primaryResultValue: '₹50,000',
-      ));
+      ),);
 
       await repo.saveEntry(CalculationHistoryEntry(
         id: 'del_2',
@@ -311,7 +310,7 @@ void main() {
         results: {},
         primaryResultLabel: 'Maturity',
         primaryResultValue: '₹1,00,000',
-      ));
+      ),);
 
       expect((await repo.getHistory()).length, 2);
 
@@ -340,7 +339,7 @@ void main() {
         results: {},
         primaryResultLabel: 'EMI',
         primaryResultValue: '₹15,000',
-      ));
+      ),);
 
       final bloc = CalculationHistoryBloc(repository: repo);
       expect(bloc.state, isA<CalculationHistoryInitial>());
@@ -415,7 +414,7 @@ void main() {
         primaryResultLabel: 'Monthly EMI',
         primaryResultValue: '₹12,399',
         category: 'Loans',
-      ));
+      ),);
 
       appRouter.go('/history');
       await tester.pumpWidget(_buildTestApp());

@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:fincalc_pro/core/utils/financial_math.dart';
 import 'package:fincalc_pro/core/models/rate_change.dart';
+import 'package:fincalc_pro/core/utils/financial_math.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   // ═══════════════════════════════════════════════════════════════

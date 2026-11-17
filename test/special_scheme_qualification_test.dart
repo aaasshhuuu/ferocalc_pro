@@ -6,17 +6,17 @@
 // 3. FdRateCard special scheme badge & disclosure rendering
 // 4. Standard rate regression guard (unaffected)
 
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:fincalc_pro/core/models/bank.dart';
 import 'package:fincalc_pro/core/models/fd_rate.dart';
 import 'package:fincalc_pro/core/models/verified_fd_rate.dart';
 import 'package:fincalc_pro/core/widgets/fd_rate_card.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('FdRate & VerifiedFdRate Special Scheme Model Tests', () {
     test('FdRate.isSpecialScheme is true when rateCategory is SPECIAL_SCHEME', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'r1',
         bankId: 'sbi',
         customerType: CustomerType.seniorCitizen,
@@ -34,7 +34,7 @@ void main() {
     });
 
     test('FdRate.isSpecialScheme is false for standard card rate', () {
-      final rate = FdRate(
+      const rate = FdRate(
         rateId: 'r2',
         bankId: 'sbi',
         customerType: CustomerType.seniorCitizen,
@@ -50,7 +50,7 @@ void main() {
     });
 
     test('FdRate toJson and fromJson round-trips special scheme fields', () {
-      final original = FdRate(
+      const original = FdRate(
         rateId: 'r1',
         bankId: 'sbi',
         customerType: CustomerType.seniorCitizen,
@@ -106,7 +106,7 @@ void main() {
   });
 
   group('FdRateCard Special Scheme UI Disclosure Widget Tests', () {
-    final testBank = Bank(
+    const testBank = Bank(
       id: 'sbi',
       name: 'State Bank of India',
       shortName: 'SBI',
@@ -116,7 +116,7 @@ void main() {
     );
 
     testWidgets('FdRateCard displays special scheme badge and qualification disclosure', (tester) async {
-      final specialRate = FdRate(
+      const specialRate = FdRate(
         rateId: 'r_wecare',
         bankId: 'sbi',
         customerType: CustomerType.seniorCitizen,
@@ -130,7 +130,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: FdRateCard(
               bank: testBank,
@@ -151,7 +151,7 @@ void main() {
     });
 
     testWidgets('FdRateCard standard rate does NOT display special scheme badge', (tester) async {
-      final standardRate = FdRate(
+      const standardRate = FdRate(
         rateId: 'r_std',
         bankId: 'sbi',
         customerType: CustomerType.seniorCitizen,
@@ -164,7 +164,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: FdRateCard(
               bank: testBank,

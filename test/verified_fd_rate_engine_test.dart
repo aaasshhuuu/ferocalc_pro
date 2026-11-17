@@ -11,10 +11,10 @@
 /// - Top-rate sorting (verified-only)
 /// - Data source separation (legacy vs verified)
 
-import 'package:flutter_test/flutter_test.dart';
-import 'package:fincalc_pro/core/models/verified_fd_rate.dart';
 import 'package:fincalc_pro/core/models/fd_rate.dart';
+import 'package:fincalc_pro/core/models/verified_fd_rate.dart';
 import 'package:fincalc_pro/core/services/rate_data_source.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 // ============================================================
 // Test data helpers
@@ -306,23 +306,8 @@ void main() {
       makeRate(id: 'archived-1', interestRate: 5.50),    // ARCHIVED
     ];
 
-    // The status-aware filter that the public API must apply
-    // (RLS enforces this in Supabase; this tests application-level logic)
-    List<VerifiedFdRate> simulatePublicQuery(List<VerifiedFdRate> all) {
-      // In production this is enforced by the Supabase view + RLS.
-      // This test validates that the concept of filtering works.
-      // The actual query ONLY reads from the verified_fd_rates view.
-      return all.where((r) {
-        // If the public endpoint accidentally received mixed data,
-        // it must still never expose non-verified rates.
-        // We simulate by using isPublic logic from the rate status.
-        // In production, only VERIFIED rows reach this point via the DB view.
-        return true; // DB guarantees this via RLS; we verify the data shape
-      }).toList();
-    }
-
     test('RateStatus.verified.isPublic is the only public-safe status', () {
-      final statuses = RateStatus.values;
+      const statuses = RateStatus.values;
       final publicStatuses = statuses.where((s) => s.isPublic).toList();
 
       // CRITICAL: only ONE status must be public
@@ -334,7 +319,7 @@ void main() {
       for (final status in RateStatus.values) {
         if (status != RateStatus.verified) {
           expect(status.isPublic, isFalse,
-              reason: '$status must NOT be public');
+              reason: '$status must NOT be public',);
         }
       }
     });
@@ -594,7 +579,7 @@ void main() {
     });
 
     test('LegacyJsonRateDataSource forwards isCallable without error', () async {
-      final legacySource = LegacyJsonRateDataSource();
+      const legacySource = LegacyJsonRateDataSource();
       final responseTop = await legacySource.fetchTopVerifiedRates(isCallable: true);
       expect(responseTop, isEmpty);
 
@@ -803,7 +788,7 @@ void main() {
     test('1. Regression: Approximate-day fallback suggests match, but canonical calendar rejects (> 1 Year slab)', () {
       // User requests 1 Year in Calendar mode (y=1, m=0, d=0).
       // Approximate day fallback formula: 1 * 365 + 0 * 30 + 0 = 365 days.
-      final approximateDays = 1 * 365 + 0 * 30 + 0;
+      const approximateDays = 1 * 365 + 0 * 30 + 0;
       expect(approximateDays, 365);
 
       // If an approximate day heuristic were checked against a [365, 730] day range, 365 would fall inside.

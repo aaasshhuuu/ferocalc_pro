@@ -1,8 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:fincalc_pro/core/data/bank_rate_repository.dart';
 import 'package:fincalc_pro/core/models/bank.dart';
 import 'package:fincalc_pro/core/models/fd_rate.dart';
@@ -13,6 +8,10 @@ import 'package:fincalc_pro/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:fincalc_pro/features/compare/presentation/screens/compare_screen.dart';
 import 'package:fincalc_pro/features/theme/bloc/theme_bloc.dart';
 import 'package:fincalc_pro/injection_container.dart' as di;
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Widget _buildTestApp({required Widget child}) {
   return MultiBlocProvider(
