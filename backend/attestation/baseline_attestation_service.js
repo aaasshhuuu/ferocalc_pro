@@ -49,7 +49,9 @@ const BANK_OFFICIAL_DOMAINS = Object.freeze({
   CENTRAL_BANK: Object.freeze(['centralbank.bank.in', 'centralbankofindia.co.in']),
   INDIAN_BANK: Object.freeze(['indianbank.bank.in', 'indianbank.in']),
   BOB: Object.freeze(['bankofbaroda.bank.in', 'bankofbaroda.in']),
-  THE_UNITY_BANK: Object.freeze(['theunitybank.com']),
+  KOTAK: Object.freeze(['kotak.com', 'kotak.bank.in']),
+  UNITY_SFB: Object.freeze(['unity.bank.in', 'theunitybank.com']),
+  THE_UNITY_BANK: Object.freeze(['unity.bank.in', 'theunitybank.com']),
 });
 
 const ALLOWED_OFFICIAL_DOMAINS = Object.freeze(

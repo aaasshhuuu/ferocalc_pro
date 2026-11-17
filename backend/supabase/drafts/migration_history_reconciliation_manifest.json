@@ -1,0 +1,340 @@
+{
+  "manifest_metadata": {
+    "manifest_version": "1.1.0",
+    "updated_at": "2026-10-27T18:57:00+05:30",
+    "repository": "C:\\projects\\fincalc_pro",
+    "branch": "sync/latest-local-changes-2026-10-23",
+    "head_commit": "ef4dfc797f3e9f701b01e605800dfab26ca547e5",
+    "staging_project_ref": "cqrslxngpwbtkjejlwty",
+    "production_project_ref_forbidden": "pmaykclwuyspxhgeomee",
+    "execution_mode": "STRICT_READ_ONLY_OFFLINE"
+  },
+  "cli_preflight_and_execution_summary": {
+    "workspace_resolution": "CLI configuration resolved to C:\\projects\\fincalc_pro\\backend, matching backend/supabase/migrations directory.",
+    "initialization": {
+      "status": "INITIALIZED_NON_DESTRUCTIVE",
+      "config_file": "backend/supabase/config.toml",
+      "notes": "Initialized via npx supabase init in backend/. Existing migrations, drafts, and recovered files remained untouched."
+    },
+    "project_linking": {
+      "target_project_ref": "cqrslxngpwbtkjejlwty",
+      "link_file": "backend/supabase/.temp/project-ref",
+      "link_command_attempted": "npx supabase link --project-ref cqrslxngpwbtkjejlwty",
+      "link_command_exit_code": 1,
+      "link_command_error": "AccessTokenRequiredError: Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable."
+    },
+    "migration_list_execution": {
+      "command": "npx supabase migration list --linked",
+      "working_directory": "C:\\projects\\fincalc_pro\\backend",
+      "exit_code": 1,
+      "error_code": "DbConfigIpv6Error",
+      "error_message": "IPv6 is not supported on your current network. Run supabase link --project-ref cqrslxngpwbtkjejlwty to setup IPv4 connection.",
+      "technical_blocker_analysis": "The direct PostgreSQL endpoint (db.cqrslxngpwbtkjejlwty.supabase.co:5432) resolves strictly to an IPv6 address (AAAA record) without an IPv4 (A record). The local network host lacks IPv6 routing. In standard Supabase CLI workflows, 'supabase link' queries the Supabase Management API to configure the IPv4 connection pooler; this requires a SUPABASE_ACCESS_TOKEN or interactive operator authentication."
+    },
+    "connected_api_known_remote_evidence": {
+      "status": "VERIFIED_FROM_CONNECTED_API_EVIDENCE",
+      "remote_migration_history_entries": [
+        { "version": "20261025095847", "name": "restore_core_rls_policies_and_revoke_unsafe_ddl_privileges" },
+        { "version": "20261025100101", "name": "calendar_aware_candidate_staging_017" },
+        { "version": "20261025100407", "name": "restrict_public_views_to_read_only" },
+        { "version": "20261025100630", "name": "use_invoker_security_for_public_views" },
+        { "version": "20261025100654", "name": "harden_admin_rls_helper_and_bank_write_policies" }
+      ]
+    }
+  },
+  "cli_filename_recognition_and_reporting_rules": {
+    "parser_regex": "^([0-9]+)_(.*)\\.sql$",
+    "timestamp_format_standard": "14-digit UTC timestamp (YYYYMMDDHHMMSS)",
+    "local_filename_handling": {
+      "timestamped_files": "Files with 14-digit timestamps (20261025095847 through 20261025100654) match the exact version strings recorded in remote staging. The CLI correlates local and remote rows 1:1.",
+      "legacy_sequential_files": "Files with 3-digit prefixes (001_ through 015_) parse valid version identifiers ('001' to '015'), but do NOT match any of the five 14-digit remote entries. In a live migration list, they would appear as LOCAL: PRESENT, REMOTE: UNAPPLIED."
+    },
+    "critical_distinction": "Remote tracking row status indicates whether a version is logged in supabase_migrations.schema_migrations. Inferred schema-execution status indicates whether PostgreSQL catalog objects actually exist. A migration must never be marked applied or replayed without reconciling both dimensions."
+  },
+  "reconciliation_matrix": {
+    "staging_timestamped_migrations": [
+      {
+        "version": "20261025095847",
+        "name": "restore_core_rls_policies_and_revoke_unsafe_ddl_privileges",
+        "sha256": "2d91b3aebdcbc45e8dbeee4268a88bbf13db24511ee4870dfd70d5918c982cfa",
+        "local_file_presence": "PRESENT (migrations/ & drafts/recovered_from_staging/)",
+        "remote_tracking_row_status": "ALREADY_RECORDED_REMOTE",
+        "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+        "cli_recognition": "Recognized; matches remote version 20261025095847",
+        "replay_risk": "FATAL_SECURITY_REGRESSION",
+        "recommended_repair_action": "NONE_ALREADY_RECORDED",
+        "rationale": "Already recorded in staging remote ledger. Proposing supabase migration repair --status applied is redundant and unnecessary."
+      },
+      {
+        "version": "20261025100101",
+        "name": "calendar_aware_candidate_staging_017",
+        "sha256": "c7f32eb2df125be51072af3d2520953a2532a463252eac6d5668cbb38dd54fba",
+        "local_file_presence": "PRESENT (migrations/ as 20261025100101... & drafts/ as 017_...)",
+        "remote_tracking_row_status": "ALREADY_RECORDED_REMOTE",
+        "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+        "cli_recognition": "Recognized; matches remote version 20261025100101",
+        "replay_risk": "FATAL_DDL_ERROR",
+        "recommended_repair_action": "NONE_ALREADY_RECORDED",
+        "rationale": "Already recorded in staging remote ledger. Replay would abort on duplicate columns and constraints."
+      },
+      {
+        "version": "20261025100407",
+        "name": "restrict_public_views_to_read_only",
+        "sha256": "89aad7b5a3f7b8b339dec5101930773b4500e4f3f4399741edc90db9604f71fd",
+        "local_file_presence": "PRESENT (migrations/ & drafts/recovered_from_staging/)",
+        "remote_tracking_row_status": "ALREADY_RECORDED_REMOTE",
+        "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+        "cli_recognition": "Recognized; matches remote version 20261025100407",
+        "replay_risk": "IDEMPOTENT_REDUNDANT",
+        "recommended_repair_action": "NONE_ALREADY_RECORDED",
+        "rationale": "Already recorded in staging remote ledger."
+      },
+      {
+        "version": "20261025100630",
+        "name": "use_invoker_security_for_public_views",
+        "sha256": "01255614edb567107299abedb8aba1b302b6014a452ff7df1cb2c61ce2ee6d4f",
+        "local_file_presence": "PRESENT (migrations/ & drafts/recovered_from_staging/)",
+        "remote_tracking_row_status": "ALREADY_RECORDED_REMOTE",
+        "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+        "cli_recognition": "Recognized; matches remote version 20261025100630",
+        "replay_risk": "IDEMPOTENT_REDUNDANT",
+        "recommended_repair_action": "NONE_ALREADY_RECORDED",
+        "rationale": "Already recorded in staging remote ledger."
+      },
+      {
+        "version": "20261025100654",
+        "name": "harden_admin_rls_helper_and_bank_write_policies",
+        "sha256": "b63a07b5935463c3a750e206703481b6fcdfb46e3f6b97a443cd54ab85be19f2",
+        "local_file_presence": "PRESENT (migrations/ & drafts/recovered_from_staging/)",
+        "remote_tracking_row_status": "ALREADY_RECORDED_REMOTE",
+        "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+        "cli_recognition": "Recognized; matches remote version 20261025100654",
+        "replay_risk": "REAPPLIES_OVERPERMISSIVE_REVIEWER_WRITE",
+        "recommended_repair_action": "NONE_ALREADY_RECORDED",
+        "rationale": "Already recorded in staging remote ledger. Superseded by Migration 018 draft."
+      }
+    ],
+    "legacy_sequential_migrations": [
+      {
+        "version": "001",
+        "filename": "001_create_enums.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '001'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Absence from remote ledger requires formal DBA inspection of historical schema_migrations. Marking applied synthetically without mapping is prohibited."
+      },
+      {
+        "version": "002",
+        "filename": "002_create_banks.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '002'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Table exists, but bank catalog policies were subsequently modified. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "003",
+        "filename": "003_create_fd_rates.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST_MODIFIED",
+        "cli_recognition": "Parsed as version '003'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Table exists, but columns and indexes were altered by calendar-tenure migration 009. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "004",
+        "filename": "004_create_audit_log.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '004'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Table exists. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "005",
+        "filename": "005_create_rls_policies.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SUPERSEDED_IN_STAGING",
+        "cli_recognition": "Parsed as version '005'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "CRITICAL_SECURITY_REGRESSION",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Policies in 005 were superseded by 20261025095847 and 20261025100654. Not recorded in remote ledger."
+      },
+      {
+        "version": "006",
+        "filename": "006_create_views_and_functions.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SUPERSEDED_IN_STAGING",
+        "cli_recognition": "Parsed as version '006'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FUNCTIONAL_AND_SECURITY_REGRESSION",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Views and stored functions superseded by 009 and 20261025100630. Not recorded in remote ledger."
+      },
+      {
+        "version": "007",
+        "filename": "007_overlap_protection.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SUPERSEDED_IN_STAGING",
+        "cli_recognition": "Parsed as version '007'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FUNCTIONAL_REGRESSION",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Superseded by calendar overlap logic in 009. Not recorded in remote ledger."
+      },
+      {
+        "version": "008",
+        "filename": "008_overlap_protection_hardening.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SUPERSEDED_IN_STAGING",
+        "cli_recognition": "Parsed as version '008'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FUNCTIONAL_REGRESSION",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Superseded by calendar overlap logic in 009. Not recorded in remote ledger."
+      },
+      {
+        "version": "009",
+        "filename": "009_calendar_tenure_domain.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '009'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Calendar types and helpers exist in staging. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "010",
+        "filename": "010_create_rate_source_monitoring.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '010'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Monitoring tables exist in staging. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "011",
+        "filename": "011_create_rate_candidate_staging.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST_MODIFIED",
+        "cli_recognition": "Parsed as version '011'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Table exists, altered by 015 and 20261025100101. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "012",
+        "filename": "012_candidate_promotion_and_audit.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '012'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Promotion audit log exists in staging. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "013",
+        "filename": "013_create_pipeline_runs_and_health.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '013'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Pipeline runs and locks exist in staging. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "014",
+        "filename": "014_create_baseline_attestations.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST",
+        "cli_recognition": "Parsed as version '014'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Attestation tables exist in staging. Unverified in remote tracking ledger."
+      },
+      {
+        "version": "015",
+        "filename": "015_add_special_scheme_to_staged_candidates.sql",
+        "local_file_presence": "PRESENT",
+        "remote_tracking_row_status": "NOT_RECORDED_IN_REMOTE_LIST",
+        "inferred_schema_execution_status": "SCHEMA_OBJECTS_EXIST_MODIFIED",
+        "cli_recognition": "Parsed as version '015'; non-standard 3-digit prefix; unmatched in remote tracking list",
+        "replay_risk": "FATAL_ERROR",
+        "recommended_repair_action": "DO_NOT_REPAIR_LEAVE_UNREPAIRED",
+        "rationale": "Special scheme columns exist in staging. Unverified in remote tracking ledger."
+      }
+    ]
+  },
+  "quarantined_drafts_status": [
+    {
+      "filename": "016_add_staged_candidate_active_uniqueness.sql",
+      "location": "backend/supabase/drafts/016_add_staged_candidate_active_uniqueness.sql",
+      "sha256": "c102b8d30dd684ba350e48d7597237b1ae6d8f37ed3c6c5303e73625dc52cbec",
+      "status": "SUPERSEDED_BY_017",
+      "remote_tracking_row_status": "NOT_RECORDED",
+      "inferred_schema_execution_status": "NOT_APPLIED",
+      "recommended_repair_action": "DO_NOT_REPAIR",
+      "disposition": "QUARANTINED_SUPERSEDED_DO_NOT_EXECUTE"
+    },
+    {
+      "filename": "017_calendar_aware_candidate_staging.sql",
+      "location": "backend/supabase/drafts/017_calendar_aware_candidate_staging.sql",
+      "sha256": "c7f32eb2df125be51072af3d2520953a2532a463252eac6d5668cbb38dd54fba",
+      "status": "APPLIED_UNDER_ALIAS_20261025100101",
+      "remote_tracking_row_status": "RECORDED_AS_20261025100101",
+      "inferred_schema_execution_status": "APPLIED_IN_CATALOG",
+      "recommended_repair_action": "NONE_ALREADY_RECORDED",
+      "disposition": "RECONCILED_WITH_20261025100101"
+    },
+    {
+      "filename": "018_restrict_reviewer_bank_catalog_mutations.sql",
+      "location": "backend/supabase/drafts/018_restrict_reviewer_bank_catalog_mutations.sql",
+      "sha256": "240199207515f0cb854eb7f805feef861b971b9fc0e082c5c6aed007fe1eaf2f",
+      "status": "PENDING_DBA_SIGN_OFF",
+      "remote_tracking_row_status": "NOT_RECORDED",
+      "inferred_schema_execution_status": "NOT_APPLIED",
+      "recommended_repair_action": "DO_NOT_REPAIR",
+      "disposition": "QUARANTINED_DRAFT_PENDING_APPROVAL"
+    },
+    {
+      "filename": "018_rehearsal_transaction_safe_rollback.sql",
+      "location": "backend/supabase/drafts/018_rehearsal_transaction_safe_rollback.sql",
+      "sha256": "980a20b71c00bc248ee904be37cf90e3f962595272c5435418040fc9deaa4aa1",
+      "status": "DRY_RUN_REHEARSAL_ONLY",
+      "remote_tracking_row_status": "NOT_RECORDED",
+      "inferred_schema_execution_status": "NOT_APPLIED",
+      "recommended_repair_action": "DO_NOT_REPAIR",
+      "disposition": "NON_MUTATING_DBA_DRY_RUN_ONLY"
+    }
+  ],
+  "unresolved_cases_and_blockers": [
+    {
+      "issue": "LEGACY_MIGRATIONS_001_TO_015_TRACKING_UNVERIFIED",
+      "affected_ids": ["001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013", "014", "015"],
+      "classification": "INDETERMINATE_TRACKING_STATUS",
+      "resolution_prerequisite": "Requires authorized read-only DBA inspection of supabase_migrations.schema_migrations to verify whether historical rows exist under legacy integer keys or were never recorded."
+    },
+    {
+      "issue": "LOCAL_NETWORK_IPV6_LIMITATION",
+      "classification": "NETWORK_AND_CREDENTIAL_BLOCKER",
+      "resolution_prerequisite": "Direct connection to db.cqrslxngpwbtkjejlwty.supabase.co requires IPv6. Resolving IPv4 connection pooler requires SUPABASE_ACCESS_TOKEN via 'supabase login' or environment variable."
+    }
+  ]
+}

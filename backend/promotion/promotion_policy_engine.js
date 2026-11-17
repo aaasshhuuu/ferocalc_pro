@@ -17,6 +17,7 @@ const ALLOWED_SOURCE_DOMAINS = [
   'axisbank.com',
   'axis.bank.in',
   'theunitybank.com',
+  'unity.bank.in',
   'idfcfirst.bank.in',
   'unionbankofindia.bank.in',
   'pnb.bank.in',
@@ -33,6 +34,8 @@ const ALLOWED_SOURCE_DOMAINS = [
   'indianbank.in',
   'bankofbaroda.bank.in',
   'bankofbaroda.in',
+  'kotak.com',
+  'kotak.bank.in',
 ];
 
 function isOfficialDomain(url) {

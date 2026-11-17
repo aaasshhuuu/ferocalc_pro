@@ -11,7 +11,7 @@ const { BaseRateParser, CandidateRate, ExtractionResult } = require('./base_pars
 const { extractPdfTokens } = require('./pdf_text_extractor');
 const { parseTenureRange } = require('./tenure_parser');
 
-const SOURCE_URL = 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-29-october-2026.pdf?sfvrsn=c1f0331d_1';
+const SOURCE_URL = 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-09-november-26.pdf?sfvrsn=8b6dfa7d_1';
 const LANDING_PAGE_URL = 'https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates';
 const EXPECTED_ROWS = 18;
 

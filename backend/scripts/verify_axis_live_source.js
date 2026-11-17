@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const baseline = require('../review/axis_official_baseline_2026-07-01.json');
 const { AxisRateParser, normalizeTenureLabel } = require('../parsers/axis_parser');
 const { fetchWithHardenedCurl } = require('./curl_transport');
+const { defaultRegistry } = require('../collectors/source_registry');
 
 const OUT = path.join(__dirname, '../review/live-evidence');
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -242,9 +243,11 @@ async function runVerification(options = {}) {
     // Archived discovery snapshots are strictly prohibited from being used here.
     const fetchErrors = [];
 
+    const targetUrl = defaultRegistry.getSource('axis-retail-domestic')?.sourceUrl || baseline.sourceUrl;
+
     // Attempt 1: Node fetch
     try {
-      const f = await fetchOfficial(baseline.sourceUrl);
+      const f = await fetchOfficial(targetUrl);
       body = f.body;
       finalUrl = f.url;
       httpStatus = f.status;
@@ -255,7 +258,7 @@ async function runVerification(options = {}) {
 
       // Attempt 2: curl
       try {
-        const c = fetchWithCurl(baseline.sourceUrl);
+        const c = fetchWithCurl(targetUrl);
         body = c.body;
         finalUrl = c.url;
         httpStatus = c.status;
@@ -263,6 +266,32 @@ async function runVerification(options = {}) {
         fetchMethod = c.fetchMethod;
       } catch (e2) {
         fetchErrors.push('curl: ' + e2.message);
+      }
+    }
+
+    // Attempt 3: Dynamic landing page recovery if targetUrl failed
+    if (!body && baseline.landingPageUrl) {
+      try {
+        const landing = await fetchOfficial(baseline.landingPageUrl);
+        const html = landing.body.toString('utf8');
+        const match = html.match(/href=["']([^"']*domestic-fixed-deposit-interest-rates-less-than-3-crores-[^"']*\.pdf[^"']*)["']/i);
+        if (match) {
+          let discovered = match[1];
+          if (!discovered.startsWith('http')) {
+            const base = new URL(baseline.landingPageUrl);
+            discovered = `${base.protocol}//${base.host}${discovered.startsWith('/') ? '' : '/'}${discovered}`;
+          }
+          if (allowed(discovered)) {
+            const f = await fetchOfficial(discovered);
+            body = f.body;
+            finalUrl = f.url;
+            httpStatus = f.status;
+            contentType = f.type;
+            fetchMethod = f.fetchMethod + ' (via landing-page recovery)';
+          }
+        }
+      } catch (e3) {
+        fetchErrors.push('landing-page recovery: ' + e3.message);
       }
     }
 

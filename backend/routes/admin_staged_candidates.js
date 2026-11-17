@@ -22,6 +22,7 @@ const {
 } = require('../supabase/supabase_client');
 const { RateDiffEngine } = require('../promotion/rate_diff_engine');
 const { PromotionService } = require('../promotion/promotion_service');
+const { verifiedRateNotificationService } = require('../notifications/verified_rate_notification_service');
 
 const diffEngine = new RateDiffEngine();
 const promotionService = new PromotionService({ diffEngine });
@@ -258,6 +259,47 @@ router.post('/staged-candidates/:id/promote', requireAdmin, async (req, res) => 
           promotion_reason: notes || 'Admin manual verification and promotion',
         })
         .eq('id', id);
+    }
+
+    // Verified-only notification dispatch (Phase 5.0.6.1 Hardened)
+    if (result.newVerifiedRate) {
+      try {
+        const nr = result.newVerifiedRate;
+        const sr = result.supersededRecord;
+        await verifiedRateNotificationService.dispatchVerifiedRateEvent({
+          status: 'VERIFIED',
+          bankCode: candidate.bank_code || candidate.bankCode,
+          bankName: candidate.bank_name || candidate.bankName || candidate.bank_code,
+          bankId: nr.bank_id || nr.bankId,
+          newRate: nr.interest_rate ?? nr.interestRate,
+          previousRate: sr ? (sr.interest_rate ?? sr.interestRate) : undefined,
+          tenureDescription: candidate.tenure_description || candidate.tenureDescription || `${candidate.tenure_days_min || candidate.tenureDaysMin || ''} days`,
+          effectiveDate: candidate.effective_date || candidate.effectiveDate,
+          candidateId: id,
+          promotedRateId: nr.id,
+          type: sr ? 'verifiedRateChange' : 'newPromotedSlab',
+          customerType: candidate.customer_type || candidate.customerType,
+          rateCategory: candidate.rate_category || candidate.rateCategory,
+          tenureDomain: candidate.tenure_domain || candidate.tenureDomain,
+          minTenureDays: candidate.min_tenure_days ?? candidate.minTenureDays,
+          maxTenureDays: candidate.max_tenure_days ?? candidate.maxTenureDays,
+          minYears: candidate.min_years ?? candidate.minYears,
+          minMonths: candidate.min_months ?? candidate.minMonths,
+          minDaysCal: candidate.min_days_cal ?? candidate.minDaysCal,
+          minOperator: candidate.min_operator ?? candidate.minOperator,
+          maxYears: candidate.max_years ?? candidate.maxYears,
+          maxMonths: candidate.max_months ?? candidate.maxMonths,
+          maxDaysCal: candidate.max_days_cal ?? candidate.maxDaysCal,
+          maxOperator: candidate.max_operator ?? candidate.maxOperator,
+          minDeposit: candidate.min_deposit ?? candidate.minDeposit,
+          maxDeposit: candidate.max_deposit ?? candidate.maxDeposit,
+          isCallable: candidate.is_callable ?? candidate.isCallable,
+          schemeName: candidate.scheme_name ?? candidate.schemeName,
+          candidate,
+        });
+      } catch (notifErr) {
+        console.warn('[admin/staged-candidates/promote] Notification dispatch warning:', notifErr.message);
+      }
     }
 
     return res.json({

@@ -5,7 +5,10 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const { BaseCollector } = require('./base_collector');
+const { fetchWithRetry } = require('./http_fetcher');
+const { validateBankDomain } = require('../attestation/baseline_attestation_service');
 
 /**
  * Extract a complete div selected by an authoritative, bank-specific marker.
@@ -197,6 +200,203 @@ class IciciCollector extends BaseCollector {
   }
 }
 
+class AxisCollector extends BaseCollector {
+  constructor(config = {}) {
+    super({
+      id: 'axis-retail-domestic',
+      bankCode: 'AXIS',
+      bankName: 'Axis Bank',
+      sourceUrl: 'https://www.axis.bank.in/docs/default-source/default-document-library/interest-rates/domestic-fixed-deposit-interest-rates-less-than-3-crores-09-november-26.pdf?sfvrsn=8b6dfa7d_1',
+      landingPageUrl: 'https://www.axis.bank.in/deposits/fixed-deposits/fd-interest-rates',
+      sourceType: 'PDF',
+      parserId: 'axis_retail_pdf',
+      parserVersion: '1.0.0',
+      enabled: false,
+      ...config,
+    });
+  }
+
+  async collect(options = {}) {
+    const result = await super.collect(options);
+    if (result.status !== 'FETCH_FAILED') {
+      return result;
+    }
+
+    const landingUrl = this.config.landingPageUrl;
+    if (!landingUrl) {
+      return result;
+    }
+
+    try {
+      const fetchFunc = options.fetchFunc || fetchWithRetry;
+      const landingRes = await fetchFunc(landingUrl, {
+        bankCode: this.bankCode,
+        timeoutMs: options.timeoutMs || 15000,
+        maxRetries: options.maxRetries || 2,
+      });
+
+      if (landingRes && landingRes.bodyBuffer) {
+        const html = landingRes.bodyBuffer.toString('utf8');
+        const match = html.match(/href=["']([^"']*domestic-fixed-deposit-interest-rates-less-than-3-crores-[^"']*\.pdf[^"']*)["']/i);
+        if (match) {
+          let discoveredPath = match[1];
+          if (!discoveredPath.startsWith('http')) {
+            const base = new URL(landingUrl);
+            discoveredPath = `${base.protocol}//${base.host}${discoveredPath.startsWith('/') ? '' : '/'}${discoveredPath}`;
+          }
+
+          const domainCheck = validateBankDomain(discoveredPath, this.bankCode, { requireHttps: true });
+          if (domainCheck.valid) {
+            const pdfRes = await fetchFunc(discoveredPath, {
+              bankCode: this.bankCode,
+              timeoutMs: options.timeoutMs || 15000,
+              maxRetries: options.maxRetries || 2,
+            });
+
+            const startTime = Date.now();
+            const normalizedBuffer = this.normalize(pdfRes.bodyBuffer);
+            const contentHash = crypto.createHash('sha256').update(normalizedBuffer).digest('hex');
+            const status = this.detectChange(options.previousHash, contentHash);
+            const changed = status === 'CHANGED' || status === 'FIRST_SEEN';
+
+            return {
+              sourceId: this.id,
+              bankCode: this.bankCode,
+              sourceUrl: this.sourceUrl,
+              effectiveUrl: discoveredPath,
+              finalUrl: discoveredPath,
+              redirectChain: pdfRes.redirectChain || [],
+              redirectCount: pdfRes.redirectCount || 0,
+              sourceType: this.sourceType,
+              fetchedAt: new Date().toISOString(),
+              httpStatus: pdfRes.statusCode || 200,
+              contentType: pdfRes.contentType,
+              contentHash,
+              previousHash: options.previousHash || null,
+              status,
+              changed,
+              byteLength: pdfRes.byteLength,
+              fetchDurationMs: Date.now() - startTime,
+              error: null,
+              parserId: this.parserId,
+              parserVersion: this.parserVersion,
+              bodyBuffer: pdfRes.bodyBuffer,
+              normalizedBuffer,
+              recoveredViaLandingPage: true,
+            };
+          }
+        }
+      }
+    } catch (recoveryErr) {
+      return {
+        ...result,
+        error: `Source fetch failed: ${result.error || 'HTTP error'} (Landing page recovery failed: ${recoveryErr.message})`,
+      };
+    }
+
+    return result;
+  }
+}
+
+class UnityCollector extends BaseCollector {
+  constructor(config = {}) {
+    super({
+      id: 'unity-retail-domestic',
+      bankCode: 'UNITY_SFB',
+      bankName: 'Unity Small Finance Bank',
+      sourceUrl: 'https://unity.bank.in/docs/policies/website-disclosure-effective-02-july-2026.pdf',
+      landingPageUrl: 'https://unity.bank.in/personal-banking/deposits/fixed-deposit',
+      sourceType: 'PDF',
+      parserId: 'unity_retail_pdf',
+      parserVersion: '1.0.0',
+      enabled: false,
+      ...config,
+    });
+  }
+
+  async collect(options = {}) {
+    const result = await super.collect(options);
+    if (result.status !== 'FETCH_FAILED') {
+      return result;
+    }
+
+    const landingUrl = this.config.landingPageUrl;
+    if (!landingUrl) {
+      return result;
+    }
+
+    try {
+      const fetchFunc = options.fetchFunc || fetchWithRetry;
+      const landingRes = await fetchFunc(landingUrl, {
+        bankCode: this.bankCode,
+        timeoutMs: options.timeoutMs || 15000,
+        maxRetries: options.maxRetries || 2,
+      });
+
+      if (landingRes && landingRes.bodyBuffer) {
+        const text = landingRes.bodyBuffer.toString('utf8');
+        const match = text.match(/["'](\/docs\/policies\/[^"']*effective[^"']*\.pdf)["']/i) ||
+                      text.match(/href=["']([^"']*\.pdf[^"']*)["']/i);
+        if (match) {
+          let discoveredPath = match[1];
+          if (!discoveredPath.startsWith('http')) {
+            const base = new URL(landingUrl);
+            discoveredPath = `${base.protocol}//${base.host}${discoveredPath.startsWith('/') ? '' : '/'}${discoveredPath}`;
+          }
+
+          const domainCheck = validateBankDomain(discoveredPath, this.bankCode, { requireHttps: true });
+          if (domainCheck.valid) {
+            const pdfRes = await fetchFunc(discoveredPath, {
+              bankCode: this.bankCode,
+              timeoutMs: options.timeoutMs || 15000,
+              maxRetries: options.maxRetries || 2,
+            });
+
+            const startTime = Date.now();
+            const normalizedBuffer = this.normalize(pdfRes.bodyBuffer);
+            const contentHash = crypto.createHash('sha256').update(normalizedBuffer).digest('hex');
+            const status = this.detectChange(options.previousHash, contentHash);
+            const changed = status === 'CHANGED' || status === 'FIRST_SEEN';
+
+            return {
+              sourceId: this.id,
+              bankCode: this.bankCode,
+              sourceUrl: this.sourceUrl,
+              effectiveUrl: discoveredPath,
+              finalUrl: discoveredPath,
+              redirectChain: pdfRes.redirectChain || [],
+              redirectCount: pdfRes.redirectCount || 0,
+              sourceType: this.sourceType,
+              fetchedAt: new Date().toISOString(),
+              httpStatus: pdfRes.statusCode || 200,
+              contentType: pdfRes.contentType,
+              contentHash,
+              previousHash: options.previousHash || null,
+              status,
+              changed,
+              byteLength: pdfRes.byteLength,
+              fetchDurationMs: Date.now() - startTime,
+              error: null,
+              parserId: this.parserId,
+              parserVersion: this.parserVersion,
+              bodyBuffer: pdfRes.bodyBuffer,
+              normalizedBuffer,
+              recoveredViaLandingPage: true,
+            };
+          }
+        }
+      }
+    } catch (recoveryErr) {
+      return {
+        ...result,
+        error: `Source fetch failed: ${result.error || 'HTTP error'} (Landing page recovery failed: ${recoveryErr.message})`,
+      };
+    }
+
+    return result;
+  }
+}
+
 /**
  * Factory for instantiating the right collector by source configuration or ID.
  */
@@ -208,6 +408,11 @@ function createCollector(sourceConfig) {
       return new HdfcCollector(sourceConfig);
     case 'ICICI':
       return new IciciCollector(sourceConfig);
+    case 'AXIS':
+      return new AxisCollector(sourceConfig);
+    case 'UNITY_SFB':
+    case 'THE_UNITY_BANK':
+      return new UnityCollector(sourceConfig);
     default:
       return new BaseCollector(sourceConfig);
   }
@@ -217,5 +422,7 @@ module.exports = {
   SbiCollector,
   HdfcCollector,
   IciciCollector,
+  AxisCollector,
+  UnityCollector,
   createCollector,
 };

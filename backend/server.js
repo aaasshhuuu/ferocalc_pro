@@ -12,6 +12,7 @@ const adminRatesRouter    = require('./routes/admin_rates');
 const adminStagedRouter   = require('./routes/admin_staged_candidates');
 const { adminAttestationRouter } = require('./routes/admin_baseline_attestations');
 const { cronRouter }      = require('./routes/cron_pipeline');
+const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +54,9 @@ const adminRateLimit = rateLimitMiddleware(
 // Public — anon key, VERIFIED-only via RLS + view, rate-limited
 app.use('/api/verified-rates', publicRateLimit, verifiedRatesRouter);
 app.use('/api/v1/verified-rates', publicRateLimit, verifiedRatesRouter);
+// Consumer Notifications & Personalization (Phase 5.0.6)
+app.use('/api/notifications', publicRateLimit, notificationsRouter);
+app.use('/api/v1/notifications', publicRateLimit, notificationsRouter);
 // Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER, rate-limited
 app.use('/api/admin', adminRateLimit, adminRatesRouter);
 app.use('/api/admin', adminRateLimit, adminStagedRouter);

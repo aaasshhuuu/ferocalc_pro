@@ -17,6 +17,8 @@ const { CentralBankRateParser } = require('./central_bank_parser');
 const { AxisRateParser } = require('./axis_parser');
 const { IndianBankRateParser } = require('./indian_bank_parser');
 const { BobRateParser } = require('./bob_parser');
+const { KotakRateParser } = require('./kotak_parser');
+const { UnityRateParser } = require('./unity_parser');
 
 const PARSER_MAP = {
   SBI: new SbiRateParser(),
@@ -33,7 +35,11 @@ const PARSER_MAP = {
   AXIS: new AxisRateParser(),
   INDIAN_BANK: new IndianBankRateParser(),
   BOB: new BobRateParser(),
+  KOTAK: new KotakRateParser(),
+  UNITY_SFB: new UnityRateParser(),
+  THE_UNITY_BANK: new UnityRateParser(),
 };
+
 
 /**
  * Returns the parser instance for a given bank code.

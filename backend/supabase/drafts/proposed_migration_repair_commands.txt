@@ -1,0 +1,49 @@
+# ==============================================================================
+# PROPOSED MIGRATION REPAIR DIRECTIVE — DBA REVIEW REQUIRED — NON-EXECUTED
+# Target Staging Project Reference: cqrslxngpwbtkjejlwty (ferocalc-staging)
+# Strictly Forbidden Production Reference: pmaykclwuyspxhgeomee
+# ==============================================================================
+#
+# DISPOSITION SUMMARY: ZERO (0) REPAIR COMMANDS PROPOSED
+#
+# In accordance with strict reconciliation and database integrity rules:
+#
+# 1. ALREADY-RECORDED STAGING MIGRATIONS (REPAIR PROHIBITED / REMOVED):
+#    The five 2026-10-25 timestamped migrations are ALREADY recorded as applied
+#    in remote staging's supabase_migrations.schema_migrations table:
+#      - 20261025095847 (restore_core_rls_policies_and_revoke_unsafe_ddl_privileges)
+#      - 20261025100101 (calendar_aware_candidate_staging_017)
+#      - 20261025100407 (restrict_public_views_to_read_only)
+#      - 20261025100630 (use_invoker_security_for_public_views)
+#      - 20261025100654 (harden_admin_rls_helper_and_bank_write_policies)
+#    Because these records already exist in the remote ledger, running
+#    "supabase migration repair --status applied <version>" on them is redundant,
+#    erroneous, and prohibited. All previous repair proposals for these five
+#    have been REMOVED.
+#
+# 2. LEGACY SEQUENTIAL MIGRATIONS 001 THROUGH 015 (UNREPAIRED):
+#    Legacy files (001_create_enums.sql through 015_add_special_scheme_to_staged_candidates.sql)
+#    use non-standard 3-digit prefixes, not 14-digit ISO timestamps.
+#    Their presence in remote supabase_migrations.schema_migrations is UNVERIFIED
+#    (absent from the five recent entries reported by the migration-list API).
+#    Furthermore, migrations 005, 006, 007, and 008 were subsequently superseded
+#    by later DDL. Marking legacy versions applied synthetically without a verified
+#    reconciliation mapping and live DBA catalog audit poses severe drift hazards.
+#    Therefore, legacy migrations 001-015 are LEFT UNREPAIRED.
+#
+# 3. QUARANTINED DRAFTS 016, 017, 018:
+#    - 016 is superseded by 017 / 20261025100101; must not be repaired or applied.
+#    - 017 is already applied as 20261025100101; no repair required.
+#    - 018 and 018 rehearsal are unapplied drafts; must not be repaired.
+#
+# ------------------------------------------------------------------------------
+# PROPOSED REPAIR COMMANDS:
+# None. Zero commands are approved or proposed for execution.
+# ------------------------------------------------------------------------------
+#
+# PREREQUISITE TO ANY FUTURE REPAIR ACTION:
+# An authorized DBA must perform a read-only query directly against staging:
+#   SELECT version, inserted_at FROM supabase_migrations.schema_migrations ORDER BY version;
+# to determine whether historical legacy migrations were ever recorded under
+# custom identifiers or whether the tracking table began at 20261025095847.
+# ==============================================================================

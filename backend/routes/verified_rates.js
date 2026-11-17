@@ -13,7 +13,7 @@
 
 const express = require('express');
 const router  = express.Router();
-const { supabasePublic, isSupabaseAvailable } = require('../supabase/supabase_client');
+const { supabasePublic, supabaseAdmin, isSupabaseAvailable } = require('../supabase/supabase_client');
 const { getCanonicalMinDaysForMonths, getCanonicalMaxDaysForMonths } = require('../promotion/rate_diff_engine');
 const { defaultRegistry } = require('../collectors/source_registry');
 
@@ -580,6 +580,197 @@ router.get('/banks', requireSupabase, async (req, res) => {
 });
 
 // ============================================================
+// Helper: format tenure description from rate slab fields
+// ============================================================
+
+function formatTenureDescription(rate) {
+  if (rate.source_tenure_text && String(rate.source_tenure_text).trim() !== '') {
+    return String(rate.source_tenure_text).trim();
+  }
+  if (rate.tenure_domain === 'CALENDAR') {
+    const minParts = [];
+    if (rate.min_years) minParts.push(`${rate.min_years} yr${rate.min_years > 1 ? 's' : ''}`);
+    if (rate.min_months) minParts.push(`${rate.min_months} mo${rate.min_months > 1 ? 's' : ''}`);
+    if (rate.min_days_cal) minParts.push(`${rate.min_days_cal} day${rate.min_days_cal > 1 ? 's' : ''}`);
+
+    const maxParts = [];
+    if (rate.max_years) maxParts.push(`${rate.max_years} yr${rate.max_years > 1 ? 's' : ''}`);
+    if (rate.max_months) maxParts.push(`${rate.max_months} mo${rate.max_months > 1 ? 's' : ''}`);
+    if (rate.max_days_cal) maxParts.push(`${rate.max_days_cal} day${rate.max_days_cal > 1 ? 's' : ''}`);
+
+    const minStr = minParts.join(' ') || '0 days';
+    const maxStr = maxParts.join(' ');
+    return maxStr ? `${minStr} to ${maxStr}` : minStr;
+  }
+  if (rate.min_tenure_days != null && rate.max_tenure_days != null) {
+    if (rate.min_tenure_days === rate.max_tenure_days) {
+      return `${rate.min_tenure_days} Days`;
+    }
+    return `${rate.min_tenure_days} - ${rate.max_tenure_days} Days`;
+  }
+  return 'Flexible tenure';
+}
+
+// ============================================================
+// Helper: match slabs across versions
+// ============================================================
+
+function matchRateSlab(r1, r2) {
+  if (!r1 || !r2) return false;
+  if (r1.customer_type !== r2.customer_type) return false;
+  if (Boolean(r1.is_callable) !== Boolean(r2.is_callable)) return false;
+  const cat1 = (r1.rate_category || 'STANDARD').toUpperCase();
+  const cat2 = (r2.rate_category || 'STANDARD').toUpperCase();
+  if (cat1 !== cat2) return false;
+  if (cat1 === 'SPECIAL_SCHEME' && (r1.scheme_name || '') !== (r2.scheme_name || '')) return false;
+
+  const domain1 = (r1.tenure_domain || 'DAYS').toUpperCase();
+  const domain2 = (r2.tenure_domain || 'DAYS').toUpperCase();
+  if (domain1 !== domain2) return false;
+
+  if (domain1 === 'DAYS') {
+    return Number(r1.min_tenure_days) === Number(r2.min_tenure_days) &&
+           Number(r1.max_tenure_days) === Number(r2.max_tenure_days);
+  } else {
+    return Number(r1.min_years || 0) === Number(r2.min_years || 0) &&
+           Number(r1.min_months || 0) === Number(r2.min_months || 0) &&
+           Number(r1.min_days_cal || 0) === Number(r2.min_days_cal || 0) &&
+           Number(r1.max_years || 0) === Number(r2.max_years || 0) &&
+           Number(r1.max_months || 0) === Number(r2.max_months || 0) &&
+           Number(r1.max_days_cal || 0) === Number(r2.max_days_cal || 0) &&
+           String(r1.min_operator || 'GTE').toUpperCase() === String(r2.min_operator || 'GTE').toUpperCase() &&
+           String(r1.max_operator || 'LTE').toUpperCase() === String(r2.max_operator || 'LTE').toUpperCase();
+  }
+}
+
+// ============================================================
+// GET /api/verified-rates/history/:bankId
+// Returns verified rate transition history for a bank.
+// STRICT SECURITY REQUIREMENTS:
+// - Exposes ONLY verified and archived rates (status in ['VERIFIED', 'ARCHIVED']).
+// - Strictly excludes DRAFT, IN_REVIEW, REJECTED, and unverified candidate events.
+// - Strictly redacts internal audit metadata: created_by, verified_by, review_notes,
+//   actor IDs, rejection notes, admin JWTs, credentials.
+// ============================================================
+
+router.get('/history/:bankId', requireSupabase, async (req, res) => {
+  try {
+    const { bankId } = req.params;
+    const { customerType } = req.query;
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(bankId)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid bank id format (expected UUID)' });
+    }
+
+    const callableCheck = parseIsCallableFilter(req.query);
+    if (callableCheck.hasError) {
+      return res.status(400).json({ status: 'error', message: callableCheck.errorMessage });
+    }
+
+    const dbClient = supabaseAdmin || supabasePublic;
+
+    // Verify bank exists
+    const { data: bankData, error: bankErr } = await dbClient
+      .from('banks')
+      .select('id, name, short_name, official_website, status')
+      .eq('id', bankId)
+      .maybeSingle();
+
+    if (bankErr) throw bankErr;
+    if (!bankData) {
+      return res.status(404).json({ status: 'error', message: 'Bank not found' });
+    }
+
+    // Query rates: only VERIFIED and ARCHIVED rates
+    let query = dbClient
+      .from('fd_rates')
+      .select('*')
+      .eq('bank_id', bankId)
+      .in('status', ['VERIFIED', 'ARCHIVED'])
+      .order('effective_from', { ascending: false });
+
+    if (callableCheck.filterValue !== null) {
+      query = query.eq('is_callable', callableCheck.filterValue);
+    }
+
+    if (customerType) {
+      query = query.eq('customer_type', customerType.toUpperCase());
+    }
+
+    const { data: rates, error: ratesErr } = await query;
+    if (ratesErr) throw ratesErr;
+
+    const rawRates = rates || [];
+
+    // Group and sort to determine previous rate transitions
+    const historyList = [];
+    for (const rate of rawRates) {
+      // Find matching older rate version if one exists
+      let previousRate = null;
+      const rateEff = rate.effective_from ? new Date(rate.effective_from).getTime() : 0;
+
+      for (const other of rawRates) {
+        if (other.id === rate.id) continue;
+        if (matchRateSlab(rate, other)) {
+          const otherEff = other.effective_from ? new Date(other.effective_from).getTime() : 0;
+          if (otherEff < rateEff) {
+            if (previousRate === null || otherEff > previousRate.eff) {
+              previousRate = { val: other.interest_rate, eff: otherEff };
+            }
+          }
+        }
+      }
+
+      historyList.push({
+        id: rate.id,
+        rateId: rate.id,
+        bankId: rate.bank_id,
+        bankName: bankData.name,
+        customerType: rate.customer_type,
+        interestRate: Number(rate.interest_rate),
+        previousRate: previousRate ? Number(previousRate.val) : null,
+        tenureDescription: formatTenureDescription(rate),
+        tenureDomain: rate.tenure_domain || 'DAYS',
+        minTenureDays: rate.min_tenure_days != null ? Number(rate.min_tenure_days) : null,
+        maxTenureDays: rate.max_tenure_days != null ? Number(rate.max_tenure_days) : null,
+        sourceTenureText: rate.source_tenure_text || null,
+        minYears: rate.min_years != null ? Number(rate.min_years) : null,
+        minMonths: rate.min_months != null ? Number(rate.min_months) : null,
+        minDaysCal: rate.min_days_cal != null ? Number(rate.min_days_cal) : null,
+        maxYears: rate.max_years != null ? Number(rate.max_years) : null,
+        maxMonths: rate.max_months != null ? Number(rate.max_months) : null,
+        maxDaysCal: rate.max_days_cal != null ? Number(rate.max_days_cal) : null,
+        effectiveFrom: rate.effective_from || null,
+        effectiveUntil: rate.effective_until || null,
+        verifiedAt: rate.verified_at || null,
+        status: rate.status,
+        isCallable: Boolean(rate.is_callable),
+        sourceUrl: rate.source_url || bankData.official_website || null,
+        rateCategory: rate.rate_category || 'STANDARD',
+        schemeName: rate.scheme_name || null,
+      });
+    }
+
+    const hasHistoricalChanges = historyList.some(h => h.previousRate != null || h.status === 'ARCHIVED');
+
+    return ok(res, historyList, {
+      count: historyList.length,
+      bankId,
+      bankName: bankData.name,
+      source: 'verified',
+      hasHistoricalChanges,
+      note: historyList.length === 0
+        ? 'No verified rate history recorded for this bank yet.'
+        : 'Public verified rate transition history. Internal audit metadata redacted.',
+    });
+
+  } catch (err) {
+    return serverError(res, err);
+  }
+});
+
+// ============================================================
 // Helper: compute safe allowlisted freshness metadata
 // ============================================================
 
@@ -626,16 +817,17 @@ router.get('/freshness', requireSupabase, async (req, res) => {
   res.setHeader('Expires', '0');
 
   try {
-    const enabledSources = defaultRegistry.getEnabledSources();
-    const enabledIds = enabledSources.map(s => s.id);
-    const enabledBankCodes = enabledSources.map(s => s.bankCode);
+    const enabledOnly = req.query.enabledOnly === 'true';
+    const targetSources = enabledOnly ? defaultRegistry.getEnabledSources() : defaultRegistry.getAllSources();
+    const targetIds = targetSources.map(s => s.id);
+    const targetBankCodes = targetSources.map(s => s.bankCode);
 
     let sourcesData = [];
     try {
       const { data } = await supabasePublic
         .from('rate_sources')
         .select('id, bank_code, source_url, last_checked_at, last_success_at, last_status, last_error')
-        .in('id', enabledIds);
+        .in('id', targetIds);
       sourcesData = data || [];
     } catch {
       // Graceful fallback if table is not accessible
@@ -646,7 +838,7 @@ router.get('/freshness', requireSupabase, async (req, res) => {
       const { data: candidates } = await supabasePublic
         .from('staged_rate_candidates')
         .select('bank_code, staging_status')
-        .in('bank_code', enabledBankCodes)
+        .in('bank_code', targetBankCodes)
         .in('staging_status', ['IN_REVIEW', 'DRAFT']);
       (candidates || []).forEach(c => {
         pendingCounts[c.bank_code] = (pendingCounts[c.bank_code] || 0) + 1;
@@ -655,7 +847,7 @@ router.get('/freshness', requireSupabase, async (req, res) => {
       // Graceful fallback
     }
 
-    const freshnessList = computeSourceFreshness(enabledSources, sourcesData, pendingCounts);
+    const freshnessList = computeSourceFreshness(targetSources, sourcesData, pendingCounts);
     const anyUpdatePending = freshnessList.some(s => s.updateDetected);
     const allFresh = freshnessList.every(s => !s.isStale && s.lastStatus !== 'FETCH_FAILED');
 
@@ -671,6 +863,8 @@ router.get('/freshness', requireSupabase, async (req, res) => {
 });
 
 router.computeSourceFreshness = computeSourceFreshness;
+router.formatTenureDescription = formatTenureDescription;
+router.matchRateSlab = matchRateSlab;
 
 router.parseIsCallableFilter = parseIsCallableFilter;
 router.parseTenureQueryParams = parseTenureQueryParams;
