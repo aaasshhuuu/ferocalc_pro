@@ -10,9 +10,9 @@ abstract class ThemeEvent extends Equatable {
 class ToggleTheme extends ThemeEvent {}
 
 class SetTheme extends ThemeEvent {
-  final bool isDark;
 
   const SetTheme({required this.isDark});
+  final bool isDark;
 
   @override
   List<Object> get props => [isDark];

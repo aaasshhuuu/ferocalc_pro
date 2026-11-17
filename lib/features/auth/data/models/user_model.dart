@@ -1,6 +1,18 @@
 import '../../domain/entities/user.dart';
 
 class UserModel extends User {
+
+  factory UserModel.guest() {
+    return const UserModel(
+      id: 'guest',
+      email: '',
+      displayName: 'Guest',
+      photoUrl: '',
+      authProvider: 'guest',
+      role: 'user',
+      isPremium: false,
+    );
+  }
   const UserModel({
     required String id,
     required String email,
@@ -41,17 +53,5 @@ class UserModel extends User {
       'role': role,
       'isPremium': isPremium,
     };
-  }
-
-  factory UserModel.guest() {
-    return const UserModel(
-      id: 'guest',
-      email: '',
-      displayName: 'Guest',
-      photoUrl: '',
-      authProvider: 'guest',
-      role: 'user',
-      isPremium: false,
-    );
   }
 }

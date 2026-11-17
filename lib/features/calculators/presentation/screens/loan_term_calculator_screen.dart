@@ -1,18 +1,16 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
+import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class LoanTermCalculatorScreen extends StatefulWidget {
   const LoanTermCalculatorScreen({Key? key}) : super(key: key);
@@ -47,7 +45,7 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
   }
 
   void _calculateTerm() {
-    int totalMonthsInt = FinancialMath.calculateLoanTenure(
+    final int totalMonthsInt = FinancialMath.calculateLoanTenure(
       principal: _loanAmount,
       annualRate: _interestRate,
       emi: _emi,
@@ -103,8 +101,8 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
       years += 1;
       months = 0;
     }
-    double totalPayment = _emi * _totalMonths;
-    double totalInterest = totalPayment - _loanAmount;
+    final double totalPayment = _emi * _totalMonths;
+    final double totalInterest = totalPayment - _loanAmount;
     return {
       'Calculated Tenure': _isPossible ? '$years Years $months Months (${_totalMonths.toInt()} months)' : 'Not possible with current EMI',
       'Total Payment': _isPossible ? '₹${totalPayment.toStringAsFixed(0)}' : 'N/A',
@@ -221,7 +219,7 @@ class _LoanTermCalculatorScreenState extends State<LoanTermCalculatorScreen> wit
                       subResults: [
                         SubResult(
                           label: 'Total Months', 
-                          value: '${_totalMonths.ceil()} Months'
+                          value: '${_totalMonths.ceil()} Months',
                         ),
                       ],
                     )

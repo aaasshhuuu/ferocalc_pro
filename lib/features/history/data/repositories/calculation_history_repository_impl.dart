@@ -1,20 +1,21 @@
 import 'dart:convert';
+
+import 'package:fincalc_pro/features/history/domain/repositories/calculation_history_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fincalc_pro/features/history/domain/repositories/calculation_history_repository.dart';
 
 class CalculationHistoryRepositoryImpl implements CalculationHistoryRepository {
+
+  CalculationHistoryRepositoryImpl({
+    required this.preferences,
+    int maxEntries = defaultMaxEntries,
+  }) : _maxEntries = maxEntries;
   static const String storageKey = 'ferocalc_calculation_history';
   static const int defaultMaxEntries = 100;
 
   final SharedPreferences preferences;
   final int _maxEntries;
   List<CalculationHistoryEntry>? _cachedEntries;
-
-  CalculationHistoryRepositoryImpl({
-    required this.preferences,
-    int maxEntries = defaultMaxEntries,
-  }) : _maxEntries = maxEntries;
 
   @override
   int get maxEntries => _maxEntries;
@@ -104,6 +105,76 @@ class CalculationHistoryRepositoryImpl implements CalculationHistoryRepository {
     } catch (e) {
       // NEVER crash the calculator on storage failure
       debugPrint('Failed to persist calculation history: $e');
+    }
+  }
+
+  @override
+  Future<void> updateEntry(CalculationHistoryEntry entry) async {
+    try {
+      final currentList = (await getHistory()).toList();
+      final index = currentList.indexWhere((e) => e.id == entry.id);
+      if (index != -1) {
+        currentList[index] = entry.copyWith(
+          updatedAt: entry.updatedAt ?? DateTime.now(),
+        );
+        final encoded = jsonEncode(currentList.map((e) => e.toJson()).toList());
+        await preferences.setString(storageKey, encoded);
+        _cachedEntries = currentList;
+      }
+    } catch (e) {
+      debugPrint('Failed to update calculation entry: $e');
+    }
+  }
+
+  @override
+  Future<void> renameEntry(String id, String newName) async {
+    try {
+      final currentList = (await getHistory()).toList();
+      final index = currentList.indexWhere((e) => e.id == id);
+      if (index != -1) {
+        final existing = currentList[index];
+        currentList[index] = existing.copyWith(
+          customName: newName.trim(),
+          updatedAt: DateTime.now(),
+        );
+        final encoded = jsonEncode(currentList.map((e) => e.toJson()).toList());
+        await preferences.setString(storageKey, encoded);
+        _cachedEntries = currentList;
+      }
+    } catch (e) {
+      debugPrint('Failed to rename calculation entry: $e');
+    }
+  }
+
+  @override
+  Future<CalculationHistoryEntry?> duplicateEntry(String id) async {
+    try {
+      final currentList = (await getHistory()).toList();
+      final existing = currentList.firstWhere(
+        (e) => e.id == id,
+        orElse: () => throw Exception('Entry not found'),
+      );
+
+      final now = DateTime.now();
+      final duplicate = existing.copyWith(
+        id: '${now.millisecondsSinceEpoch}_${existing.calculatorId}',
+        customName: '${existing.title} (Copy)',
+        timestamp: now,
+        updatedAt: now,
+      );
+
+      currentList.insert(0, duplicate);
+      if (currentList.length > _maxEntries) {
+        currentList.removeRange(_maxEntries, currentList.length);
+      }
+
+      final encoded = jsonEncode(currentList.map((e) => e.toJson()).toList());
+      await preferences.setString(storageKey, encoded);
+      _cachedEntries = currentList;
+      return duplicate;
+    } catch (e) {
+      debugPrint('Failed to duplicate calculation entry: $e');
+      return null;
     }
   }
 

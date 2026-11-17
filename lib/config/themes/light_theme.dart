@@ -11,12 +11,10 @@ ThemeData getLightTheme() {
       primary: AppColors.teal,
       secondary: AppColors.gold,
       surface: AppColors.lightCard,
-      background: AppColors.lightBg,
       error: AppColors.coral,
       onPrimary: Colors.white,
       onSecondary: Colors.black,
       onSurface: AppColors.lightTextPrimary,
-      onBackground: AppColors.lightTextPrimary,
       onError: Colors.white,
     ),
     textTheme: TextTheme(
@@ -33,7 +31,7 @@ ThemeData getLightTheme() {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: AppColors.lightTextSecondary.withOpacity(0.1), width: 1),
+        side: BorderSide(color: AppColors.lightTextSecondary.withValues(alpha: 0.1), width: 1),
       ),
     ),
     appBarTheme: AppBarTheme(
@@ -85,7 +83,7 @@ ThemeData getLightTheme() {
       activeTrackColor: AppColors.teal,
       inactiveTrackColor: AppColors.lightSurface,
       thumbColor: AppColors.tealLight,
-      overlayColor: AppColors.teal.withOpacity(0.2),
+      overlayColor: AppColors.teal.withValues(alpha: 0.2),
       trackHeight: 6.0,
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 20.0),

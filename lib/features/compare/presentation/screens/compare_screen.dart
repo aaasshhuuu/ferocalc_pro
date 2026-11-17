@@ -16,9 +16,9 @@ import '../../../../core/widgets/verification_badge.dart';
 import '../../../../core/widgets/verified_rate_badge.dart';
 
 class CompareScreen extends StatefulWidget {
-  final String? initialSource;
 
   const CompareScreen({Key? key, this.initialSource}) : super(key: key);
+  final String? initialSource;
 
   @override
   State<CompareScreen> createState() => _CompareScreenState();
@@ -31,6 +31,7 @@ class _CompareScreenState extends State<CompareScreen> {
   String _selectedSource = 'all'; // 'all' (Unverified Reference) or 'verified' (Official Verified)
   List<VerifiedFdRate> _verifiedRates = [];
   bool _isLoadingVerified = false;
+  String? _verifiedError;
 
   @override
   void initState() {
@@ -42,7 +43,10 @@ class _CompareScreenState extends State<CompareScreen> {
   }
 
   Future<void> _loadVerifiedRates() async {
-    setState(() => _isLoadingVerified = true);
+    setState(() {
+      _isLoadingVerified = true;
+      _verifiedError = null;
+    });
     try {
       final res = await VerifiedRateService.fetchAll(
         customerType: _customerType == CustomerType.seniorCitizen ? 'SENIOR_CITIZEN' : 'REGULAR',
@@ -57,10 +61,20 @@ class _CompareScreenState extends State<CompareScreen> {
         setState(() {
           _verifiedRates = res.rates;
           _isLoadingVerified = false;
+          if (res.hasError) {
+            _verifiedError = res.errorMessage ?? res.note ?? 'Could not reach the verified rate service.';
+          } else {
+            _verifiedError = null;
+          }
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingVerified = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingVerified = false;
+          _verifiedError = 'Could not reach the verified rate service.';
+        });
+      }
     }
   }
 
@@ -646,7 +660,7 @@ class _CompareScreenState extends State<CompareScreen> {
                                 ),
                               ),
                             ),
-                          )).toList(),
+                          ),).toList(),
                         ),
                       ] else ...[
                         // Calendar presets
@@ -945,59 +959,138 @@ class _CompareScreenState extends State<CompareScreen> {
                           // Source Switcher: Unverified Reference vs Official Verified
                           _buildSourceSegmentedControl(context, isDark, gold),
 
-                          // Two-Bank Comparison Banner
-                          InkWell(
-                            key: const ValueKey('open_two_bank_compare_button'),
-                            onTap: () => context.push('/compare/two-banks'),
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isDark
-                                      ? [gold.withAlpha(45), gold.withAlpha(15)]
-                                      : [gold.withAlpha(35), gold.withAlpha(15)],
+                          if (_selectedSource == 'verified') ...[
+                            // Best for Me FD Finder Banner
+                            InkWell(
+                              key: const ValueKey('open_smart_fd_discovery_button'),
+                              onTap: () => context.push('/discovery/best-for-me'),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isDark
+                                        ? [const Color(0xFF10B981).withValues(alpha: 0.25), const Color(0xFF10B981).withValues(alpha: 0.08)]
+                                        : [const Color(0xFF10B981).withValues(alpha: 0.15), const Color(0xFF10B981).withValues(alpha: 0.05)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
                                 ),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: gold.withAlpha(80)),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 18),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'Best for Me FD Finder',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDark ? Colors.white : Colors.black87,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                decoration: BoxDecoration(
+                                                  color: gold.withValues(alpha: 0.2),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: const Text(
+                                                  'NEW',
+                                                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: gold),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 1),
+                                          Text(
+                                            'Discover highest verified rates matching your exact amount & tenure',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? Colors.white60 : Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF10B981)),
+                                  ],
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: gold.withAlpha(40),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.compare_arrows_rounded, color: gold, size: 18),
+                            ),
+                          ],
+
+                          // Two-Bank Comparison Banner
+                          Semantics(
+                            button: true,
+                            label: 'Compare Two Banks Side-by-Side. Direct like-for-like FD rates and terms comparison',
+                            child: InkWell(
+                              key: const ValueKey('open_two_bank_compare_button'),
+                              onTap: () => context.push('/compare/two-banks'),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isDark
+                                        ? [gold.withAlpha(45), gold.withAlpha(15)]
+                                        : [gold.withAlpha(35), gold.withAlpha(15)],
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Compare Two Banks Side-by-Side',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white : Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 1),
-                                        Text(
-                                          'Direct like-for-like FD rates & terms comparison',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDark ? Colors.white60 : Colors.black54,
-                                          ),
-                                        ),
-                                      ],
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: gold.withAlpha(80)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: gold.withAlpha(40),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.compare_arrows_rounded, color: gold, size: 18),
                                     ),
-                                  ),
-                                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: gold),
-                                ],
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Compare Two Banks Side-by-Side',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? Colors.white : Colors.black87,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 1),
+                                          Text(
+                                            'Direct like-for-like FD rates & terms comparison',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark ? Colors.white60 : Colors.black54,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: gold),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -1097,32 +1190,64 @@ class _CompareScreenState extends State<CompareScreen> {
                           // Summary
                           Row(
                             children: [
-                              Text(
-                                _selectedSource == 'verified'
-                                    ? '${verifiedFiltered.length} verified rates found'
-                                    : (_tenureDomain == TenureDomain.calendar
-                                        ? '${filtered.length} reference rates (approx. days)'
-                                        : '${filtered.length} rates found'),
-                                style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black45),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        _selectedSource == 'verified'
+                                            ? (_verifiedError != null
+                                                ? 'Error loading verified rates'
+                                                : '${verifiedFiltered.length} verified rates found')
+                                            : (_tenureDomain == TenureDomain.calendar
+                                                ? '${filtered.length} reference rates (approx. days)'
+                                                : '${filtered.length} rates found'),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.black45),
+                                      ),
+                                    ),
+                                    if (_hasActiveFilters) ...[
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: _resetFilters,
+                                        child: const Text(
+                                          'Reset all',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: gold,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                              if (_hasActiveFilters) ...[
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: _resetFilters,
-                                  child: const Text(
-                                    'Reset all',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: gold,
-                                      fontWeight: FontWeight.bold,
+                              const SizedBox(width: 8),
+                              if (_selectedSource == 'verified') ...[
+                                InkWell(
+                                  onTap: () => context.push('/trust-center'),
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: gold.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: gold.withValues(alpha: 0.3)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.shield_outlined, size: 12, color: gold),
+                                        SizedBox(width: 4),
+                                        Text('Trust Center', style: TextStyle(fontSize: 10, color: gold, fontWeight: FontWeight.bold)),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              ],
-                              const Spacer(),
-                              if (_selectedSource == 'verified')
-                                const VerifiedRateBadge()
-                              else
+                                const SizedBox(width: 6),
+                                const VerifiedRateBadge(),
+                              ] else
                                 const VerificationBadge(status: VerificationStatus.pendingReview, compact: false),
                             ],
                           ),
@@ -1149,14 +1274,20 @@ class _CompareScreenState extends State<CompareScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.search_off, size: 48, color: isDark ? Colors.white24 : Colors.black26),
+                              Icon(
+                                _verifiedError != null ? Icons.cloud_off_rounded : Icons.search_off,
+                                size: 48,
+                                color: isDark ? Colors.white24 : Colors.black26,
+                              ),
                               const SizedBox(height: 16),
                               Text(
-                                _searchQuery.trim().isNotEmpty
-                                    ? 'No verified rates matching "${_searchQuery.trim()}"'
-                                    : (hasIndeterminateMatches
-                                        ? 'Exact calendar tenure coverage is unresolved without an anchor deposit date.\nNo confirmed verified rates available for this interval.'
-                                        : 'No verified rates found for this criteria.\nSwitch to "All Banks (Reference)" for unverified bank estimates.'),
+                                _verifiedError != null
+                                    ? '$_verifiedError\nSwitch to "All Banks (Reference)" for unverified bank estimates.'
+                                    : (_searchQuery.trim().isNotEmpty
+                                        ? 'No verified rates matching "${_searchQuery.trim()}"'
+                                        : (hasIndeterminateMatches
+                                            ? 'Exact calendar tenure coverage is unresolved without an anchor deposit date.\nNo confirmed verified rates available for this interval.'
+                                            : 'No verified rates found for this criteria.\nSwitch to "All Banks (Reference)" for unverified bank estimates.')),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
                               ),

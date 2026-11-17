@@ -1,18 +1,17 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'dart:math';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-import 'package:intl/intl.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class LumpsumCalculatorScreen extends StatefulWidget {
   const LumpsumCalculatorScreen({Key? key}) : super(key: key);
@@ -225,7 +224,7 @@ class _LumpsumCalculatorScreenState extends State<LumpsumCalculatorScreen> with 
           Text('Breakdown', style: TextStyle(
             fontSize: 16, fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
-          )),
+          ),),
           const SizedBox(height: 16),
           SizedBox(
             height: 200,

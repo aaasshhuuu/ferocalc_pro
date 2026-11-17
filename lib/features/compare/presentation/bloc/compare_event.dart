@@ -7,15 +7,15 @@ abstract class CompareEvent extends Equatable {
 }
 
 class SelectBanks extends CompareEvent {
-  final List<String> bankIds;
   const SelectBanks(this.bankIds);
+  final List<String> bankIds;
 }
 
 class SetParameters extends CompareEvent {
+  const SetParameters(this.amount, this.tenureYears, this.isSeniorCitizen);
   final double amount;
   final double tenureYears;
   final bool isSeniorCitizen;
-  const SetParameters(this.amount, this.tenureYears, this.isSeniorCitizen);
 }
 
 class RunComparison extends CompareEvent {}

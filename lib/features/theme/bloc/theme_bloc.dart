@@ -5,8 +5,6 @@ import 'theme_event.dart';
 import 'theme_state.dart';
 
 class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
-  static const String themePreferenceKey = 'app_theme_mode';
-  final SharedPreferences? _preferences;
 
   ThemeBloc({SharedPreferences? preferences})
       : _preferences = preferences,
@@ -31,6 +29,8 @@ class ThemeBloc extends Bloc<ThemeEvent, ThemeState> {
       }
     });
   }
+  static const String themePreferenceKey = 'app_theme_mode';
+  final SharedPreferences? _preferences;
 
   static ThemeState _resolveInitialState(SharedPreferences? preferences) {
     final savedTheme = preferences?.getString(themePreferenceKey);

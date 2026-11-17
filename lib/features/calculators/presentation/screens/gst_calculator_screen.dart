@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'package:intl/intl.dart';
+import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class GstCalculatorScreen extends StatefulWidget {
   const GstCalculatorScreen({Key? key}) : super(key: key);
@@ -40,7 +40,7 @@ class _GstCalculatorScreenState extends State<GstCalculatorScreen> {
   }
 
   void _calculateGst() {
-    double amount = double.tryParse(_amountController.text) ?? 0;
+    final double amount = double.tryParse(_amountController.text) ?? 0;
     final result = FinancialMath.calculateGST(
       amount: amount,
       gstRate: _gstRate,

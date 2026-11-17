@@ -1,12 +1,36 @@
+import java.io.File
 import java.io.FileInputStream
 import java.util.Properties
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 
-if (keystorePropertiesFile.exists()) {
+val hasValidKeyPropertiesFile = keystorePropertiesFile.exists() && keystorePropertiesFile.isFile
+if (hasValidKeyPropertiesFile) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+val releaseKeyAlias: String? = keystoreProperties.getProperty("keyAlias")
+val releaseKeyPassword: String? = keystoreProperties.getProperty("keyPassword")
+val releaseStorePassword: String? = keystoreProperties.getProperty("storePassword")
+val releaseStorePath: String? = keystoreProperties.getProperty("storeFile")
+val releaseStoreFile: File? = releaseStorePath?.let { rootProject.file(it) }
+
+val hasValidReleaseSigning: Boolean = hasValidKeyPropertiesFile &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    releaseStoreFile != null &&
+    releaseStoreFile.exists() &&
+    releaseStoreFile.isFile
+
+// Explicit opt-in for Staging QA builds only.
+// Debug-signed release artifacts are strictly for staging QA / preview verification
+// and are NOT Play Store publishable.
+val stagingDebugSigningOptIn: Boolean = System.getenv("FEROCALC_STAGING_DEBUG_SIGNING")
+    ?.trim()
+    ?.equals("true", ignoreCase = true) == true
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -39,19 +63,42 @@ android {
     }
 
     signingConfigs {
-    create("release") {
-        keyAlias = keystoreProperties.getProperty("keyAlias")
-        keyPassword = keystoreProperties.getProperty("keyPassword")
-        storeFile = keystoreProperties.getProperty("storeFile")?.let { rootProject.file(it) }
-        storePassword = keystoreProperties.getProperty("storePassword")
+        if (hasValidReleaseSigning) {
+            create("release") {
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+            }
+        } else {
+            // Unconfigured release signing config without storeFile.
+            // When release signing is selected without valid credentials,
+            // Gradle fails closed during :app:packageRelease.
+            create("release") {
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = null
+                storePassword = releaseStorePassword
+            }
+        }
     }
-}
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("release")
+            if (hasValidReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else if (stagingDebugSigningOptIn) {
+                // STAGING QA ONLY:
+                // Debug-signed release artifacts are for staging QA / preview testing only
+                // and are NOT Play Store publishable.
+                signingConfig = signingConfigs.getByName("debug")
+            } else {
+                // FAIL-CLOSED DEFAULT:
+                // In production release builds without valid release keystore credentials
+                // and without explicit FEROCALC_STAGING_DEBUG_SIGNING opt-in, selecting
+                // unconfigured release signing causes :app:packageRelease to fail safely.
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             isShrinkResources = false
         }

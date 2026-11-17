@@ -1,19 +1,17 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class RdCalculatorScreen extends StatefulWidget {
   const RdCalculatorScreen({Key? key}) : super(key: key);
@@ -50,7 +48,7 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
   }
 
   void _calculateRd() {
-    int n = _tenureMonths.toInt();
+    final int n = _tenureMonths.toInt();
     _totalDeposit = _monthlyDeposit * n;
     _maturityValue = FinancialMath.calculateRDMaturity(
       monthlyDeposit: _monthlyDeposit,
@@ -230,7 +228,7 @@ class _RdCalculatorScreenState extends State<RdCalculatorScreen> with SingleTick
           Text('Breakdown', style: TextStyle(
             fontSize: 16, fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
-          )),
+          ),),
           const SizedBox(height: 16),
           SizedBox(
             height: 200,

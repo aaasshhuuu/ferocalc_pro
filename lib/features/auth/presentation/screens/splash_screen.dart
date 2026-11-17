@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../config/routes/route_names.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -28,9 +29,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final isDark = theme.brightness == Brightness.dark;
     
     final backgroundColor = isDark ? Theme.of(context).scaffoldBackgroundColor : colorScheme.surface;
-    final primaryGold = const Color(0xFFC9A96E);
-    final secondaryGold = const Color(0xFFE8D399);
-    final tealAccent = const Color(0xFF00B4D8);
+    const primaryGold = Color(0xFFC9A96E);
+    const secondaryGold = Color(0xFFE8D399);
+    const tealAccent = Color(0xFF00B4D8);
     final textColor = isDark ? primaryGold : colorScheme.primary;
 
     return Scaffold(
@@ -40,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
+              shaderCallback: (bounds) => const LinearGradient(
                 colors: [primaryGold, secondaryGold],
               ).createShader(bounds),
               child: const Icon(Icons.calculate_rounded, size: 120, color: Colors.white),

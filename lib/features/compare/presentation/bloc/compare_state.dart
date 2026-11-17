@@ -11,15 +11,15 @@ class CompareInitial extends CompareState {}
 class CompareLoading extends CompareState {}
 
 class CompareResults extends CompareState {
-  final Map<String, dynamic> data;
   const CompareResults(this.data);
+  final Map<String, dynamic> data;
   @override
   List<Object> get props => [data];
 }
 
 class CompareError extends CompareState {
-  final String message;
   const CompareError(this.message);
+  final String message;
   @override
   List<Object> get props => [message];
 }

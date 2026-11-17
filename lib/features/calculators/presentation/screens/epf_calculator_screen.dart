@@ -1,16 +1,16 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/core/widgets/gradient_button.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class EpfCalculatorScreen extends StatefulWidget {
   const EpfCalculatorScreen({Key? key}) : super(key: key);
@@ -22,10 +22,10 @@ class EpfCalculatorScreen extends StatefulWidget {
 class _EpfCalculatorScreenState extends State<EpfCalculatorScreen> {
   double _basicSalary = 50000;
   double _age = 25;
-  double _epfContribution = 12.0;
+  final double _epfContribution = 12.0;
   double _annualIncrease = 5.0;
   double _currentBalance = 100000;
-  double _retirementAge = 60;
+  final double _retirementAge = 60;
   final double _interestRate = 8.15;
 
   double _totalEmployee = 0;

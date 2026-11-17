@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Privacy-Safe Isolation:
+             Flutter stores all SharedPreferences in a single file (FlutterSharedPreferences.xml).
+             Because Android backup rules operate on whole files rather than individual keys,
+             excluding FlutterSharedPreferences.xml ensures that sensitive financial profiles
+             (ferocalc_financial_profile_v1), anonymous device installation credentials,
+             and administrative tokens are NEVER uploaded to Google Cloud Backup. -->
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <!-- Device-to-Device Migration:
+             Exclude FlutterSharedPreferences.xml to prevent migrating administrative credentials
+             or anonymous installation identifiers to other devices.
+             Trade-off: Users migrating devices configure preferences fresh, guaranteeing that
+             personal financial figures never leave the local hardware. -->
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml"/>
+    </device-transfer>
+</data-extraction-rules>

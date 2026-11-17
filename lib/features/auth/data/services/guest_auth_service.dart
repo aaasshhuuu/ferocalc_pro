@@ -2,9 +2,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/user.dart';
 
 class GuestAuthService {
-  final SharedPreferences _prefs;
 
   GuestAuthService(this._prefs);
+  final SharedPreferences _prefs;
 
   static const String _isGuestKey = 'auth_is_guest';
   static const String _isLoggedInKey = 'auth_is_logged_in';

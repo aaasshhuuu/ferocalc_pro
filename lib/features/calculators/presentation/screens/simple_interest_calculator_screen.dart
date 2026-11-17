@@ -305,7 +305,7 @@ class _SimpleInterestCalculatorScreenState extends State<SimpleInterestCalculato
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
       ),

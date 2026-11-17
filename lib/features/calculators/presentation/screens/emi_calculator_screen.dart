@@ -1,24 +1,20 @@
-import 'package:flutter/material.dart';
-import 'dart:math';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'amortization_schedule_screen.dart';
+import 'package:fincalc_pro/config/themes/app_text_styles.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-import 'package:fincalc_pro/core/utils/formatters.dart';
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/chart_widgets.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
-import 'package:fincalc_pro/config/themes/app_colors.dart';
-import 'package:fincalc_pro/config/themes/app_gradients.dart';
-import 'package:fincalc_pro/config/themes/app_text_styles.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
 import '../../../../core/utils/responsive.dart';
+import 'amortization_schedule_screen.dart';
 
 class EmiCalculatorScreen extends StatefulWidget {
   const EmiCalculatorScreen({Key? key}) : super(key: key);
@@ -169,10 +165,18 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
       appBar: CustomAppBar(
         title: 'EMI Calculator',
         actions: [
-          IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white), onPressed: () => _exportPdf(context)),
-          SizedBox(width: 16),
-          IconButton(icon: const Icon(Icons.share, color: Colors.white), onPressed: () => _shareResult(context)),
-          SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            tooltip: 'Export PDF',
+            onPressed: () => _exportPdf(context),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            tooltip: 'Share Calculation',
+            onPressed: () => _shareResult(context),
+          ),
+          const SizedBox(width: 16),
         ],
       ),
       body: Center(
@@ -361,6 +365,8 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
     if (_totalPayment <= 0) return const SizedBox.shrink();
     
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final principalPct = (_loanAmount / _totalPayment * 100).toStringAsFixed(1);
+    final interestPct = (_totalInterest / _totalPayment * 100).toStringAsFixed(1);
     
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
@@ -375,30 +381,33 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> with SingleTi
           Text('Breakdown', style: TextStyle(
             fontSize: 16, fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
-          )),
+          ),),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 3,
-                centerSpaceRadius: 40,
-                sections: [
-                  PieChartSectionData(
-                    value: _loanAmount,
-                    title: '${(_loanAmount / _totalPayment * 100).toStringAsFixed(1)}%',
-                    color: const Color(0xFF1A5276),
-                    radius: 60,
-                    titleStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  PieChartSectionData(
-                    value: _totalInterest,
-                    title: '${(_totalInterest / _totalPayment * 100).toStringAsFixed(1)}%',
-                    color: const Color(0xFFC9A96E),
-                    radius: 60,
-                    titleStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ],
+          Semantics(
+            label: 'Loan breakdown chart: Principal $principalPct percent, Interest $interestPct percent',
+            child: SizedBox(
+              height: 200,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 3,
+                  centerSpaceRadius: 40,
+                  sections: [
+                    PieChartSectionData(
+                      value: _loanAmount,
+                      title: '$principalPct%',
+                      color: const Color(0xFF1A5276),
+                      radius: 60,
+                      titleStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    PieChartSectionData(
+                      value: _totalInterest,
+                      title: '$interestPct%',
+                      color: const Color(0xFFC9A96E),
+                      radius: 60,
+                      titleStyle: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

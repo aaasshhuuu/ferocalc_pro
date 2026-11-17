@@ -15,7 +15,7 @@ class CompareBloc extends Bloc<CompareEvent, CompareState> {
     on<RunComparison>((event, emit) async {
       emit(CompareLoading());
       try {
-        await Future.delayed(const Duration(seconds: 1)); // Mock calculation
+        await Future<void>.delayed(const Duration(seconds: 1)); // Mock calculation
         emit(const CompareResults({'winner': 'Bank A', 'extraProfit': 1500}));
       } catch (e) {
         emit(CompareError(e.toString()));

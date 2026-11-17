@@ -1,10 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../data/services/guest_auth_service.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
-import '../../data/services/guest_auth_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final GuestAuthService authService;
 
   AuthBloc({required this.authService}) : super(AuthInitial()) {
     on<CheckAuthStatus>((event, emit) async {
@@ -52,4 +52,5 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     });
   }
+  final GuestAuthService authService;
 }

@@ -1,15 +1,14 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'dart:math';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class CagrCalculatorScreen extends StatefulWidget {
   const CagrCalculatorScreen({Key? key}) : super(key: key);
@@ -33,9 +32,9 @@ class _CagrCalculatorScreenState extends State<CagrCalculatorScreen> {
   }
 
   void _calculateCagr() {
-    double begin = double.tryParse(_beginCtrl.text) ?? 10000;
-    double end = double.tryParse(_endCtrl.text) ?? 20000;
-    double years = double.tryParse(_yearsCtrl.text) ?? 5;
+    final double begin = double.tryParse(_beginCtrl.text) ?? 10000;
+    final double end = double.tryParse(_endCtrl.text) ?? 20000;
+    final double years = double.tryParse(_yearsCtrl.text) ?? 5;
     
     _cagr = FinancialMath.calculateCAGR(
       initialValue: begin,

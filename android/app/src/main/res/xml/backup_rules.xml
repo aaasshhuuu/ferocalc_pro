@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Privacy-Safe Isolation (Android 11 and lower):
+         Exclude FlutterSharedPreferences.xml entirely to prevent cloud backup of
+         sensitive financial profiles, anonymous installation IDs, and administrative tokens. -->
+    <exclude domain="sharedpref" path="FlutterSharedPreferences.xml"/>
+</full-backup-content>

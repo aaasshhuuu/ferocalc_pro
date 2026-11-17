@@ -1,19 +1,20 @@
-import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:flutter/foundation.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/data/bank_data.dart';
-import '../../../../core/data/bank_rate_repository.dart';
-import '../../../../core/services/bank_rate_api_service.dart';
-import '../../../../core/services/verified_rate_service.dart';
-import '../../../../core/models/verified_fd_rate.dart';
-import '../../../../core/services/rate_display_config.dart';
-import '../../../../core/widgets/fd_rate_card.dart';
-import '../../../../core/widgets/official_rates_notice_card.dart';
+import 'dart:async';
 import 'dart:ui';
 
-import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+import '../../../../core/data/bank_data.dart';
+import '../../../../core/data/bank_rate_repository.dart';
+import '../../../../core/models/verified_fd_rate.dart';
+import '../../../../core/services/bank_rate_api_service.dart';
+import '../../../../core/services/rate_display_config.dart';
+import '../../../../core/services/verified_rate_service.dart';
+import '../../../../core/widgets/fd_rate_card.dart';
+import '../../../../core/widgets/official_rates_notice_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -107,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, constraints) {
             final isDesktop = constraints.maxWidth > 1024;
             final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth <= 1024;
-            
+
             int crossAxisCount = 3;
             if (isTablet) crossAxisCount = 4;
             if (isDesktop) crossAxisCount = 6;
@@ -120,7 +121,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: const Color(0xFFC9A96E),
                   child: ListView(
                     padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop ? 48 : (isTablet ? 32 : 16),
+                      horizontal: isDesktop
+                          ? 48
+                          : (isTablet ? 32 : (constraints.maxWidth <= 340 ? 10 : 16)),
                       vertical: 24,
                     ),
                     children: [
@@ -169,19 +172,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             ).animate().fade(delay: 200.ms, duration: 300.ms, ),
                           ],
                         ),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            key: const ValueKey('home_notification_button'),
-                            onTap: () => context.push('/notifications'),
-                            borderRadius: BorderRadius.circular(24),
-                            child: CircleAvatar(
-                              radius: 24,
-                              backgroundColor:
-                                  const Color(0xFFC9A96E).withOpacity(0.1),
-                              child: const Icon(
-                                Icons.notifications_outlined,
-                                color: Color(0xFFC9A96E),
+                        Semantics(
+                          button: true,
+                          label: 'Notifications',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: const ValueKey('home_notification_button'),
+                              onTap: () => context.push('/notifications'),
+                              borderRadius: BorderRadius.circular(24),
+                              child: CircleAvatar(
+                                radius: 24,
+                                backgroundColor:
+                                    const Color(0xFFC9A96E).withValues(alpha: 0.1),
+                                child: const Icon(
+                                  Icons.notifications_outlined,
+                                  color: Color(0xFFC9A96E),
+                                ),
                               ),
                             ),
                           ),
@@ -189,11 +196,42 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     if (_isBannerAdReady && _bannerAd != null)
-                      Center(
-                        child: SizedBox(
-                          width: _bannerAd!.size.width.toDouble(),
-                          height: _bannerAd!.size.height.toDouble(),
-                          child: AdWidget(ad: _bannerAd!),
+                      Semantics(
+                        label: 'Sponsored advertisement banner',
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  'ADVERTISEMENT',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    letterSpacing: 0.8,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Center(
+                                child: SizedBox(
+                                  width: _bannerAd!.size.width.toDouble(),
+                                  height: _bannerAd!.size.height.toDouble(),
+                                  child: AdWidget(ad: _bannerAd!),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
 const SizedBox(height: 16),
@@ -206,7 +244,7 @@ const SizedBox(height: 16),
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Theme.of(context).cardColor.withOpacity(0.5),
+                            color: Theme.of(context).cardColor.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: Theme.of(context).dividerColor),
                           ),
@@ -249,8 +287,8 @@ const SizedBox(height: 16),
 
                     Builder(
                       builder: (context) {
-                        final ratesTitle = 'Official Bank FD Rates';
-                        final ratesOnSeeAll = () => context.go('/compare');
+                        const ratesTitle = 'Official Bank FD Rates';
+                        void ratesOnSeeAll() => context.go('/compare');
 
                         if (isDesktop) {
                           return Row(
@@ -278,7 +316,7 @@ const SizedBox(height: 16),
                                     _buildTrendingTools(context, isDesktop: true),
                                   ],
                                 ),
-                              )
+                              ),
                             ],
                           );
                         } else {
@@ -333,7 +371,7 @@ const SizedBox(height: 16),
               ),
               ),
             );
-            }
+            },
         ),
       ),
     );
@@ -389,9 +427,9 @@ const SizedBox(height: 16),
         ],
       );
     }
-    
+
     final topRates = BankRateRepository.getTopRates(tenureDays: 365, limit: 5);
-    
+
     if (topRates.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -478,19 +516,49 @@ const SizedBox(height: 16),
 }
 
 class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.onSeeAll});
   final String title;
   final VoidCallback onSeeAll;
-  const _SectionHeader({required this.title, required this.onSeeAll});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color)),
-        GestureDetector(
-          onTap: onSeeAll,
-          child: const Text('See All', style: TextStyle(color: Color(0xFFC9A96E), fontSize: 14, fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: 'See all $title',
+          child: InkWell(
+            onTap: onSeeAll,
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              child: Text(
+                'See All',
+                style: TextStyle(
+                  color: Color(0xFFC9A96E),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -498,11 +566,11 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _CalculatorChip extends StatefulWidget {
+  const _CalculatorChip({required this.icon, required this.label, required this.color, required this.onTap});
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _CalculatorChip({required this.icon, required this.label, required this.color, required this.onTap});
 
   @override
   State<_CalculatorChip> createState() => _CalculatorChipState();
@@ -513,92 +581,47 @@ class _CalculatorChipState extends State<_CalculatorChip> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 85,
-          margin: const EdgeInsets.only(right: 16),
-          child: Column(
-            children: [
-              Container(
-                width: 65,
-                height: 65,
-                decoration: BoxDecoration(
-                  color: isHovered ? widget.color.withOpacity(0.15) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isHovered ? const Color(0xFFC9A96E) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.1),
-                    width: isHovered ? 1.5 : 1,
+    return Semantics(
+      button: true,
+      label: '${widget.label} Calculator',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => isHovered = true),
+        onExit: (_) => setState(() => isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 85,
+            margin: const EdgeInsets.only(right: 16),
+            child: Column(
+              children: [
+                Container(
+                  width: 65,
+                  height: 65,
+                  decoration: BoxDecoration(
+                    color: isHovered ? widget.color.withValues(alpha: 0.15) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isHovered ? const Color(0xFFC9A96E) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1),
+                      width: isHovered ? 1.5 : 1,
+                    ),
                   ),
+                  child: Icon(widget.icon, color: widget.color, size: 28),
                 ),
-                child: Icon(widget.icon, color: widget.color, size: 28),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                widget.label, 
-                style: TextStyle(
-                  fontSize: 13, 
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).textTheme.bodySmall?.color
-                ), 
-                textAlign: TextAlign.center
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBankCard extends StatelessWidget {
-  final int rank;
-  final String bank;
-  final String rate;
-  final Color color;
-  const _TopBankCard({required this.rank, required this.bank, required this.rate, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.03),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05)),
-      ),
-      child: InkWell(
-        onTap: () => context.push('/bank/${Uri.encodeComponent(bank)}'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 12),
+                Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                child: Center(child: Text('#$rank', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14))),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: Text(bank, style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 15))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [color.withOpacity(0.2), color.withOpacity(0.05)]),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withOpacity(0.2)),
-                ),
-                child: Text(rate, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -607,53 +630,57 @@ class _TopBankCard extends StatelessWidget {
 }
 
 class _TrendingCard extends StatelessWidget {
+  const _TrendingCard({required this.title, required this.subtitle, required this.gradient, required this.icon, required this.onTap});
   final String title;
   final String subtitle;
   final Gradient gradient;
   final IconData icon;
   final VoidCallback onTap;
-  const _TrendingCard({required this.title, required this.subtitle, required this.gradient, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 170,
-        margin: const EdgeInsets.only(right: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+    return Semantics(
+      button: true,
+      label: '$title, $subtitle',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 170,
+          margin: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
-              child: Icon(icon, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: 24),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15, height: 1.2)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.8), fontSize: 11)),
-              ],
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white, size: 24),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15, height: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.8), fontSize: 11)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -661,10 +688,10 @@ class _TrendingCard extends StatelessWidget {
 }
 
 class _MiniCalcButton extends StatefulWidget {
+  const _MiniCalcButton({required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _MiniCalcButton({required this.icon, required this.label, required this.onTap});
 
   @override
   State<_MiniCalcButton> createState() => _MiniCalcButtonState();
@@ -675,31 +702,37 @@ class _MiniCalcButtonState extends State<_MiniCalcButton> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: isHovered ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.08) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.03),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isHovered ? const Color(0xFFC9A96E).withOpacity(0.5) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05),
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 28, color: isHovered ? const Color(0xFFC9A96E) : Theme.of(context).colorScheme.secondary),
-              const SizedBox(height: 12),
-              Text(
-                widget.label, 
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodySmall?.color), 
-                textAlign: TextAlign.center
+    return Semantics(
+      button: true,
+      label: '${widget.label} Calculator',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => isHovered = true),
+        onExit: (_) => setState(() => isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              color: isHovered ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.08) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isHovered ? const Color(0xFFC9A96E).withValues(alpha: 0.5) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
               ),
-            ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, size: 28, color: isHovered ? const Color(0xFFC9A96E) : Theme.of(context).colorScheme.secondary),
+                const SizedBox(height: 12),
+                Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodySmall?.color),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

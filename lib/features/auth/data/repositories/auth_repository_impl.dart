@@ -9,7 +9,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> loginWithEmail(String email, String password) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
     _currentUser = UserModel(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       email: email,
@@ -24,7 +24,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> loginWithGoogle() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
     _currentUser = const UserModel(
       id: 'google_user_1',
       email: 'user@gmail.com',
@@ -39,8 +39,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> loginWithPhone(String phoneNumber) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    _currentUser = UserModel(
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    _currentUser = const UserModel(
       id: 'phone_user_1',
       email: '',
       displayName: 'Phone User',
@@ -54,7 +54,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> registerWithEmail(String email, String password, String name) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
     _currentUser = UserModel(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       email: email,

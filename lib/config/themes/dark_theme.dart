@@ -11,12 +11,10 @@ ThemeData getDarkTheme() {
       primary: AppColors.teal,
       secondary: AppColors.gold,
       surface: AppColors.charcoal,
-      background: AppColors.midnight,
       error: AppColors.coral,
       onPrimary: Colors.white,
       onSecondary: Colors.black,
       onSurface: AppColors.textPrimary,
-      onBackground: AppColors.textPrimary,
       onError: Colors.white,
     ),
     textTheme: TextTheme(
@@ -53,7 +51,7 @@ ThemeData getDarkTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.slate.withOpacity(0.5),
+      fillColor: AppColors.slate.withValues(alpha: 0.5),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.slate),
@@ -85,7 +83,7 @@ ThemeData getDarkTheme() {
       activeTrackColor: AppColors.gold,
       inactiveTrackColor: AppColors.slate,
       thumbColor: AppColors.goldLight,
-      overlayColor: AppColors.gold.withOpacity(0.2),
+      overlayColor: AppColors.gold.withValues(alpha: 0.2),
       trackHeight: 6.0,
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 20.0),

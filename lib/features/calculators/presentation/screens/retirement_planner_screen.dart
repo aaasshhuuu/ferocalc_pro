@@ -1,17 +1,16 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'dart:math';
-import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
+import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
 import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
+import 'package:fincalc_pro/core/widgets/gradient_button.dart';
 import 'package:fincalc_pro/core/widgets/input_slider_field.dart';
 import 'package:fincalc_pro/core/widgets/result_display_card.dart';
-import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
-import 'package:fincalc_pro/core/widgets/gradient_button.dart';
-import '../../../../core/utils/responsive.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class RetirementPlannerScreen extends StatefulWidget {
   const RetirementPlannerScreen({Key? key}) : super(key: key);
@@ -23,11 +22,11 @@ class RetirementPlannerScreen extends StatefulWidget {
 class _RetirementPlannerScreenState extends State<RetirementPlannerScreen> {
   double _currentAge = 30;
   double _retirementAge = 60;
-  double _lifeExpectancy = 85;
+  final double _lifeExpectancy = 85;
   double _monthlyExpense = 50000;
   double _inflationRate = 6.0;
   double _preRetirementReturn = 12.0;
-  double _postRetirementReturn = 7.0;
+  final double _postRetirementReturn = 7.0;
 
   double _corpusNeeded = 0;
   double _monthlySipNeeded = 0;

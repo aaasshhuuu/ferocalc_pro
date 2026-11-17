@@ -8,8 +8,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoading());
       try {
         // Mock loading data
-        await Future.delayed(const Duration(seconds: 1));
-        emit(const HomeLoaded({'recent': [], 'topBanks': []}));
+        await Future<void>.delayed(const Duration(seconds: 1));
+        emit(const HomeLoaded({'recent': <dynamic>[], 'topBanks': <dynamic>[]}));
       } catch (e) {
         emit(HomeError(e.toString()));
       }

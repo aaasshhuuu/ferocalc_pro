@@ -78,7 +78,7 @@ class AppTheme {
     cardTheme: CardThemeData(
       color: const Color(0xFFFFFFFF),
       elevation: 1,
-      shadowColor: Color(0x14000000), // Colors.black.withOpacity(0.08)
+      shadowColor: const Color(0x14000000), // Colors.black.withOpacity(0.08)
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     appBarTheme: const AppBarTheme(

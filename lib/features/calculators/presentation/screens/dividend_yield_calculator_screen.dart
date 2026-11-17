@@ -1,15 +1,15 @@
-import 'package:flutter/material.dart';
-import '../../../../core/utils/calculator_share_helper.dart';
-import 'package:intl/intl.dart';
 import 'package:fincalc_pro/core/utils/financial_math.dart';
-
 import 'package:fincalc_pro/core/widgets/calculator_purpose_card.dart';
-import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
-import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/core/widgets/custom_app_bar.dart';
+import 'package:fincalc_pro/core/widgets/glassmorphic_card.dart';
 import 'package:fincalc_pro/core/widgets/gradient_button.dart';
-import '../../../../core/utils/responsive.dart';
+import 'package:fincalc_pro/core/widgets/result_display_card.dart';
 import 'package:fincalc_pro/features/history/presentation/helper/calculation_history_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/utils/calculator_share_helper.dart';
+import '../../../../core/utils/responsive.dart';
 
 class DividendYieldCalculatorScreen extends StatefulWidget {
   const DividendYieldCalculatorScreen({Key? key}) : super(key: key);
@@ -37,11 +37,11 @@ class _DividendYieldCalculatorScreenState extends State<DividendYieldCalculatorS
     super.initState();
     _calculateYield();
   }  void _calculateYield() {
-    double price = double.tryParse(_priceCtrl.text) ?? 500;
-    double divPerShare = double.tryParse(_divCtrl.text) ?? 20;
-    double shares = double.tryParse(_sharesCtrl.text) ?? 100;
-    double growth = double.tryParse(_growthCtrl.text) ?? 5;
-    int years = int.tryParse(_yearsCtrl.text) ?? 10;
+    final double price = double.tryParse(_priceCtrl.text) ?? 500;
+    final double divPerShare = double.tryParse(_divCtrl.text) ?? 20;
+    final double shares = double.tryParse(_sharesCtrl.text) ?? 100;
+    final double growth = double.tryParse(_growthCtrl.text) ?? 5;
+    final int years = int.tryParse(_yearsCtrl.text) ?? 10;
     
     final result = FinancialMath.calculateDividendYield(
       sharePrice: price,

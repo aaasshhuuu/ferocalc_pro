@@ -275,7 +275,7 @@ class _CompoundInterestCalculatorScreenState extends State<CompoundInterestCalcu
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.3),
+                            color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.3),
                           ),
                         ),
                         child: DropdownButtonHideUnderline(
@@ -343,7 +343,7 @@ class _CompoundInterestCalculatorScreenState extends State<CompoundInterestCalcu
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
       ),

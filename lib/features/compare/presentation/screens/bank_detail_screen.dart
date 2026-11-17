@@ -20,9 +20,9 @@ import '../../../../core/widgets/verification_badge.dart';
 import '../../../../core/widgets/verified_rate_badge.dart';
 
 class BankDetailScreen extends StatefulWidget {
-  final String bankName;
 
   const BankDetailScreen({Key? key, required this.bankName}) : super(key: key);
+  final String bankName;
 
   /// Safely normalizes a bank website URL into a valid Uri.
   static Uri? normalizeWebsiteUri(String? rawUrl) {
@@ -93,7 +93,6 @@ class BankDetailScreen extends StatefulWidget {
 
 class _BankDetailScreenState extends State<BankDetailScreen> {
   List<VerifiedFdRate> _verifiedRates = [];
-  bool _isLoadingVerified = false;
 
   @override
   void initState() {
@@ -102,28 +101,36 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
   }
 
   Future<void> _loadVerifiedRates() async {
-    setState(() => _isLoadingVerified = true);
     try {
       final res = await VerifiedRateService.fetchAll(isCallable: null);
       if (mounted) {
-        final query = widget.bankName.toLowerCase().trim();
-        final matched = res.rates.where((r) {
-          final rName = r.bankName.toLowerCase();
-          final rShort = r.bankShortName.toLowerCase();
-          return rName == query ||
-              rShort == query ||
-              query.contains(rShort) ||
-              query.contains(rName) ||
-              rName.contains(query);
-        }).toList();
+        if (!res.hasError) {
+          final query = widget.bankName.toLowerCase().trim();
+          final matched = res.rates.where((r) {
+            final rName = r.bankName.toLowerCase();
+            final rShort = r.bankShortName.toLowerCase();
+            return rName == query ||
+                rShort == query ||
+                query.contains(rShort) ||
+                query.contains(rName) ||
+                rName.contains(query);
+          }).toList();
 
-        setState(() {
-          _verifiedRates = matched;
-          _isLoadingVerified = false;
-        });
+          setState(() {
+            _verifiedRates = matched;
+          });
+        } else {
+          setState(() {
+            _verifiedRates = [];
+          });
+        }
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingVerified = false);
+      if (mounted) {
+        setState(() {
+          _verifiedRates = [];
+        });
+      }
     }
   }
 
@@ -131,12 +138,12 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
   Widget build(BuildContext context) {
     // Try new model first, fall back to legacy
     final legacyBank = BankDataService.getBankByName(widget.bankName);
-    final gold = const Color(0xFFC9A96E);
+    const gold = Color(0xFFC9A96E);
 
     if (legacyBank == null) {
-      return Scaffold(
-        appBar: const CustomAppBar(title: 'Bank Not Found'),
-        body: const Center(child: Text('Bank details could not be found.')),
+      return const Scaffold(
+        appBar: CustomAppBar(title: 'Bank Not Found'),
+        body: Center(child: Text('Bank details could not be found.')),
       );
     }
 
@@ -219,17 +226,24 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: gold.withOpacity(0.1),
+            color: gold.withValues(alpha: 0.1),
             shape: BoxShape.circle,
             border: Border.all(color: gold, width: 2),
           ),
           child: Icon(Icons.account_balance, size: 40, color: gold),
         ),
         const SizedBox(height: 16),
-        Text(
-          legacyBank.name,
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: gold),
-          textAlign: TextAlign.center,
+        Semantics(
+          header: true,
+          child: Text(
+            legacyBank.name,
+            style: TextStyle(
+              fontSize: Responsive.isCompact(context) ? 22 : 28,
+              fontWeight: FontWeight.bold,
+              color: gold,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -260,9 +274,9 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
     );
@@ -310,7 +324,7 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
                   },
                   children: [
                     TableRow(
-                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.05)),
+                      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withValues(alpha: 0.05)),
                       children: [
                         _buildTableCell(context, 'Tenure', isHeader: true),
                         _buildTableCell(context, 'Rate', isHeader: true),
@@ -321,7 +335,7 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
                       final maxRate = rates.map((r) => r.interestRate).reduce(max);
                       final isHighest = rate.interestRate == maxRate;
                       return TableRow(
-                        decoration: isHighest ? BoxDecoration(color: gold.withOpacity(0.05)) : null,
+                        decoration: isHighest ? BoxDecoration(color: gold.withValues(alpha: 0.05)) : null,
                         children: [
                           _buildTableCell(context, rate.tenureDescription, isHighlight: isHighest, gold: gold),
                           _buildTableCell(context, '${rate.interestRate.toStringAsFixed(2)}% p.a.', isHighlight: isHighest, gold: gold),
@@ -339,16 +353,19 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
   }
 
   Widget _buildTableCell(BuildContext context, String text, {bool isHeader = false, bool isHighlight = false, Color? gold}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontWeight: isHeader || isHighlight ? FontWeight.bold : FontWeight.normal,
-          fontSize: isHeader ? 13 : 13,
-          color: isHighlight ? gold : Theme.of(context).textTheme.bodyMedium?.color,
+    return Semantics(
+      header: isHeader,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontWeight: isHeader || isHighlight ? FontWeight.bold : FontWeight.normal,
+            fontSize: isHeader ? 13 : 13,
+            color: isHighlight ? gold : Theme.of(context).textTheme.bodyMedium?.color,
+          ),
+          textAlign: isHeader ? TextAlign.center : TextAlign.left,
         ),
-        textAlign: isHeader ? TextAlign.center : TextAlign.left,
       ),
     );
   }
@@ -358,9 +375,9 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.08 : 0.05),
+        color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.08 : 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.2)),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,11 +483,11 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
     final maxRate = rates.map((r) => r.interestRate).reduce(max);
     final hasSpecialScheme = rates.any((r) =>
         r.rateCategory == RateCategory.specialScheme ||
-        (r.schemeName != null && r.schemeName!.trim().isNotEmpty));
+        (r.schemeName != null && r.schemeName!.trim().isNotEmpty),);
 
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.4)),
+        border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -503,7 +520,7 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
                       (rate.schemeName != null && rate.schemeName!.trim().isNotEmpty);
 
                   return TableRow(
-                    decoration: isHighest ? BoxDecoration(color: gold.withOpacity(0.08)) : null,
+                    decoration: isHighest ? BoxDecoration(color: gold.withValues(alpha: 0.08)) : null,
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -523,9 +540,9 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
                                 ),
                                 child: Text(
                                   'Special: ${rate.schemeName ?? 'Promotional'}',
@@ -699,41 +716,61 @@ class _BankDetailScreenState extends State<BankDetailScreen> {
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
-        ElevatedButton.icon(
-          onPressed: () => context.push('/calculator/fd'),
-          icon: const Icon(Icons.calculate),
-          label: const Text('Calculate FD Returns'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: gold,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        Semantics(
+          button: true,
+          label: 'Calculate FD Returns',
+          child: ElevatedButton.icon(
+            onPressed: () => context.push('/calculator/fd'),
+            icon: const Icon(Icons.calculate),
+            label: const Text('Calculate FD Returns'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: gold,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ),
-        ElevatedButton.icon(
-          onPressed: () => context.push('/calculator/rd'),
-          icon: const Icon(Icons.calculate_outlined),
-          label: const Text('Calculate RD Returns'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        Semantics(
+          button: true,
+          label: 'Calculate RD Returns',
+          child: ElevatedButton.icon(
+            onPressed: () => context.push('/calculator/rd'),
+            icon: const Icon(Icons.calculate_outlined),
+            label: const Text('Calculate RD Returns'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ),
-        OutlinedButton.icon(
-          onPressed: () => context.go('/compare'),
-          icon: const Icon(Icons.list_alt),
-          label: const Text('Compare with Others'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        Semantics(
+          button: true,
+          label: 'Compare with Others',
+          child: OutlinedButton.icon(
+            onPressed: () => context.go('/compare'),
+            icon: const Icon(Icons.list_alt),
+            label: const Text('Compare with Others'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ),
-        OutlinedButton.icon(
-          key: const ValueKey('bank_detail_compare_two_banks_button'),
-          onPressed: () => context.push('/compare/two-banks?bankA=${Uri.encodeComponent(bank?.id ?? '')}'),
-          icon: const Icon(Icons.compare_arrows),
-          label: const Text('Compare Side-by-Side'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        Semantics(
+          button: true,
+          label: 'Compare Side-by-Side',
+          child: OutlinedButton.icon(
+            key: const ValueKey('bank_detail_compare_two_banks_button'),
+            onPressed: () => context.push('/compare/two-banks?bankA=${Uri.encodeComponent(bank?.id ?? '')}'),
+            icon: const Icon(Icons.compare_arrows),
+            label: const Text('Compare Side-by-Side'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ),
       ],

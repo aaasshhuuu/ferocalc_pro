@@ -3,16 +3,6 @@ import 'package:intl/intl.dart';
 
 /// Data model representing a saved calculation snapshot in local storage.
 class CalculationHistoryEntry {
-  final String id;
-  final String calculatorId;
-  final String calculatorName;
-  final DateTime timestamp;
-  final Map<String, String> inputs;
-  final Map<String, String> results;
-  final String primaryResultLabel;
-  final String primaryResultValue;
-  final String? category;
-  final Map<String, dynamic>? rawInputs;
 
   CalculationHistoryEntry({
     required this.id,
@@ -25,7 +15,72 @@ class CalculationHistoryEntry {
     required this.primaryResultValue,
     this.category,
     this.rawInputs,
+    this.customName,
+    this.updatedAt,
   });
+
+  factory CalculationHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final Map<String, String> safeInputs = {};
+    if (json['inputs'] is Map) {
+      (json['inputs'] as Map).forEach((k, v) {
+        if (k != null) safeInputs[k.toString()] = v?.toString() ?? '';
+      });
+    }
+
+    final Map<String, String> safeResults = {};
+    if (json['results'] is Map) {
+      (json['results'] as Map).forEach((k, v) {
+        if (k != null) safeResults[k.toString()] = v?.toString() ?? '';
+      });
+    }
+
+    Map<String, dynamic>? safeRawInputs;
+    if (json['rawInputs'] is Map) {
+      safeRawInputs = Map<String, dynamic>.from(json['rawInputs'] as Map);
+    }
+
+    return CalculationHistoryEntry(
+      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      calculatorId: json['calculatorId'] as String? ?? 'unknown',
+      calculatorName: json['calculatorName'] as String? ?? 'Calculation',
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      inputs: safeInputs,
+      results: safeResults,
+      primaryResultLabel: json['primaryResultLabel'] as String? ?? 'Result',
+      primaryResultValue: json['primaryResultValue'] as String? ?? '',
+      category: json['category'] as String? ?? 'General',
+      rawInputs: safeRawInputs,
+      customName: json['customName'] as String?,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'].toString())
+          : null,
+    );
+  }
+  final String id;
+  final String calculatorId;
+  final String calculatorName;
+  final DateTime timestamp;
+  final Map<String, String> inputs;
+  final Map<String, String> results;
+  final String primaryResultLabel;
+  final String primaryResultValue;
+  final String? category;
+  final Map<String, dynamic>? rawInputs;
+  final String? customName;
+  final DateTime? updatedAt;
+
+  /// User-defined calculation name, or fallback to default calculator name.
+  String get title {
+    if (customName != null && customName!.trim().isNotEmpty) {
+      return customName!.trim();
+    }
+    return calculatorName;
+  }
+
+  /// Most recent date of update or original timestamp.
+  DateTime get effectiveUpdatedAt => updatedAt ?? timestamp;
 
   /// Formatted date string for user presentation (device-local).
   String get formattedDateTime {
@@ -46,6 +101,71 @@ class CalculationHistoryEntry {
     } else {
       return '${DateFormat('d MMM y').format(localTime)}, $timeStr';
     }
+  }
+
+  /// Formatted updated date string for user presentation.
+  String get formattedUpdatedDateTime {
+    final localTime = effectiveUpdatedAt.toLocal();
+    final now = DateTime.now();
+    final isToday = localTime.year == now.year &&
+        localTime.month == now.month &&
+        localTime.day == now.day;
+    final isYesterday = localTime.year == now.year &&
+        localTime.month == now.month &&
+        localTime.day == now.day - 1;
+
+    final timeStr = DateFormat('h:mm a').format(localTime);
+    if (isToday) {
+      return 'Today, $timeStr';
+    } else if (isYesterday) {
+      return 'Yesterday, $timeStr';
+    } else {
+      return '${DateFormat('d MMM y').format(localTime)}, $timeStr';
+    }
+  }
+
+  /// Extracts a raw numeric value from rawInputs or parses from formatted inputs.
+  double? getNumericInput(String key) {
+    if (rawInputs != null && rawInputs!.containsKey(key)) {
+      final val = rawInputs![key];
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val);
+    }
+    if (inputs.containsKey(key)) {
+      final clean = inputs[key]!.replaceAll(RegExp(r'[^\d.-]'), '');
+      return double.tryParse(clean);
+    }
+    return null;
+  }
+
+  CalculationHistoryEntry copyWith({
+    String? id,
+    String? calculatorId,
+    String? calculatorName,
+    DateTime? timestamp,
+    Map<String, String>? inputs,
+    Map<String, String>? results,
+    String? primaryResultLabel,
+    String? primaryResultValue,
+    String? category,
+    Map<String, dynamic>? rawInputs,
+    String? customName,
+    DateTime? updatedAt,
+  }) {
+    return CalculationHistoryEntry(
+      id: id ?? this.id,
+      calculatorId: calculatorId ?? this.calculatorId,
+      calculatorName: calculatorName ?? this.calculatorName,
+      timestamp: timestamp ?? this.timestamp,
+      inputs: inputs ?? Map<String, String>.from(this.inputs),
+      results: results ?? Map<String, String>.from(this.results),
+      primaryResultLabel: primaryResultLabel ?? this.primaryResultLabel,
+      primaryResultValue: primaryResultValue ?? this.primaryResultValue,
+      category: category ?? this.category,
+      rawInputs: rawInputs ?? (this.rawInputs != null ? Map<String, dynamic>.from(this.rawInputs!) : null),
+      customName: customName ?? this.customName,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 
   /// Recognizable calculator icon based on calculatorId or category.
@@ -127,42 +247,8 @@ class CalculationHistoryEntry {
       'primaryResultValue': primaryResultValue,
       'category': category,
       if (rawInputs != null) 'rawInputs': rawInputs,
+      if (customName != null) 'customName': customName,
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     };
-  }
-
-  factory CalculationHistoryEntry.fromJson(Map<String, dynamic> json) {
-    Map<String, String> safeInputs = {};
-    if (json['inputs'] is Map) {
-      (json['inputs'] as Map).forEach((k, v) {
-        if (k != null) safeInputs[k.toString()] = v?.toString() ?? '';
-      });
-    }
-
-    Map<String, String> safeResults = {};
-    if (json['results'] is Map) {
-      (json['results'] as Map).forEach((k, v) {
-        if (k != null) safeResults[k.toString()] = v?.toString() ?? '';
-      });
-    }
-
-    Map<String, dynamic>? safeRawInputs;
-    if (json['rawInputs'] is Map) {
-      safeRawInputs = Map<String, dynamic>.from(json['rawInputs'] as Map);
-    }
-
-    return CalculationHistoryEntry(
-      id: json['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      calculatorId: json['calculatorId'] as String? ?? 'unknown',
-      calculatorName: json['calculatorName'] as String? ?? 'Calculation',
-      timestamp: json['timestamp'] != null
-          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
-          : DateTime.now(),
-      inputs: safeInputs,
-      results: safeResults,
-      primaryResultLabel: json['primaryResultLabel'] as String? ?? 'Result',
-      primaryResultValue: json['primaryResultValue'] as String? ?? '',
-      category: json['category'] as String? ?? 'General',
-      rawInputs: safeRawInputs,
-    );
   }
 }

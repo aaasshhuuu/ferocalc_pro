@@ -20,4 +20,18 @@ class RouteNames {
   static const String financialLiteracyDetail = 'financialLiteracyDetail';
   static const String notifications = 'notifications';
   static const String ssySchedule = 'ssySchedule';
+  static const String adminDashboard = 'adminDashboard';
+  static const String adminQueue = 'adminQueue';
+  static const String adminLogin = 'adminLogin';
+  static const String adminAccessDenied = 'adminAccessDenied';
+  static const String adminCandidateReview = 'adminCandidateReview';
+  static const String dataTrustCenter = 'dataTrustCenter';
+  static const String smartFdDiscovery = 'smartFdDiscovery';
+  static const String advancedFdCompare = 'advancedFdCompare';
+  static const String favoriteBanks = 'favoriteBanks';
+  static const String notificationSettings = 'notificationSettings';
+  static const String financialInsights = 'financialInsights';
+  static const String terms = 'terms';
+  static const String financialDisclaimer = 'financialDisclaimer';
+  static const String adDisclosure = 'adDisclosure';
 }

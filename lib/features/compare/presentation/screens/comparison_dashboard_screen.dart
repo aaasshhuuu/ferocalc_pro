@@ -80,7 +80,7 @@ class ComparisonDashboardScreen extends StatelessWidget {
           child: ListTile(
             onTap: () => context.push('/bank/${Uri.encodeComponent(bank.name)}'),
             leading: CircleAvatar(
-              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+              backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               child: Text('${index + 1}', style: TextStyle(color: Theme.of(context).primaryColor)),
             ),
             title: Text(bank.name, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color), maxLines: 1, overflow: TextOverflow.ellipsis),

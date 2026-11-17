@@ -11,13 +11,13 @@ class TopFdBanks extends StatelessWidget {
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
-            leading: Text('\${index + 1}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
-            title: Text('Bank \${index + 1}'),
+            leading: const Text('\${index + 1}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey)),
+            title: const Text('Bank \${index + 1}'),
             subtitle: const Text('General Citizen'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('\${7.5 - (index * 0.1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('\${7.5 - (index * 0.1)}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 if (index == 0) const SizedBox(width: 8),
                 if (index == 0) const PremiumBadge(),
               ],

@@ -7,8 +7,10 @@ class CalculationHistorySaver {
   /// Guarantees that any exception is safely caught and will never crash the calculator.
   static Future<void> save({
     BuildContext? context,
+    String? id,
     required String calculatorId,
     required String calculatorName,
+    String? customName,
     required Map<String, String> inputs,
     required Map<String, String> results,
     String? primaryResultLabel,
@@ -27,9 +29,10 @@ class CalculationHistorySaver {
       final value = primaryResultValue ?? results.values.first;
 
       final entry = CalculationHistoryEntry(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         calculatorId: calculatorId,
         calculatorName: calculatorName,
+        customName: customName,
         timestamp: DateTime.now(),
         inputs: Map<String, String>.from(inputs),
         results: Map<String, String>.from(results),

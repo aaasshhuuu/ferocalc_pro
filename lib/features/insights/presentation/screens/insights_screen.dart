@@ -61,16 +61,16 @@ class InsightsScreen extends StatefulWidget {
 
 class _InsightsScreenState extends State<InsightsScreen> {
   final List<String> _tips = [
-    "Compound interest is the eighth wonder of the world.",
-    "Pay yourself first: Save at least 20% of your income.",
-    "Diversification is a protection against ignorance.",
-    "Emergency funds should cover 3-6 months of living expenses.",
-    "Time in the market beats timing the market.",
+    'Compound interest is the eighth wonder of the world.',
+    'Pay yourself first: Save at least 20% of your income.',
+    'Diversification is a protection against ignorance.',
+    'Emergency funds should cover 3-6 months of living expenses.',
+    'Time in the market beats timing the market.',
     "Don't save what is left after spending, spend what is left after saving.",
-    "An investment in knowledge pays the best interest.",
-    "Track your net worth, not just your income.",
-    "Avoid lifestyle creep as your income grows.",
-    "Understand the difference between good debt and bad debt.",
+    'An investment in knowledge pays the best interest.',
+    'Track your net worth, not just your income.',
+    'Avoid lifestyle creep as your income grows.',
+    'Understand the difference between good debt and bad debt.',
   ];
 
   late String _currentTip;
@@ -101,7 +101,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final midnight = Theme.of(context).scaffoldBackgroundColor;
     final backgroundColor = isDark ? midnight : theme.colorScheme.surface;
-    final gold = const Color(0xFFC9A96E);
+    const gold = Color(0xFFC9A96E);
     final textColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
@@ -116,6 +116,71 @@ class _InsightsScreenState extends State<InsightsScreen> {
             child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Personalized Financial Dashboard Banner
+            InkWell(
+              key: const ValueKey('insights_personalized_dashboard_banner'),
+              onTap: () => context.push('/financial-insights'),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                        : [const Color(0xFFFFFBEB), const Color(0xFFFEF3C7)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: gold.withOpacity(0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: gold.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.insights_rounded, color: gold, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Personalized Financial Dashboard',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Track monthly cash flow, savings rate, emergency runway & goal progress.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => context.push('/financial-insights'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: gold,
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Open', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             // Daily Finance Tip Card
             _buildDailyTipCard(gold).animate().fade(),
             const SizedBox(height: 24),
@@ -225,13 +290,13 @@ class _InsightsScreenState extends State<InsightsScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
-            colors: [gold, gold.withOpacity(0.8)],
+            colors: [gold, gold.withValues(alpha: 0.8)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: gold.withOpacity(0.3),
+              color: gold.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -241,11 +306,11 @@ class _InsightsScreenState extends State<InsightsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.lightbulb, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text('Tip of the Day', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Icon(Icons.lightbulb, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Tip of the Day', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             const SizedBox(height: 12),
@@ -399,12 +464,12 @@ class _InsightsScreenState extends State<InsightsScreen> {
         color: isDark ? const Color(0xFF1A2634) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: topic.isKeyTopic ? gold : gold.withOpacity(0.3),
+          color: topic.isKeyTopic ? gold : gold.withValues(alpha: 0.3),
           width: topic.isKeyTopic ? 1.4 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -471,7 +536,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1A2634) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: gold.withOpacity(0.3)),
+          border: Border.all(color: gold.withValues(alpha: 0.3)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(

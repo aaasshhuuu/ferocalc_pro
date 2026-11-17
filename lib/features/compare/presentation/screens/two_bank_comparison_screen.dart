@@ -114,9 +114,9 @@ class _TwoBankComparisonScreenState extends State<TwoBankComparisonScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_bankA == null || _bankB == null) {
-      return Scaffold(
-        appBar: const CustomAppBar(title: 'Compare Two Banks'),
-        body: const Center(child: Text('Insufficient bank data available for comparison.')),
+      return const Scaffold(
+        appBar: CustomAppBar(title: 'Compare Two Banks'),
+        body: Center(child: Text('Insufficient bank data available for comparison.')),
       );
     }
 
@@ -205,18 +205,30 @@ class _TwoBankComparisonScreenState extends State<TwoBankComparisonScreen> {
               const SizedBox(width: 8),
 
               // Swap Button
-              InkWell(
-                key: const ValueKey('swap_banks_button'),
-                onTap: _swapBanks,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: gold.withAlpha(35),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: gold.withAlpha(80)),
+              Semantics(
+                button: true,
+                label: 'Swap selected banks',
+                child: Tooltip(
+                  message: 'Swap selected banks',
+                  child: InkWell(
+                    key: const ValueKey('swap_banks_button'),
+                    onTap: _swapBanks,
+                    borderRadius: BorderRadius.circular(24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: gold.withAlpha(35),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: gold.withAlpha(80)),
+                          ),
+                          child: const Icon(Icons.swap_horiz_rounded, color: gold, size: 22),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Icon(Icons.swap_horiz_rounded, color: gold, size: 22),
                 ),
               ),
               const SizedBox(width: 8),
@@ -532,7 +544,7 @@ class _TwoBankComparisonScreenState extends State<TwoBankComparisonScreen> {
                 bankA: comp.bankA,
                 bankB: comp.bankB,
                 isDark: isDark,
-              )),
+              ),),
         ],
       ),
     );
@@ -913,8 +925,8 @@ class _TwoBankComparisonScreenState extends State<TwoBankComparisonScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
+          const Row(
+            children: [
               Icon(Icons.info_outline, size: 15, color: gold),
               SizedBox(width: 6),
               Expanded(

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../config/routes/route_names.dart';
-import '../../../../core/widgets/gradient_button.dart';
 import '../../../../config/themes/app_gradients.dart';
-import '../../../../core/utils/responsive.dart';
+import '../../../../core/widgets/gradient_button.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -22,8 +22,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final primaryGold = const Color(0xFFC9A96E);
-    final tealAccent = const Color(0xFF00B4D8);
+    const primaryGold = Color(0xFFC9A96E);
+    const tealAccent = Color(0xFF00B4D8);
 
     final pages = [
       _buildPage(Icons.calculate, 'Smart Financial Planning', 'Calculate EMI, FD, SIP in seconds.'),
@@ -48,7 +48,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             right: 20,
             child: TextButton(
               onPressed: () => context.goNamed(RouteNames.home),
-              child: Text('Skip', style: TextStyle(color: primaryGold, fontWeight: FontWeight.bold)),
+              child: const Text('Skip', style: TextStyle(color: primaryGold, fontWeight: FontWeight.bold)),
             ),
           ),
           Positioned(
@@ -75,7 +75,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: IconButton(
-                      icon: Icon(Icons.arrow_forward_ios, color: primaryGold),
+                      icon: const Icon(Icons.arrow_forward_ios, color: primaryGold),
                       onPressed: () {
                         _pageController.nextPage(
                           duration: const Duration(milliseconds: 300),
@@ -88,14 +88,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
         ],
-      ))),
+      ),),),
     );
   }
 
   Widget _buildPage(IconData icon, String title, String subtitle) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
@@ -131,7 +131,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       height: 8,
       width: _currentPage == index ? 24 : 8,
       decoration: BoxDecoration(
-        color: _currentPage == index ? activeColor : Colors.grey.withOpacity(0.5),
+        color: _currentPage == index ? activeColor : Colors.grey.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
     );
