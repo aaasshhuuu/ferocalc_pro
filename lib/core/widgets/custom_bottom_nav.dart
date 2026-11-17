@@ -1,28 +1,28 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
-import '../../config/themes/app_gradients.dart';
+
+import 'package:flutter/material.dart';
 
 class CustomBottomNav extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
 
   const CustomBottomNav({
     Key? key,
     required this.currentIndex,
     required this.onTap,
   }) : super(key: key);
+  final int currentIndex;
+  final void Function(int) onTap;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth > 900;
-        
+
         if (isDesktop) {
-          // Instead of returning bottom nav, we return a Side Navigation Rail 
-          // or a constrained area. Note: Normally SideRail is placed in the main Scaffold 
-          // row, but since this widget might be dropped in bottomNavigationBar slot, 
-          // we can just hide it for desktop and handle desktop nav elsewhere, 
+          // Instead of returning bottom nav, we return a Side Navigation Rail
+          // or a constrained area. Note: Normally SideRail is placed in the main Scaffold
+          // row, but since this widget might be dropped in bottomNavigationBar slot,
+          // we can just hide it for desktop and handle desktop nav elsewhere,
           // OR we return a minimal vertical version if this wraps the body.
           // Since it's a bottom nav widget, hiding it is standard for desktop.
           return const SizedBox.shrink();
@@ -59,7 +59,7 @@ class CustomBottomNav extends StatelessWidget {
             ),
           ),
         );
-      }
+      },
     );
   }
 
@@ -67,53 +67,63 @@ class CustomBottomNav extends StatelessWidget {
     final theme = Theme.of(context).bottomNavigationBarTheme;
     final isSelected = currentIndex == index;
     final color = isSelected ? theme.selectedItemColor : theme.unselectedItemColor;
+    final disableAnimations = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final isCompact = MediaQuery.of(context).size.width <= 340;
+    final animDuration = disableAnimations ? Duration.zero : const Duration(milliseconds: 250);
 
-    return GestureDetector(
-      onTap: () => onTap(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return ScaleTransition(scale: animation, child: child);
-              },
-              child: Icon(
-                icon, 
-                key: ValueKey<bool>(isSelected), 
-                color: color, 
-                size: isSelected ? 26 : 24
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label tab, ${isSelected ? "selected" : "not selected"}',
+      child: GestureDetector(
+        onTap: () => onTap(index),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: animDuration,
+          curve: Curves.easeInOut,
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: animDuration,
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return ScaleTransition(scale: animation, child: child);
+                },
+                child: Icon(
+                  icon,
+                  key: ValueKey<bool>(isSelected),
+                  color: color,
+                  size: isSelected ? 26 : 24,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
               ),
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.only(top: 4),
-              height: 4,
-              width: isSelected ? 4 : 0,
-              decoration: BoxDecoration(
-                color: theme.selectedItemColor,
-                shape: BoxShape.circle,
+              AnimatedContainer(
+                duration: animDuration,
+                margin: const EdgeInsets.only(top: 4),
+                height: 4,
+                width: isSelected ? 4 : 0,
+                decoration: BoxDecoration(
+                  color: theme.selectedItemColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-            )
-          ],
+            ],
+          ),
         ),
       ),
     );

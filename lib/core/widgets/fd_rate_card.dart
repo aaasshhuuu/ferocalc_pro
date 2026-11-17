@@ -17,11 +17,6 @@ import 'verification_badge.dart';
 ///
 /// NEVER displays a bare "8.50%" without context.
 class FdRateCard extends StatelessWidget {
-  final Bank bank;
-  final FdRate rate;
-  final VoidCallback? onTap;
-  final bool showSource;
-  final String? tenureLabel;
 
   const FdRateCard({
     Key? key,
@@ -31,35 +26,44 @@ class FdRateCard extends StatelessWidget {
     this.showSource = true,
     this.tenureLabel,
   }) : super(key: key);
+  final Bank bank;
+  final FdRate rate;
+  final VoidCallback? onTap;
+  final bool showSource;
+  final String? tenureLabel;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gold = const Color(0xFFC9A96E);
+    const gold = Color(0xFFC9A96E);
     final freshness = RateFreshnessService.getRateFreshness(rate);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0F1D2E) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isDark ? Colors.white10 : Colors.black12,
-          ),
-          boxShadow: [
-            if (!isDark) BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      label: '${bank.name}, ${rate.interestRate.toStringAsFixed(2)} percent per annum, tenure ${tenureLabel ?? _formatTenure(rate.minTenureDays, rate.maxTenureDays)}, ${_customerTypeLabel(rate.customerType)}',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F1D2E) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.black12,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            boxShadow: [
+              if (!isDark) BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Row 1: Bank name + Verification badge
             Row(
               children: [
@@ -74,6 +78,8 @@ class FdRateCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       if (bank.shortName.isNotEmpty)
                         Text(
@@ -90,9 +96,9 @@ class FdRateCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6).withOpacity(0.12),
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
                     ),
                     child: const Text(
                       'Verification in Progress',
@@ -115,9 +121,9 @@ class FdRateCard extends StatelessWidget {
                 key: const ValueKey('special_scheme_badge'),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [
@@ -157,13 +163,13 @@ class FdRateCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF132235) : Colors.amber.shade50.withOpacity(0.6),
+                  color: isDark ? const Color(0xFF132235) : Colors.amber.shade50.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: gold.withOpacity(0.35)),
+                  border: Border.all(color: gold.withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: gold),
+                    const Icon(Icons.info_outline, size: 16, color: gold),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -184,34 +190,40 @@ class FdRateCard extends StatelessWidget {
 
               // Row 2: Rate + Tenure + Customer Type
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Interest Rate — always with context
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${rate.interestRate.toStringAsFixed(2)}% p.a.',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: gold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${rate.interestRate.toStringAsFixed(2)}% p.a.',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: gold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        rate.isSpecialScheme
-                            ? '${_customerTypeLabel(rate.customerType)} \u2022 Scheme Terms Apply'
-                            : _customerTypeLabel(rate.customerType),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: rate.customerType == CustomerType.seniorCitizen
-                              ? const Color(0xFF10B981)
-                              : (isDark ? Colors.white54 : Colors.black54),
+                        Text(
+                          rate.isSpecialScheme
+                              ? '${_customerTypeLabel(rate.customerType)} \u2022 Scheme Terms Apply'
+                              : _customerTypeLabel(rate.customerType),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: rate.customerType == CustomerType.seniorCitizen
+                                ? const Color(0xFF10B981)
+                                : (isDark ? Colors.white54 : Colors.black54),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   // Tenure
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -223,6 +235,8 @@ class FdRateCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white70 : Colors.black87,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Tenure',
@@ -273,7 +287,7 @@ class FdRateCard extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),);
   }
 
   static String _customerTypeLabel(CustomerType type) {

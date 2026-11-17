@@ -49,17 +49,17 @@ abstract class RateDataSource {
 // ============================================================
 
 class VerifiedSupabaseRateDataSource implements RateDataSource {
-  final String baseUrl;
 
   // Internal Dio import kept minimal — use the existing ApiClient
-  const VerifiedSupabaseRateDataSource({required this.baseUrl});
+  const VerifiedSupabaseRateDataSource({this.baseUrl});
+  final String? baseUrl;
 
   @override
   bool get isVerified => true;
 
   @override
   Future<bool> isAvailable() async {
-    return VerifiedRateService.isBackendAvailable();
+    return VerifiedRateService.isBackendAvailable(baseUrl: baseUrl);
   }
 
   @override
@@ -69,14 +69,19 @@ class VerifiedSupabaseRateDataSource implements RateDataSource {
     int limit = 10,
     bool? isCallable = true,
   }) async {
-    // Delegates to the concrete HTTP service.
+    // Delegates to the concrete HTTP service with proper baseUrl propagation.
     // VerifiedRateService handles Dio calls and graceful error fallback.
-    return VerifiedRateService.fetchTopVerified(
-      tenureDays: tenureDays,
-      customerType: customerType ?? 'REGULAR',
-      limit: limit,
-      isCallable: isCallable,
-    );
+    try {
+      return await VerifiedRateService.fetchTopVerified(
+        tenureDays: tenureDays,
+        customerType: customerType ?? 'REGULAR',
+        limit: limit,
+        isCallable: isCallable,
+        baseUrl: baseUrl,
+      );
+    } catch (_) {
+      return [];
+    }
   }
 
   @override
@@ -93,6 +98,7 @@ class VerifiedSupabaseRateDataSource implements RateDataSource {
       depositAmount: depositAmount,
       bankId: bankId,
       isCallable: isCallable,
+      baseUrl: baseUrl,
     );
   }
 }
@@ -153,7 +159,7 @@ class LegacyJsonRateDataSource implements RateDataSource {
 // ============================================================
 
 class RateDataSourceRegistry {
-  static const _defaultBaseUrl = 'https://backend-ten-livid-14.vercel.app';
+  static const _defaultBaseUrl = 'https://backend-ten-livid-14.vercel.app/api';
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: _defaultBaseUrl,
@@ -165,7 +171,7 @@ class RateDataSourceRegistry {
   ///
   /// Callers must use the sources SEPARATELY and label data accordingly.
   static List<RateDataSource> all() {
-    final baseUrl = _configuredBaseUrl.replaceAll('/api', '');
+    final baseUrl = VerifiedRateService.normalizeApiBaseUrl(_configuredBaseUrl);
     return [
       VerifiedSupabaseRateDataSource(baseUrl: baseUrl),
       const LegacyJsonRateDataSource(),

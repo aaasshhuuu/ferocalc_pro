@@ -16,36 +16,39 @@ import '../models/verified_fd_rate.dart';
 // ============================================================
 
 class VerifiedRateBadge extends StatelessWidget {
-  final bool showLabel;
 
   const VerifiedRateBadge({super.key, this.showLabel = true});
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFF052E16),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF16A34A), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.verified_rounded, size: 12, color: Color(0xFF22C55E)),
-          if (showLabel) ...[
-            const SizedBox(width: 4),
-            const Text(
-              'Verified',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF22C55E),
-                letterSpacing: 0.3,
+    return Semantics(
+      label: 'Verified official bank rate',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFF052E16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFF16A34A), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.verified_rounded, size: 12, color: Color(0xFF22C55E)),
+            if (showLabel) ...[
+              const SizedBox(width: 4),
+              const Text(
+                'Verified',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF22C55E),
+                  letterSpacing: 0.3,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -62,34 +65,37 @@ class PendingReviewRateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message:
-          'This rate has not been verified against an official bank source. '
-          'Do not use for financial decisions without independent verification.',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFF78350F).withOpacity(0.15),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFFF59E0B).withOpacity(0.4),
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule_rounded, size: 12, color: Color(0xFFF59E0B)),
-            SizedBox(width: 4),
-            Text(
-              'Pending Review',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFF59E0B),
-                letterSpacing: 0.3,
-              ),
+    return Semantics(
+      label: 'Rate pending official review',
+      child: Tooltip(
+        message:
+            'This rate has not been verified against an official bank source. '
+            'Do not use for financial decisions without independent verification.',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF78350F).withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
             ),
-          ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.schedule_rounded, size: 12, color: Color(0xFFF59E0B)),
+              SizedBox(width: 4),
+              Text(
+                'Pending Review',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFF59E0B),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -102,9 +108,9 @@ class PendingReviewRateBadge extends StatelessWidget {
 // ============================================================
 
 class VerifiedRateDetailPanel extends StatelessWidget {
-  final VerifiedFdRate rate;
 
   const VerifiedRateDetailPanel({super.key, required this.rate});
+  final VerifiedFdRate rate;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +120,7 @@ class VerifiedRateDetailPanel extends StatelessWidget {
         color: const Color(0xFF0D2137),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFF22C55E).withOpacity(0.3),
+          color: const Color(0xFF22C55E).withValues(alpha: 0.3),
         ),
       ),
       child: Column(

@@ -237,16 +237,15 @@ class FinancialManagementData {
       whyItMatters:
           'Headline interest rates can be misleading. For taxpayers in higher tax brackets, income tax substantially reduces real net returns, making post-tax yield calculations critical.',
       howItWorks:
-          'Banks deduct Tax Deducted at Source (TDS) at 10% (or 20% if PAN is not linked) if annual interest exceeds statutory thresholds. If your marginal income tax bracket is higher than 10%, you must pay the differential tax during income tax filing.',
+          'Banks deduct Tax Deducted at Source (TDS) if annual interest exceeds statutory thresholds. For payments on or after 1 April 2026, Section 393(1), Table Sl. No. 5(ii) of the Income-tax Act, 2025 sets annual thresholds at ₹1,00,000 for resident senior citizens and ₹50,000 for other individuals (earlier Section 194A applied ₹50,000 and ₹40,000 up to 31 March 2026). TDS is advance withholding rather than an exemption from income tax; depositors must pay any differential tax based on their personal income slab.',
       formulaOrRule:
           'Post-Tax Interest Rate = Pre-Tax FD Rate × (1 - Marginal Tax Rate)\n\n'
           'Example at 7% FD rate in 30% slab:\n'
           'Post-Tax Yield = 7.0% × (1 - 0.312) = 4.82% p.a.',
       example:
           '• Regular depositor earning ₹50,000 FD interest in 30% bracket:\n'
-          '  - Bank deducts TDS @ 10% = ₹5,000\n'
           '  - Total tax liability @ 31.2% = ₹15,600\n'
-          '  - Depositor must pay remaining ₹10,600 when filing tax returns.\n'
+          '  - Any TDS deducted by the bank is credited against total tax liability when filing returns.\n'
           '• Senior citizen benefit under Section 80TTB: Up to ₹50,000 deposit interest is fully deductible.',
       practicalUses: [
         'Calculating true post-tax returns before committing capital to long-term deposits.',
@@ -254,12 +253,12 @@ class FinancialManagementData {
         'Utilizing 5-Year Tax Saver FDs to claim Section 80C deductions.',
       ],
       importantPoints: [
-        'TDS is merely an advance collection of tax; it does not represent your final tax liability.',
+        'TDS is merely an advance collection of tax; it does not represent your final tax liability or an income tax exemption.',
         '5-Year Tax-Saver FDs have a mandatory 5-year lock-in with zero premature withdrawal or loan facility.',
         'Interest is taxed on an accrual basis each financial year, not just upon final deposit maturity.',
       ],
       disclaimer:
-          'TDS limits and slab rates are governed by Indian Income Tax statutes and differ between regular and senior citizen depositors. Verify current thresholds with bank and tax guidelines.',
+          'TDS limits and slab rates are governed by Indian income tax statutes (Income-tax Act, 2025 from 1 April 2026 and earlier Income-tax Act, 1961) and differ between regular and senior citizen depositors. Verify current thresholds with bank and official tax guidelines (incometax.gov.in).',
       relatedCalculatorRoute: '/calculator/fd',
       relatedCalculatorLabel: 'Open FD Calculator',
     ),

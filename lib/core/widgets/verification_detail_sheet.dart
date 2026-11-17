@@ -1,28 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/data_trust_models.dart';
 import '../models/fd_rate.dart';
 import '../services/rate_freshness_service.dart';
+import '../services/verified_rate_service.dart';
 
 /// Shows a bottom sheet explaining the verification status of a rate.
 /// Tappable from any VerificationBadge.
 class VerificationDetailSheet {
   static void show(BuildContext context, FdRate rate, {String? bankName}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gold = const Color(0xFFC9A96E);
-    final freshness = RateFreshnessService.getRateFreshness(rate);
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: isDark ? const Color(0xFF0D1B2A) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 24, right: 24, top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
+      builder: (ctx) => _VerificationDetailSheetContent(rate: rate, bankName: bankName),
+    );
+  }
+}
+
+class _VerificationDetailSheetContent extends StatefulWidget {
+  const _VerificationDetailSheetContent({
+    Key? key,
+    required this.rate,
+    this.bankName,
+  }) : super(key: key);
+
+  final FdRate rate;
+  final String? bankName;
+
+  @override
+  State<_VerificationDetailSheetContent> createState() => _VerificationDetailSheetContentState();
+}
+
+class _VerificationDetailSheetContentState extends State<_VerificationDetailSheetContent> {
+  bool _isLoadingHistory = false;
+  List<VerifiedRateHistoryEntry> _history = [];
+  bool _historyLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHistoryIfApplicable();
+  }
+
+  Future<void> _fetchHistoryIfApplicable() async {
+    if (widget.rate.bankId.isEmpty) return;
+
+    setState(() {
+      _isLoadingHistory = true;
+    });
+
+    try {
+      final res = await VerifiedRateService.fetchHistory(
+        widget.rate.bankId,
+        customerType: _customerTypeWireValue(widget.rate.customerType),
+        isCallable: widget.rate.productType == FdProductType.callable,
+      );
+      if (mounted) {
+        setState(() {
+          _history = res.history;
+          _isLoadingHistory = false;
+          _historyLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+          _historyLoaded = true;
+        });
+      }
+    }
+  }
+
+  String _customerTypeWireValue(CustomerType type) {
+    switch (type) {
+      case CustomerType.regular:
+        return 'REGULAR';
+      case CustomerType.seniorCitizen:
+        return 'SENIOR_CITIZEN';
+      case CustomerType.superSeniorCitizen:
+        return 'SUPER_SENIOR_CITIZEN';
+      case CustomerType.staff:
+        return 'STAFF';
+      case CustomerType.nre:
+        return 'NRE';
+      case CustomerType.nro:
+        return 'NRO';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const gold = Color(0xFFC9A96E);
+    final freshness = RateFreshnessService.getRateFreshness(widget.rate);
+    final isVerified = widget.rate.verificationStatus == VerificationStatus.verified;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,7 +118,8 @@ class VerificationDetailSheet {
             // Handle bar
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: isDark ? Colors.white24 : Colors.black12,
                   borderRadius: BorderRadius.circular(2),
@@ -39,91 +128,216 @@ class VerificationDetailSheet {
             ),
             const SizedBox(height: 20),
 
-            // Title
-            Text(
-              'Rate Verification Details',
-              style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+            // Title and Bank Name
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rate Verification Details',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      if (widget.bankName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(widget.bankName!, style: const TextStyle(fontSize: 14, color: gold)),
+                      ],
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push('/trust-center?tab=2&bankId=${widget.rate.bankId}');
+                  },
+                  icon: const Icon(Icons.shield_outlined, size: 16, color: gold),
+                  label: const Text('Trust Center', style: TextStyle(color: gold, fontSize: 12)),
+                ),
+              ],
             ),
-            if (bankName != null) ...[
-              const SizedBox(height: 4),
-              Text(bankName, style: TextStyle(fontSize: 14, color: gold)),
-            ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Status row
             _buildRow(
-              context, 'Verification Status',
-              _statusLabel(rate.verificationStatus),
-              _statusColor(rate.verificationStatus),
-              icon: _statusIcon(rate.verificationStatus),
+              context,
+              'Verification Status',
+              _statusLabel(widget.rate.verificationStatus),
+              _statusColor(widget.rate.verificationStatus),
+              icon: _statusIcon(widget.rate.verificationStatus),
             ),
             const SizedBox(height: 12),
 
-            // Why this status
-            _buildExplanation(context, rate),
+            // Why this status explanation
+            _buildExplanation(context, widget.rate),
             const SizedBox(height: 16),
 
-            // Freshness
+            // Freshness row
             _buildRow(
-              context, 'Data Freshness',
+              context,
+              'Data Freshness',
               freshness.label,
               _freshnessColor(freshness),
+              icon: Icons.history,
             ),
             const SizedBox(height: 12),
 
-            // Verification date
-            if (rate.verifiedAt != null) ...[
+            // Verification timestamp
+            if (widget.rate.verifiedAt != null) ...[
               _buildRow(
-                context, 'Last Verified',
-                _formatDate(rate.verifiedAt!),
+                context,
+                'Last Verified',
+                _formatDate(widget.rate.verifiedAt!),
                 null,
               ),
               const SizedBox(height: 12),
             ],
 
             // Effective dates
-            if (rate.effectiveFrom != null) ...[
+            if (widget.rate.effectiveFrom != null) ...[
               _buildRow(
-                context, 'Effective From',
-                _formatDate(rate.effectiveFrom!),
+                context,
+                'Effective From',
+                _formatDate(widget.rate.effectiveFrom!),
                 null,
               ),
               const SizedBox(height: 12),
             ],
-            if (rate.effectiveUntil != null) ...[
+            if (widget.rate.effectiveUntil != null) ...[
               _buildRow(
-                context, 'Effective Until',
-                _formatDate(rate.effectiveUntil!),
+                context,
+                'Effective Until',
+                _formatDate(widget.rate.effectiveUntil!),
                 null,
               ),
               const SizedBox(height: 12),
             ],
 
-            // Source
-            if (rate.sourceUrl != null && rate.sourceUrl!.isNotEmpty) ...[
-              _buildSourceRow(context, rate),
+            // Source URL
+            if (widget.rate.sourceUrl != null && widget.rate.sourceUrl!.isNotEmpty) ...[
+              _buildSourceRow(context, widget.rate),
               const SizedBox(height: 12),
             ],
 
-            // Rate details
-            _buildRow(context, 'Interest Rate', '${rate.interestRate.toStringAsFixed(2)}% p.a.', null),
+            // Rate characteristics
+            _buildRow(
+              context,
+              'Interest Rate',
+              '${widget.rate.interestRate.toStringAsFixed(2)}% p.a.',
+              gold,
+            ),
             const SizedBox(height: 12),
-            _buildRow(context, 'Tenure', rate.tenureDescription, null),
+            _buildRow(context, 'Tenure', widget.rate.tenureDescription, null),
             const SizedBox(height: 12),
-            _buildRow(context, 'Customer Type', _customerTypeLabel(rate.customerType), null),
+            _buildRow(context, 'Customer Type', _customerTypeLabel(widget.rate.customerType), null),
+            const SizedBox(height: 12),
+            _buildRow(
+              context,
+              'Product Type',
+              widget.rate.productType == FdProductType.callable ? 'Callable' : 'Non-Callable',
+              null,
+            ),
 
             const SizedBox(height: 20),
 
-            // Disclaimer
+            // Historical Rate Changes Section
+            if (isVerified) ...[
+              const Text(
+                'HISTORICAL RATE TRANSITIONS',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: gold,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_isLoadingHistory)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: gold),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Checking historical revisions...', style: TextStyle(fontSize: 11.5, color: Colors.white54)),
+                    ],
+                  ),
+                )
+              else if (_historyLoaded && _history.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final entry in _history.take(2))
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                entry.isCurrent ? Icons.check_circle : Icons.history,
+                                size: 14,
+                                color: entry.isCurrent ? const Color(0xFF10B981) : Colors.white38,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${entry.interestRate.toStringAsFixed(2)}% p.a.${entry.previousRate != null ? " (was ${entry.previousRate!.toStringAsFixed(2)}%)" : ""}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: entry.isCurrent ? FontWeight.bold : FontWeight.normal,
+                                    color: entry.isCurrent ? Colors.white : Colors.white70,
+                                  ),
+                                ),
+                              ),
+                              if (entry.effectiveFrom != null)
+                                Text(
+                                  _formatDate(entry.effectiveFrom!),
+                                  style: const TextStyle(fontSize: 11, color: Colors.white54),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ] else if (_historyLoaded) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Initial verified baseline active. No prior rate changes recorded.',
+                    style: TextStyle(fontSize: 11, color: Colors.white54),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+            ],
+
+            // Disclaimer Box
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withOpacity(isDark ? 0.08 : 0.05),
+                color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.08 : 0.05),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.15)),
+                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.15)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,15 +346,34 @@ class VerificationDetailSheet {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This rate has not been independently verified. '
-                      'Please confirm with the bank before making financial decisions.',
+                      isVerified
+                          ? 'Rate values are verified against official bank publications. Always confirm with the bank before placing deposits.'
+                          : 'This rate has not been independently verified. Please confirm with the bank before making financial decisions.',
                       style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.black54, height: 1.4),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+
+            // Open Data Trust Center Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push('/trust-center?tab=0&bankId=${widget.rate.bankId}');
+                },
+                icon: const Icon(Icons.verified_user_outlined, size: 16, color: gold),
+                label: const Text('Open Full Data Trust Center', style: TextStyle(color: gold, fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: gold),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -160,7 +393,8 @@ class VerificationDetailSheet {
         Text(
           value,
           style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
             color: valueColor ?? (isDark ? Colors.white : Colors.black87),
           ),
         ),
@@ -196,7 +430,7 @@ class VerificationDetailSheet {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withOpacity(0.03),
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -217,7 +451,7 @@ class VerificationDetailSheet {
 
   static Widget _buildSourceRow(BuildContext context, FdRate rate) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final gold = const Color(0xFFC9A96E);
+    const gold = Color(0xFFC9A96E);
     final isVerifiedSource = rate.verificationStatus == VerificationStatus.verified;
     final sourceLabel = isVerifiedSource ? 'Official Bank Source' : 'Source: Bank Website (Unverified)';
 
@@ -242,10 +476,10 @@ class VerificationDetailSheet {
             children: [
               Text(
                 sourceLabel,
-                style: TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 12, color: gold, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.open_in_new, size: 12, color: gold),
+              const Icon(Icons.open_in_new, size: 12, color: gold),
             ],
           ),
         ),

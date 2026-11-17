@@ -2,9 +2,9 @@
 // Enable after adding 'cloud_firestore' package
 
 class SyncService {
-  static final SyncService _instance = SyncService._internal();
   factory SyncService() => _instance;
   SyncService._internal();
+  static final SyncService _instance = SyncService._internal();
 
   Future<void> syncCalculations() async {}
   Future<void> syncFavorites() async {}

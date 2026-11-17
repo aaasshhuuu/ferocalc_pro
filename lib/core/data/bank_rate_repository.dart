@@ -41,7 +41,7 @@ class BankRateRepository {
           b.shortName.trim().toLowerCase() == normalized ||
           b.shortName.trim().toLowerCase() == clean ||
           b.name.trim().toLowerCase() == normalized ||
-          b.name.trim().toLowerCase() == clean);
+          b.name.trim().toLowerCase() == clean,);
     } catch (_) {
       return null;
     }
@@ -162,7 +162,7 @@ class BankRateRepository {
       headquarters: b.headquarters.isNotEmpty ? b.headquarters : null,
       customerCareNumber: b.customerCare.isNotEmpty ? b.customerCare : null,
       totalBranches: b.totalBranches.isNotEmpty ? b.totalBranches : null,
-    )).toList();
+    ),).toList();
   }
 
   /// Tenure key to day ranges mapping
@@ -202,7 +202,7 @@ class BankRateRepository {
           // No verifiedAt — these are unverified
           sourceUrl: sourceUrl,
           sourceName: sourceUrl != null ? 'Bank website (unverified)' : null,
-        ));
+        ),);
 
         // Add senior citizen rate if premium exists
         if (bank.seniorCitizenExtra > 0) {
@@ -218,7 +218,7 @@ class BankRateRepository {
             verificationStatus: VerificationStatus.pendingReview,
             sourceUrl: sourceUrl,
             sourceName: sourceUrl != null ? 'Bank website (unverified)' : null,
-          ));
+          ),);
         }
       }
     }

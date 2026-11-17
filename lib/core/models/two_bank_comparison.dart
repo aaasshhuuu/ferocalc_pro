@@ -41,29 +41,6 @@ class TenureComparisonItem {
 
 /// Comprehensive side-by-side comparison data model between two distinct banks.
 class TwoBankComparison {
-  const TwoBankComparison({
-    required this.bankA,
-    required this.bankB,
-    this.bankInfoA,
-    this.bankInfoB,
-    required this.customerType,
-    required this.tenureComparisons,
-  });
-
-  final Bank bankA;
-  final Bank bankB;
-  final BankInfo? bankInfoA;
-  final BankInfo? bankInfoB;
-  final CustomerType customerType;
-  final List<TenureComparisonItem> tenureComparisons;
-
-  /// Standard like-for-like tenures to compare
-  static const List<Map<String, dynamic>> standardTenures = [
-    {'key': '1y', 'label': '1 Year (365 days)', 'days': 365},
-    {'key': '2y', 'label': '2 Years (730 days)', 'days': 730},
-    {'key': '3y', 'label': '3 Years (1,095 days)', 'days': 1095},
-    {'key': '5y', 'label': '5 Years (1,825 days)', 'days': 1825},
-  ];
 
   /// Factory to build a complete side-by-side comparison between Bank A & Bank B.
   /// Standard comparisons strictly select callable retail FD rates by default,
@@ -148,4 +125,27 @@ class TwoBankComparison {
       tenureComparisons: comparisons,
     );
   }
+  const TwoBankComparison({
+    required this.bankA,
+    required this.bankB,
+    this.bankInfoA,
+    this.bankInfoB,
+    required this.customerType,
+    required this.tenureComparisons,
+  });
+
+  final Bank bankA;
+  final Bank bankB;
+  final BankInfo? bankInfoA;
+  final BankInfo? bankInfoB;
+  final CustomerType customerType;
+  final List<TenureComparisonItem> tenureComparisons;
+
+  /// Standard like-for-like tenures to compare
+  static const List<Map<String, dynamic>> standardTenures = [
+    {'key': '1y', 'label': '1 Year (365 days)', 'days': 365},
+    {'key': '2y', 'label': '2 Years (730 days)', 'days': 730},
+    {'key': '3y', 'label': '3 Years (1,095 days)', 'days': 1095},
+    {'key': '5y', 'label': '5 Years (1,825 days)', 'days': 1825},
+  ];
 }

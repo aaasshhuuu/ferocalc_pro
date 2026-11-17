@@ -94,6 +94,7 @@ class _InputSliderFieldState extends State<InputSliderField> {
               child: CustomTextField(
                 controller: _controller,
                 focusNode: _focusNode,
+                semanticLabel: widget.label,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 prefixText: widget.prefix ?? widget.prefixText,
                 suffixText: widget.suffix ?? widget.suffixText,
@@ -109,6 +110,7 @@ class _InputSliderFieldState extends State<InputSliderField> {
           min: widget.min,
           max: widget.max,
           divisions: widget.divisions,
+          semanticLabel: '${widget.label}: ${_formatValue(widget.value)}',
           onChanged: widget.onChanged,
         ),
       ],

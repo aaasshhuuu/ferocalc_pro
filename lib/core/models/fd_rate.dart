@@ -7,27 +7,6 @@ enum FdProductType { callable, nonCallable, cumulative, nonCumulative, taxSaver,
 enum VerificationStatus { verified, pendingReview, stale, suspicious, rejected, archived }
 
 class FdRate {
-  final String rateId;
-  final String bankId;
-  final CustomerType customerType;
-  final int minTenureDays;
-  final int maxTenureDays;
-  final double? minDeposit;
-  final double? maxDeposit;
-  final double interestRate; // annual percentage
-  final FdProductType? productType;
-  final DateTime? effectiveFrom;
-  final DateTime? effectiveUntil;
-  final VerificationStatus verificationStatus;
-  final DateTime? verifiedAt;
-  final String? sourceUrl;
-  final String? sourceName;
-  final String? sourceDocument;
-  final bool prematureWithdrawalAllowed;
-  final double? prematureWithdrawalPenalty; // percentage points
-  final String? rateCategory;
-  final String? schemeName;
-  final String? qualificationNotes;
 
   const FdRate({
     required this.rateId,
@@ -52,6 +31,62 @@ class FdRate {
     this.schemeName,
     this.qualificationNotes,
   });
+
+  factory FdRate.fromJson(Map<String, dynamic> json) => FdRate(
+    rateId: json['rateId']?.toString() ?? '',
+    bankId: json['bankId']?.toString() ?? '',
+    customerType: CustomerType.values.firstWhere(
+      (e) => e.name == json['customerType']?.toString(),
+      orElse: () => CustomerType.regular,
+    ),
+    minTenureDays: (json['minTenureDays'] as int?) ?? 0,
+    maxTenureDays: (json['maxTenureDays'] as int?) ?? 0,
+    minDeposit: (json['minDeposit'] as num?)?.toDouble(),
+    maxDeposit: (json['maxDeposit'] as num?)?.toDouble(),
+    interestRate: ((json['interestRate'] as num?) ?? 0).toDouble(),
+    productType: json['productType'] != null
+      ? FdProductType.values.firstWhere(
+          (e) => e.name == json['productType']?.toString(),
+          orElse: () => FdProductType.callable,
+        )
+      : null,
+    effectiveFrom: json['effectiveFrom'] != null ? DateTime.tryParse(json['effectiveFrom'].toString()) : null,
+    effectiveUntil: json['effectiveUntil'] != null ? DateTime.tryParse(json['effectiveUntil'].toString()) : null,
+    verificationStatus: VerificationStatus.values.firstWhere(
+      (e) => e.name == json['verificationStatus']?.toString(),
+      orElse: () => VerificationStatus.pendingReview,
+    ),
+    verifiedAt: json['verifiedAt'] != null ? DateTime.tryParse(json['verifiedAt'].toString()) : null,
+    sourceUrl: json['sourceUrl']?.toString(),
+    sourceName: json['sourceName']?.toString(),
+    sourceDocument: json['sourceDocument']?.toString(),
+    prematureWithdrawalAllowed: (json['prematureWithdrawalAllowed'] as bool?) ?? true,
+    prematureWithdrawalPenalty: (json['prematureWithdrawalPenalty'] as num?)?.toDouble(),
+    rateCategory: json['rateCategory']?.toString() ?? json['rate_category']?.toString(),
+    schemeName: json['schemeName']?.toString() ?? json['scheme_name']?.toString(),
+    qualificationNotes: json['qualificationNotes']?.toString() ?? json['qualification_notes']?.toString() ?? json['review_notes']?.toString(),
+  );
+  final String rateId;
+  final String bankId;
+  final CustomerType customerType;
+  final int minTenureDays;
+  final int maxTenureDays;
+  final double? minDeposit;
+  final double? maxDeposit;
+  final double interestRate; // annual percentage
+  final FdProductType? productType;
+  final DateTime? effectiveFrom;
+  final DateTime? effectiveUntil;
+  final VerificationStatus verificationStatus;
+  final DateTime? verifiedAt;
+  final String? sourceUrl;
+  final String? sourceName;
+  final String? sourceDocument;
+  final bool prematureWithdrawalAllowed;
+  final double? prematureWithdrawalPenalty; // percentage points
+  final String? rateCategory;
+  final String? schemeName;
+  final String? qualificationNotes;
 
   /// Whether this rate is part of a named special promotional scheme (e.g. SBI We-Care)
   bool get isSpecialScheme =>
@@ -125,39 +160,4 @@ class FdRate {
     'schemeName': schemeName,
     'qualificationNotes': qualificationNotes,
   };
-
-  factory FdRate.fromJson(Map<String, dynamic> json) => FdRate(
-    rateId: json['rateId']?.toString() ?? '',
-    bankId: json['bankId']?.toString() ?? '',
-    customerType: CustomerType.values.firstWhere(
-      (e) => e.name == json['customerType']?.toString(),
-      orElse: () => CustomerType.regular,
-    ),
-    minTenureDays: (json['minTenureDays'] as int?) ?? 0,
-    maxTenureDays: (json['maxTenureDays'] as int?) ?? 0,
-    minDeposit: (json['minDeposit'] as num?)?.toDouble(),
-    maxDeposit: (json['maxDeposit'] as num?)?.toDouble(),
-    interestRate: ((json['interestRate'] as num?) ?? 0).toDouble(),
-    productType: json['productType'] != null
-      ? FdProductType.values.firstWhere(
-          (e) => e.name == json['productType']?.toString(),
-          orElse: () => FdProductType.callable,
-        )
-      : null,
-    effectiveFrom: json['effectiveFrom'] != null ? DateTime.tryParse(json['effectiveFrom'].toString()) : null,
-    effectiveUntil: json['effectiveUntil'] != null ? DateTime.tryParse(json['effectiveUntil'].toString()) : null,
-    verificationStatus: VerificationStatus.values.firstWhere(
-      (e) => e.name == json['verificationStatus']?.toString(),
-      orElse: () => VerificationStatus.pendingReview,
-    ),
-    verifiedAt: json['verifiedAt'] != null ? DateTime.tryParse(json['verifiedAt'].toString()) : null,
-    sourceUrl: json['sourceUrl']?.toString(),
-    sourceName: json['sourceName']?.toString(),
-    sourceDocument: json['sourceDocument']?.toString(),
-    prematureWithdrawalAllowed: (json['prematureWithdrawalAllowed'] as bool?) ?? true,
-    prematureWithdrawalPenalty: (json['prematureWithdrawalPenalty'] as num?)?.toDouble(),
-    rateCategory: json['rateCategory']?.toString() ?? json['rate_category']?.toString(),
-    schemeName: json['schemeName']?.toString() ?? json['scheme_name']?.toString(),
-    qualificationNotes: json['qualificationNotes']?.toString() ?? json['qualification_notes']?.toString() ?? json['review_notes']?.toString(),
-  );
 }

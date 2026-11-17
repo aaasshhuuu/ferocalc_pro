@@ -1,14 +1,5 @@
 /// Tracks historical rate changes for audit and transparency
 class RateChange {
-  final String changeId;
-  final String rateId;
-  final String bankId;
-  final double previousRate;
-  final double newRate;
-  final DateTime changedAt;
-  final String? changedBy; // admin userId or 'system'
-  final String? reason;
-  final String? sourceUrl;
 
   const RateChange({
     required this.changeId,
@@ -21,6 +12,27 @@ class RateChange {
     this.reason,
     this.sourceUrl,
   });
+
+  factory RateChange.fromJson(Map<String, dynamic> json) => RateChange(
+    changeId: json['changeId']?.toString() ?? '',
+    rateId: json['rateId']?.toString() ?? '',
+    bankId: json['bankId']?.toString() ?? '',
+    previousRate: ((json['previousRate'] as num?) ?? 0).toDouble(),
+    newRate: ((json['newRate'] as num?) ?? 0).toDouble(),
+    changedAt: DateTime.parse(json['changedAt'].toString()),
+    changedBy: json['changedBy']?.toString(),
+    reason: json['reason']?.toString(),
+    sourceUrl: json['sourceUrl']?.toString(),
+  );
+  final String changeId;
+  final String rateId;
+  final String bankId;
+  final double previousRate;
+  final double newRate;
+  final DateTime changedAt;
+  final String? changedBy; // admin userId or 'system'
+  final String? reason;
+  final String? sourceUrl;
 
   /// Absolute percentage-point change
   double get absoluteChange => (newRate - previousRate).abs();
@@ -49,16 +61,4 @@ class RateChange {
     'reason': reason,
     'sourceUrl': sourceUrl,
   };
-
-  factory RateChange.fromJson(Map<String, dynamic> json) => RateChange(
-    changeId: json['changeId']?.toString() ?? '',
-    rateId: json['rateId']?.toString() ?? '',
-    bankId: json['bankId']?.toString() ?? '',
-    previousRate: ((json['previousRate'] as num?) ?? 0).toDouble(),
-    newRate: ((json['newRate'] as num?) ?? 0).toDouble(),
-    changedAt: DateTime.parse(json['changedAt'].toString()),
-    changedBy: json['changedBy']?.toString(),
-    reason: json['reason']?.toString(),
-    sourceUrl: json['sourceUrl']?.toString(),
-  );
 }

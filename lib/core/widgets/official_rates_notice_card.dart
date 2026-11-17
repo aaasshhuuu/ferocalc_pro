@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../config/themes/app_colors.dart';
 import 'glassmorphic_card.dart';
 
 /// Launch-safe user-facing notice displayed in place of unverified or stale
@@ -12,13 +11,6 @@ import 'glassmorphic_card.dart';
 /// - Provides direct actions to use independent calculators with custom rates
 ///   or visit official bank websites.
 class OfficialRatesNoticeCard extends StatelessWidget {
-  final String? bankName;
-  final String? title;
-  final String message;
-  final String? subtext;
-  final bool compact;
-  final String? officialWebsiteUrl;
-  final VoidCallback? onOpenCalculator;
 
   const OfficialRatesNoticeCard({
     Key? key,
@@ -30,6 +22,13 @@ class OfficialRatesNoticeCard extends StatelessWidget {
     this.officialWebsiteUrl,
     this.onOpenCalculator,
   }) : super(key: key);
+  final String? bankName;
+  final String? title;
+  final String message;
+  final String? subtext;
+  final bool compact;
+  final String? officialWebsiteUrl;
+  final VoidCallback? onOpenCalculator;
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +43,10 @@ class OfficialRatesNoticeCard extends StatelessWidget {
         key: const ValueKey('official_rates_pending_notice_compact'),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF132235) : Colors.amber.shade50.withOpacity(0.6),
+          color: isDark ? const Color(0xFF132235) : Colors.amber.shade50.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: gold.withOpacity(0.4),
+            color: gold.withValues(alpha: 0.4),
             width: 1.2,
           ),
         ),
@@ -60,7 +59,7 @@ class OfficialRatesNoticeCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: gold.withOpacity(0.18),
+                    color: gold.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.info_outline_rounded, color: gold, size: 18),
@@ -92,19 +91,46 @@ class OfficialRatesNoticeCard extends StatelessWidget {
             InkWell(
               onTap: onOpenCalculator ?? () => context.push('/calculator/fd'),
               borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(Icons.calculate_outlined, size: 15, color: gold),
                     SizedBox(width: 6),
-                    Text(
-                      'Use FD Calculator with Custom Rate \u2192',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: gold,
+                    Flexible(
+                      child: Text(
+                        'Use FD Calculator with Custom Rate \u2192',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: gold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => context.push('/trust-center'),
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shield_outlined, size: 14, color: gold),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Open Data Trust Center \u2192',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: gold,
+                        ),
                       ),
                     ),
                   ],
@@ -129,9 +155,9 @@ class OfficialRatesNoticeCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: gold.withOpacity(0.15),
+                    color: gold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: gold.withOpacity(0.4)),
+                    border: Border.all(color: gold.withValues(alpha: 0.4)),
                   ),
                   child: const Icon(Icons.verified_outlined, color: gold, size: 24),
                 ),
@@ -152,9 +178,9 @@ class OfficialRatesNoticeCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3B82F6).withOpacity(0.12),
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                          border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
                         ),
                         child: const Text(
                           'Verification in Progress',
@@ -174,9 +200,9 @@ class OfficialRatesNoticeCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? Colors.black.withOpacity(0.25) : Colors.amber.shade50.withOpacity(0.5),
+                color: isDark ? Colors.black.withValues(alpha: 0.25) : Colors.amber.shade50.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: gold.withOpacity(0.25)),
+                border: Border.all(color: gold.withValues(alpha: 0.25)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,6 +258,17 @@ class OfficialRatesNoticeCard extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.apps, size: 16),
                   label: const Text('Browse All Calculators', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/trust-center'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: gold,
+                    side: const BorderSide(color: gold),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.shield_outlined, size: 16),
+                  label: const Text('Data Trust Center', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

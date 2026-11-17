@@ -386,7 +386,7 @@ class FinancialMath {
     int monthsLasted = 0;
 
     for (int i = 0; i < months; i++) {
-      balance *= (1 + r);
+      balance *= 1 + r;
       if (balance >= withdrawal) {
         balance -= withdrawal;
         totalWithdrawn += withdrawal;
@@ -485,10 +485,10 @@ class FinancialMath {
       }
 
       // Annual interest credit
-      balance *= (1 + annualRate / 100);
+      balance *= 1 + annualRate / 100;
 
       // Annual salary increase
-      salary *= (1 + annualSalaryIncrease / 100);
+      salary *= 1 + annualSalaryIncrease / 100;
     }
 
     return {
@@ -550,7 +550,7 @@ class FinancialMath {
         totalDeposit += yearlyDeposits[year];
       }
       // Interest compounded annually
-      balance *= (1 + r);
+      balance *= 1 + r;
     }
 
     return {
@@ -946,7 +946,7 @@ class FinancialMath {
 
     for (int i = 0; i < years; i++) {
       totalDividend += currentDividend;
-      currentDividend *= (1 + dividendGrowthRate / 100);
+      currentDividend *= 1 + dividendGrowthRate / 100;
     }
 
     final double futureAnnualDividend =
@@ -1154,10 +1154,10 @@ enum TimeUnit {
   quarters('Quarters', 'Qtr'),
   months('Months', 'Mo'),
   days('Days', 'Days');
+  const TimeUnit(this.label, this.shortLabel);
 
   final String label;
   final String shortLabel;
-  const TimeUnit(this.label, this.shortLabel);
 }
 
 /// Compounding frequency enumeration for compound interest calculations.
@@ -1166,9 +1166,9 @@ enum CompoundingFrequency {
   halfYearly(2, 'Half-yearly'),
   quarterly(4, 'Quarterly'),
   monthly(12, 'Monthly');
+  const CompoundingFrequency(this.timesPerYear, this.label);
 
   final int timesPerYear;
   final String label;
-  const CompoundingFrequency(this.timesPerYear, this.label);
 }
 

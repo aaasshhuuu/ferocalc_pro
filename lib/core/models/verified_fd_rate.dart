@@ -234,52 +234,6 @@ enum BoundaryOperator {
 // ============================================================
 
 class VerifiedFdRate {
-  final String id;
-  final String bankId;
-  final String bankName;
-  final String bankShortName;
-  final String? bankSourceDomain;
-  final VerifiedCustomerType customerType;
-  // ── DAYS domain fields (nullable — null for CALENDAR records) ──────────
-  /// Integer day lower bound. Authoritative for DAYS records.
-  /// NULL for CALENDAR records — do NOT substitute a heuristic.
-  final int? minTenureDays;
-  /// Integer day upper bound. Authoritative for DAYS records.
-  /// NULL for CALENDAR records — do NOT substitute a heuristic.
-  final int? maxTenureDays;
-  final double minDeposit;
-  final double? maxDeposit;
-  final double interestRate;
-  final bool isCallable;
-  final CompoundingFrequency compoundingFrequency;
-  final DateTime effectiveFrom;
-  final DateTime? effectiveUntil;
-  final String? sourceUrl;
-  final DateTime? verifiedAt;
-  final String? reviewNotes;
-  // ── Migration 007 fields ──────────────────────────────────────────────
-  /// Rate category: STANDARD card-rate slab or SPECIAL_SCHEME promotion.
-  final RateCategory rateCategory;
-  /// Normalised scheme name (upper-cased, trimmed). Non-null only when
-  /// [rateCategory] is [RateCategory.specialScheme].
-  final String? schemeName;
-  // ── Migration 009 fields ──────────────────────────────────────────────
-  /// Which tenure model this record uses.
-  final TenureDomain tenureDomain;
-  /// Verbatim text from the bank rate card (always set in Migration 009+).
-  /// For CALENDAR records this is the authoritative display string.
-  /// For DAYS records it is a deterministic day-range wording.
-  final String? sourceTenureText;
-  // Calendar lower endpoint (null for DAYS records)
-  final int? minYears;
-  final int? minMonths;
-  final int? minDaysCal;
-  final BoundaryOperator? minOperator;
-  // Calendar upper endpoint (null for DAYS records)
-  final int? maxYears;
-  final int? maxMonths;
-  final int? maxDaysCal;
-  final BoundaryOperator? maxOperator;
 
   const VerifiedFdRate({
     required this.id,
@@ -359,6 +313,52 @@ class VerifiedFdRate {
                               : null,
     );
   }
+  final String id;
+  final String bankId;
+  final String bankName;
+  final String bankShortName;
+  final String? bankSourceDomain;
+  final VerifiedCustomerType customerType;
+  // ── DAYS domain fields (nullable — null for CALENDAR records) ──────────
+  /// Integer day lower bound. Authoritative for DAYS records.
+  /// NULL for CALENDAR records — do NOT substitute a heuristic.
+  final int? minTenureDays;
+  /// Integer day upper bound. Authoritative for DAYS records.
+  /// NULL for CALENDAR records — do NOT substitute a heuristic.
+  final int? maxTenureDays;
+  final double minDeposit;
+  final double? maxDeposit;
+  final double interestRate;
+  final bool isCallable;
+  final CompoundingFrequency compoundingFrequency;
+  final DateTime effectiveFrom;
+  final DateTime? effectiveUntil;
+  final String? sourceUrl;
+  final DateTime? verifiedAt;
+  final String? reviewNotes;
+  // ── Migration 007 fields ──────────────────────────────────────────────
+  /// Rate category: STANDARD card-rate slab or SPECIAL_SCHEME promotion.
+  final RateCategory rateCategory;
+  /// Normalised scheme name (upper-cased, trimmed). Non-null only when
+  /// [rateCategory] is [RateCategory.specialScheme].
+  final String? schemeName;
+  // ── Migration 009 fields ──────────────────────────────────────────────
+  /// Which tenure model this record uses.
+  final TenureDomain tenureDomain;
+  /// Verbatim text from the bank rate card (always set in Migration 009+).
+  /// For CALENDAR records this is the authoritative display string.
+  /// For DAYS records it is a deterministic day-range wording.
+  final String? sourceTenureText;
+  // Calendar lower endpoint (null for DAYS records)
+  final int? minYears;
+  final int? minMonths;
+  final int? minDaysCal;
+  final BoundaryOperator? minOperator;
+  // Calendar upper endpoint (null for DAYS records)
+  final int? maxYears;
+  final int? maxMonths;
+  final int? maxDaysCal;
+  final BoundaryOperator? maxOperator;
 
   Map<String, dynamic> toJson() => {
     'id':                    id,
@@ -694,18 +694,72 @@ class VerifiedFdRate {
 // ============================================================
 
 class VerifiedRatesResponse {
-  final List<VerifiedFdRate> rates;
-  final String source;       // always 'verified'
-  final String? note;
-  final DateTime fetchedAt;
 
   const VerifiedRatesResponse({
     required this.rates,
     required this.source,
     this.note,
     required this.fetchedAt,
+    this.hasError = false,
+    this.errorMessage,
+    this.statusCode,
   });
 
+  /// Factory for a successful verified response.
+  factory VerifiedRatesResponse.success({
+    required List<VerifiedFdRate> rates,
+    String? source,
+    String? note,
+  }) {
+    return VerifiedRatesResponse(
+      rates: rates,
+      source: source ?? 'verified',
+      note: note,
+      fetchedAt: DateTime.now(),
+      hasError: false,
+    );
+  }
+
+  /// Factory for an honest unavailable state (e.g. 503 Supabase unconfigured).
+  factory VerifiedRatesResponse.unavailable({
+    required String message,
+    String? note,
+  }) {
+    return VerifiedRatesResponse(
+      rates: const [],
+      source: 'unavailable',
+      note: note ?? message,
+      errorMessage: message,
+      statusCode: 503,
+      fetchedAt: DateTime.now(),
+      hasError: true,
+    );
+  }
+
+  /// Factory for a backend or network error response.
+  factory VerifiedRatesResponse.error({
+    required String message,
+    int? statusCode,
+    String? note,
+  }) {
+    return VerifiedRatesResponse(
+      rates: const [],
+      source: 'error',
+      note: note ?? message,
+      errorMessage: message,
+      statusCode: statusCode,
+      fetchedAt: DateTime.now(),
+      hasError: true,
+    );
+  }
+  final List<VerifiedFdRate> rates;
+  final String source;       // 'verified', 'legacy_unverified', 'unavailable', or 'error'
+  final String? note;
+  final DateTime fetchedAt;
+  final bool hasError;
+  final String? errorMessage;
+  final int? statusCode;
+
   bool get isEmpty => rates.isEmpty;
-  bool get isVerifiedSource => source == 'verified';
+  bool get isVerifiedSource => source == 'verified' && !hasError;
 }

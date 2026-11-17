@@ -2,11 +2,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/bank_data.dart';
+import 'verified_rate_service.dart';
 
 class BankRateResponse {
-  final String lastUpdated;
-  final String updateFrequency;
-  final List<BankInfo> banks;
 
   BankRateResponse({
     required this.lastUpdated,
@@ -15,9 +13,9 @@ class BankRateResponse {
   });
 
   factory BankRateResponse.fromJson(Map<String, dynamic> json) {
-    var banksList = json['banks'] as List? ?? [];
+    final banksList = json['banks'] as List? ?? [];
     // Fincare SFB amalgamated with AU SFB on 1 April 2024; omit obsolete standalone records
-    List<BankInfo> banks = banksList
+    final List<BankInfo> banks = banksList
         .where((b) => !(b['name']?.toString().toLowerCase().contains('fincare') ?? false))
         .map((b) {
       return BankInfo(
@@ -48,6 +46,9 @@ class BankRateResponse {
       banks: banks,
     );
   }
+  final String lastUpdated;
+  final String updateFrequency;
+  final List<BankInfo> banks;
 
   Map<String, dynamic> toJson() {
     return {
@@ -60,39 +61,41 @@ class BankRateResponse {
         'fd_rates': b.fdRates,
         'rd_rates': b.rdRates,
         'savings_rate': b.savingsRate,
-      }).toList(),
+      },).toList(),
     };
   }
 }
 
 class MarketData {
-  final Map<String, dynamic> data;
   MarketData(this.data);
 
   factory MarketData.fromJson(Map<String, dynamic> json) {
     return MarketData(json);
   }
+  final Map<String, dynamic> data;
 
   Map<String, dynamic> toJson() => data;
 }
 
 class BankRateApiService {
   static const String defaultBaseUrl = 'https://backend-ten-livid-14.vercel.app/api';
-  static String baseUrl = const String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: defaultBaseUrl,
+  static final String baseUrl = VerifiedRateService.normalizeApiBaseUrl(
+    const String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: defaultBaseUrl,
+    ),
   );
   static final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 5),
-  ));
+  ),);
   static const String _cacheKey = 'cached_bank_rates';
   static const String _marketCacheKey = 'cached_market_data';
   static bool isLastResponseFromCache = false;
 
   static Future<BankRateResponse> fetchRates() async {
     try {
-      final response = await _dio.get('$baseUrl/rates');
+      final response = await _dio.get<Map<String, dynamic>>('$baseUrl/rates');
       if (response.statusCode == 200) {
         final data = BankRateResponse.fromJson(response.data as Map<String, dynamic>);
         await cacheRates(data);
@@ -106,16 +109,16 @@ class BankRateApiService {
         isLastResponseFromCache = true;
         return cached;
       }
-      throw e;
+      rethrow;
     }
   }
 
   static Future<List<BankInfo>> fetchTopBanks(String duration, {int limit = 10}) async {
     try {
-      final response = await _dio.get('$baseUrl/rates/top', queryParameters: {
+      final response = await _dio.get<dynamic>('$baseUrl/rates/top', queryParameters: {
         'duration': duration,
         'limit': limit,
-      });
+      },);
       if (response.statusCode == 200) {
         final dynamic rawData = response.data;
         final List<dynamic> list;
@@ -149,17 +152,17 @@ class BankRateApiService {
           minFdAmount: (b['min_fd_amount'] as int?) ?? 1000,
           maxFdTenure: b['max_fd_tenure']?.toString() ?? '10 years',
           features: List<String>.from((b['features'] as List?) ?? []),
-        )).toList();
+        ),).toList();
       }
       throw Exception('Failed to load top banks');
     } catch (e) {
-      throw e; // Handled by fallback in BankDataService
+      rethrow; // Handled by fallback in BankDataService
     }
   }
 
   static Future<MarketData> fetchMarketData() async {
     try {
-      final response = await _dio.get('$baseUrl/market');
+      final response = await _dio.get<dynamic>('$baseUrl/market');
       if (response.statusCode == 200) {
         if (response.data['status'] == 'unavailable') {
           throw Exception('Market data unavailable');
@@ -175,7 +178,7 @@ class BankRateApiService {
       if (cachedStr != null) {
         return MarketData.fromJson(jsonDecode(cachedStr) as Map<String, dynamic>);
       }
-      throw e;
+      rethrow;
     }
   }
 

@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
 import 'app.dart';
-import 'injection_container.dart' as di;
-import 'features/theme/bloc/theme_bloc.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/favorites/presentation/bloc/favorite_banks_bloc.dart';
+import 'features/favorites/presentation/bloc/favorite_banks_event.dart';
+import 'features/theme/bloc/theme_bloc.dart';
+import 'injection_container.dart' as di;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,6 +96,10 @@ void main() async {
         ),
         BlocProvider<AuthBloc>(
           create: (context) => di.sl<AuthBloc>()..add(CheckAuthStatus()),
+        ),
+        BlocProvider<FavoriteBanksBloc>(
+          create: (context) =>
+              di.sl<FavoriteBanksBloc>()..add(const LoadFavoriteBanks()),
         ),
       ],
       child: const FinCalcProApp(),

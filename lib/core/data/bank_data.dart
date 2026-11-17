@@ -1,25 +1,6 @@
 import '../services/bank_rate_api_service.dart';
 
 class BankInfo {
-  final String name;
-  final String type; // 'public', 'private', 'small_finance', 'foreign', 'global'
-  final String country; // 'India', 'USA', 'UK', etc.
-  final String? logoUrl;
-  final Map<String, double> fdRates; // duration key -> rate%
-  final Map<String, double> rdRates;
-  final double? savingsRate;
-  final String lastUpdated;
-  final String shortName;
-  final String established;
-  final String headquarters;
-  final String totalBranches;
-  final String website;
-  final String customerCare;
-  final double seniorCitizenExtra;
-  final List<String> offers;
-  final int minFdAmount;
-  final String maxFdTenure;
-  final List<String> features;
 
   BankInfo({
     required this.name,
@@ -42,6 +23,25 @@ class BankInfo {
     this.maxFdTenure = '10 years',
     this.features = const [],
   });
+  final String name;
+  final String type; // 'public', 'private', 'small_finance', 'foreign', 'global'
+  final String country; // 'India', 'USA', 'UK', etc.
+  final String? logoUrl;
+  final Map<String, double> fdRates; // duration key -> rate%
+  final Map<String, double> rdRates;
+  final double? savingsRate;
+  final String lastUpdated;
+  final String shortName;
+  final String established;
+  final String headquarters;
+  final String totalBranches;
+  final String website;
+  final String customerCare;
+  final double seniorCitizenExtra;
+  final List<String> offers;
+  final int minFdAmount;
+  final String maxFdTenure;
+  final List<String> features;
 }
 
 class BankDataService {

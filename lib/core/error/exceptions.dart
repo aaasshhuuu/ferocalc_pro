@@ -1,14 +1,14 @@
 class ServerException implements Exception {
-  final String message;
   ServerException({this.message = 'Server Error'});
+  final String message;
 }
 
 class CacheException implements Exception {
-  final String message;
   CacheException({this.message = 'Cache Error'});
+  final String message;
 }
 
 class NetworkException implements Exception {
-  final String message;
   NetworkException({this.message = 'Network Error'});
+  final String message;
 }

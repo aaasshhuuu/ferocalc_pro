@@ -12,10 +12,6 @@ import 'verification_detail_sheet.dart';
 /// REJECTED → Red X
 /// ARCHIVED → Grey archive
 class VerificationBadge extends StatelessWidget {
-  final VerificationStatus status;
-  final bool compact;
-  final FdRate? rate;
-  final String? bankName;
 
   const VerificationBadge({
     Key? key,
@@ -24,6 +20,10 @@ class VerificationBadge extends StatelessWidget {
     this.rate,
     this.bankName,
   }) : super(key: key);
+  final VerificationStatus status;
+  final bool compact;
+  final FdRate? rate;
+  final String? bankName;
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +41,9 @@ class VerificationBadge extends StatelessWidget {
       badge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: config.color.withOpacity(isDark ? 0.15 : 0.1),
+          color: config.color.withValues(alpha: isDark ? 0.15 : 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: config.color.withOpacity(0.3)),
+          border: Border.all(color: config.color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -64,82 +64,93 @@ class VerificationBadge extends StatelessWidget {
       );
     }
 
-    // If rate is available, make tappable to show detail sheet
+    // If rate is available, make tappable to show detail sheet with accessible target
     if (rate != null) {
-      return GestureDetector(
-        onTap: () => VerificationDetailSheet.show(context, rate!, bankName: bankName),
-        child: badge,
+      return Semantics(
+        button: true,
+        label: 'Verification status: ${config.label}. Tap for verification details',
+        child: InkWell(
+          onTap: () => VerificationDetailSheet.show(context, rate!, bankName: bankName),
+          borderRadius: BorderRadius.circular(6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            child: Center(child: badge),
+          ),
+        ),
       );
     }
 
-    return badge;
+    return Semantics(
+      label: 'Verification status: ${config.label}',
+      child: badge,
+    );
   }
 
   static _BadgeConfig _getConfig(VerificationStatus status) {
     switch (status) {
       case VerificationStatus.verified:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'VERIFIED',
           icon: Icons.verified,
-          color: const Color(0xFF10B981),
+          color: Color(0xFF10B981),
         );
       case VerificationStatus.pendingReview:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'PENDING REVIEW',
           icon: Icons.schedule,
-          color: const Color(0xFFF59E0B),
+          color: Color(0xFFF59E0B),
         );
       case VerificationStatus.stale:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'STALE',
           icon: Icons.warning_amber_rounded,
-          color: const Color(0xFF6B7280),
+          color: Color(0xFF6B7280),
         );
       case VerificationStatus.suspicious:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'SUSPICIOUS',
           icon: Icons.error_outline,
-          color: const Color(0xFFEF4444),
+          color: Color(0xFFEF4444),
         );
       case VerificationStatus.rejected:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'REJECTED',
           icon: Icons.cancel_outlined,
-          color: const Color(0xFFDC2626),
+          color: Color(0xFFDC2626),
         );
       case VerificationStatus.archived:
-        return _BadgeConfig(
+        return const _BadgeConfig(
           label: 'ARCHIVED',
           icon: Icons.archive_outlined,
-          color: const Color(0xFF9CA3AF),
+          color: Color(0xFF9CA3AF),
         );
     }
   }
 }
 
 class _BadgeConfig {
-  final String label;
-  final IconData icon;
-  final Color color;
 
   const _BadgeConfig({
     required this.label,
     required this.icon,
     required this.color,
   });
+  final String label;
+  final IconData icon;
+  final Color color;
 }
 
 /// Displays freshness information for a rate.
 /// Shows how old the data is in human-readable form.
 class FreshnessBadge extends StatelessWidget {
-  final String freshnessLabel;
-  final bool isStale;
 
   const FreshnessBadge({
     Key? key,
     required this.freshnessLabel,
     this.isStale = false,
   }) : super(key: key);
+  final String freshnessLabel;
+  final bool isStale;
 
   @override
   Widget build(BuildContext context) {

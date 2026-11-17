@@ -4,17 +4,6 @@ enum BankStatus { active, merged, acquired, inactive, archived }
 enum BankType { public, private, smallFinance, foreign, cooperativeBank, paymentBank }
 
 class Bank {
-  final String id;
-  final String name;
-  final String shortName;
-  final BankType type;
-  final BankStatus status;
-  final String? successorBankId;
-  final String? officialWebsite;
-  final String? established;
-  final String? headquarters;
-  final String? customerCareNumber;
-  final String? totalBranches;
 
   const Bank({
     required this.id,
@@ -29,6 +18,37 @@ class Bank {
     this.customerCareNumber,
     this.totalBranches,
   });
+
+  factory Bank.fromJson(Map<String, dynamic> json) => Bank(
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    shortName: json['shortName']?.toString() ?? '',
+    type: BankType.values.firstWhere(
+      (e) => e.name == json['type']?.toString(),
+      orElse: () => BankType.private,
+    ),
+    status: BankStatus.values.firstWhere(
+      (e) => e.name == json['status']?.toString(),
+      orElse: () => BankStatus.active,
+    ),
+    successorBankId: json['successorBankId']?.toString(),
+    officialWebsite: json['officialWebsite']?.toString(),
+    established: json['established']?.toString(),
+    headquarters: json['headquarters']?.toString(),
+    customerCareNumber: json['customerCareNumber']?.toString(),
+    totalBranches: json['totalBranches']?.toString(),
+  );
+  final String id;
+  final String name;
+  final String shortName;
+  final BankType type;
+  final BankStatus status;
+  final String? successorBankId;
+  final String? officialWebsite;
+  final String? established;
+  final String? headquarters;
+  final String? customerCareNumber;
+  final String? totalBranches;
 
   /// Human-readable type label
   String get typeLabel {
@@ -58,24 +78,4 @@ class Bank {
     'customerCareNumber': customerCareNumber,
     'totalBranches': totalBranches,
   };
-
-  factory Bank.fromJson(Map<String, dynamic> json) => Bank(
-    id: json['id']?.toString() ?? '',
-    name: json['name']?.toString() ?? '',
-    shortName: json['shortName']?.toString() ?? '',
-    type: BankType.values.firstWhere(
-      (e) => e.name == json['type']?.toString(),
-      orElse: () => BankType.private,
-    ),
-    status: BankStatus.values.firstWhere(
-      (e) => e.name == json['status']?.toString(),
-      orElse: () => BankStatus.active,
-    ),
-    successorBankId: json['successorBankId']?.toString(),
-    officialWebsite: json['officialWebsite']?.toString(),
-    established: json['established']?.toString(),
-    headquarters: json['headquarters']?.toString(),
-    customerCareNumber: json['customerCareNumber']?.toString(),
-    totalBranches: json['totalBranches']?.toString(),
-  );
 }

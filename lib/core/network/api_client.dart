@@ -1,18 +1,17 @@
 import 'package:dio/dio.dart';
-import '../../config/constants/api_constants.dart';
-import '../security/secure_storage.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../config/constants/api_constants.dart';
+import '../security/secure_storage.dart';
+
 class ApiClient {
-  late final Dio dio;
-  final SecureStorage secureStorage;
 
   ApiClient({required this.secureStorage}) {
     dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
       connectTimeout: const Duration(milliseconds: ApiConstants.connectTimeout),
       receiveTimeout: const Duration(milliseconds: ApiConstants.receiveTimeout),
-    ));
+    ),);
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -28,14 +27,16 @@ class ApiClient {
         }
         return handler.next(e);
       },
-    ));
+    ),);
   }
+  late final Dio dio;
+  final SecureStorage secureStorage;
 
-  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) async {
+  Future<Response<dynamic>> get(String path, {Map<String, dynamic>? queryParameters}) async {
     return await dio.get(path, queryParameters: queryParameters);
   }
 
-  Future<Response> post(String path, {dynamic data}) async {
+  Future<Response<dynamic>> post(String path, {dynamic data}) async {
     return await dio.post(path, data: data);
   }
 }
