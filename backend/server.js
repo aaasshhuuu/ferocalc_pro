@@ -1,4 +1,4 @@
-const { loadEnv } = require('./env_loader');
+﻿const { loadEnv } = require('./env_loader');
 loadEnv();
 const express = require('express');
 const cors = require('cors');
@@ -12,13 +12,32 @@ const adminRatesRouter    = require('./routes/admin_rates');
 const adminStagedRouter   = require('./routes/admin_staged_candidates');
 const { adminAttestationRouter } = require('./routes/admin_baseline_attestations');
 const { cronRouter }      = require('./routes/cron_pipeline');
-const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
-app.use(helmet());
+app.use(helmet({
+  // Allow inline styles used by the legal HTML pages
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'style-src': ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
+
+// ============================================================
+// Static: Legal pages — served at /legal/*
+// e.g. /legal/privacy_policy.html
+//      /legal/terms_of_use.html
+//      /legal/financial_disclaimer.html
+// ============================================================
+app.use('/legal', express.static(path.join(__dirname, 'public', 'legal'), {
+  maxAge: '1d',          // Cache legal pages for 1 day on CDN / browser
+  etag: true,
+  lastModified: true,
+}));
 
 // CORS — scoped production allowlist + narrow scoped Vercel preview allowlist
 const { createCorsOriginValidator, parseAllowedOrigins } = require('./cors_policy');
@@ -54,9 +73,6 @@ const adminRateLimit = rateLimitMiddleware(
 // Public — anon key, VERIFIED-only via RLS + view, rate-limited
 app.use('/api/verified-rates', publicRateLimit, verifiedRatesRouter);
 app.use('/api/v1/verified-rates', publicRateLimit, verifiedRatesRouter);
-// Consumer Notifications & Personalization (Phase 5.0.6)
-app.use('/api/notifications', publicRateLimit, notificationsRouter);
-app.use('/api/v1/notifications', publicRateLimit, notificationsRouter);
 // Admin — requires Supabase JWT with ferocalc_role == ADMIN/REVIEWER, rate-limited
 app.use('/api/admin', adminRateLimit, adminRatesRouter);
 app.use('/api/admin', adminRateLimit, adminStagedRouter);

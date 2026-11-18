@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
-  static const String _lastUpdated = 'November 12, 2026';
-  static const String _contactEmail = 'ferocalc.app@gmail.com';
-  static const String _publisherPlaceholder = '[PUBLISHER_LEGAL_ENTITY_NAME]';
-  static const String _addressPlaceholder = '[PUBLISHER_REGISTERED_ADDRESS]';
+  static const String _lastUpdated = '18 November 2026';
+  static const String _contactEmail = 'privacy@ferocalc.app';
+  static const String _publisher = 'Oxygen Inc';
+  static const String _address =
+      '149/A Kailash Nagar Soc., Near Lilyawala School, Dumbhal, Surat – 395002, Gujarat, India';
+  static const String _privacyPolicyUrl =
+      'https://backend-ten-livid-14.vercel.app/legal/privacy_policy.html';
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +56,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Last updated: $_lastUpdated | Effective Date: November 12, 2026',
+                    'Last updated: $_lastUpdated | Effective Date: 18 November 2026',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
@@ -238,14 +241,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Publisher: $_publisherPlaceholder\n'
-                  'Registered Address: $_addressPlaceholder',
-                  style: bodyStyle?.copyWith(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 48),
+                   'Publisher: $_publisher\n'
+                   'Registered Address: $_address\n'
+                   'Live Privacy Policy: $_privacyPolicyUrl',
+                   style: bodyStyle?.copyWith(
+                     fontSize: 12,
+                   ),
+                 ),
               ],
             ),
           ),

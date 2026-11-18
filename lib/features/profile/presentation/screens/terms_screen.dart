@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class TermsScreen extends StatelessWidget {
   const TermsScreen({super.key});
 
-  static const String _lastUpdated = 'November 12, 2026';
-  static const String _contactEmail = 'ferocalc.app@gmail.com';
-  static const String _publisherPlaceholder = '[PUBLISHER_LEGAL_ENTITY_NAME]';
+  static const String _lastUpdated = '18 November 2026';
+  static const String _contactEmail = 'legal@ferocalc.app';
+  static const String _publisher = 'Oxygen Inc';
+  static const String _address = '149/A Kailash Nagar Soc., Near Lilyawala School, Dumbhal, Surat – 395002, Gujarat, India';
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +112,7 @@ class TermsScreen extends StatelessWidget {
 
                 _section(
                   '8. Limitation of Liability',
-                  'To the fullest extent permitted by applicable law, FeroCalc, its developers, and publisher ($_publisherPlaceholder) shall not be liable for any direct, indirect, incidental, consequential, or punitive damages arising from the use of, or inability to use, the App, including decisions made or actions taken based on calculation outputs or rate listings.',
+                  'To the fullest extent permitted by applicable law, FeroCalc, its developers, and publisher ($_publisher) shall not be liable for any direct, indirect, incidental, consequential, or punitive damages arising from the use of, or inability to use, the App, including decisions made or actions taken based on calculation outputs or rate listings.',
                   h2Style,
                   bodyStyle,
                 ),
@@ -125,7 +126,7 @@ class TermsScreen extends StatelessWidget {
 
                 _section(
                   '10. Contact Us',
-                  'If you have questions regarding these Terms of Use, please contact us at:\nEmail: $_contactEmail\nPublisher: $_publisherPlaceholder',
+                  'If you have questions regarding these Terms of Use, please contact us at:\nEmail: $_contactEmail\nPublisher: $_publisher',
                   h2Style,
                   bodyStyle,
                 ),

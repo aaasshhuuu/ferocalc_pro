@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:fincalc_pro/features/financial_insights/domain/models/financial_profile.dart';
 import 'package:fincalc_pro/features/financial_insights/domain/repositories/financial_profile_repository.dart';
 import 'package:fincalc_pro/features/goals/domain/repositories/goal_repository.dart';
@@ -47,9 +47,11 @@ void main() {
       expect(find.textContaining('play-services-ads:25.4.0'), findsOneWidget);
       expect(find.textContaining('Product Interactions'), findsOneWidget);
       expect(find.textContaining('Diagnostic & Performance Information'), findsOneWidget);
-      expect(find.textContaining('ferocalc.app@gmail.com'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('privacy@ferocalc.app'), findsAtLeastNWidgets(1));
       expect(find.textContaining('Self-Service In-App Deletion'), findsOneWidget);
-      expect(find.textContaining('[PUBLISHER_LEGAL_ENTITY_NAME]'), findsOneWidget);
+      expect(find.textContaining('Oxygen Inc'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('149/A Kailash Nagar Soc.'), findsOneWidget);
+      expect(find.textContaining('https://backend-ten-livid-14.vercel.app/legal/privacy_policy.html'), findsOneWidget);
     });
 
     testWidgets('2. TermsScreen renders comprehensive Terms of Use and utility disclosures', (tester) async {
